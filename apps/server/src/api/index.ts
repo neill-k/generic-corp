@@ -1,10 +1,10 @@
 import type { Express } from "express";
 import { db } from "../db/index.js";
+import type { TaskStatus, MessageType } from "@prisma/client";
 
 export function setupRoutes(app: Express) {
   // ================== AGENTS ==================
 
-  // Get all agents
   app.get("/api/agents", async (_req, res) => {
     try {
       const agents = await db.agent.findMany({
@@ -24,27 +24,19 @@ export function setupRoutes(app: Express) {
     }
   });
 
-  // Get single agent
   app.get("/api/agents/:id", async (req, res) => {
     try {
       const agent = await db.agent.findUnique({
         where: { id: req.params.id },
         include: {
-          assignedTasks: {
-            orderBy: { createdAt: "desc" },
-            take: 10,
-          },
-          sessions: {
-            orderBy: { startedAt: "desc" },
-            take: 5,
-          },
+          assignedTasks: { orderBy: { createdAt: "desc" }, take: 10 },
+          sessions: { orderBy: { startedAt: "desc" }, take: 5 },
         },
       });
 
       if (!agent || agent.deletedAt) {
         return res.status(404).json({ error: "Agent not found" });
       }
-
       res.json(agent);
     } catch (error) {
       console.error("[API] Error fetching agent:", error);
@@ -54,14 +46,13 @@ export function setupRoutes(app: Express) {
 
   // ================== TASKS ==================
 
-  // Get all tasks
   app.get("/api/tasks", async (req, res) => {
     try {
       const { status, agentId } = req.query;
 
       const tasks = await db.task.findMany({
         where: {
-          ...(status && { status: status as string }),
+          ...(status && { status: status as TaskStatus }),
           ...(agentId && { agentId: agentId as string }),
         },
         include: {
@@ -79,7 +70,6 @@ export function setupRoutes(app: Express) {
     }
   });
 
-  // Get single task
   app.get("/api/tasks/:id", async (req, res) => {
     try {
       const task = await db.task.findUnique({
@@ -87,19 +77,14 @@ export function setupRoutes(app: Express) {
         include: {
           assignedTo: true,
           createdBy: true,
-          dependencies: {
-            include: { dependsOn: true },
-          },
-          dependents: {
-            include: { task: true },
-          },
+          dependencies: { include: { dependsOn: true } },
+          dependents: { include: { task: true } },
         },
       });
 
       if (!task) {
         return res.status(404).json({ error: "Task not found" });
       }
-
       res.json(task);
     } catch (error) {
       console.error("[API] Error fetching task:", error);
@@ -107,7 +92,6 @@ export function setupRoutes(app: Express) {
     }
   });
 
-  // Create task
   app.post("/api/tasks", async (req, res) => {
     try {
       const { agentId, title, description, priority } = req.body;
@@ -145,7 +129,6 @@ export function setupRoutes(app: Express) {
 
   // ================== MESSAGES ==================
 
-  // Get messages
   app.get("/api/messages", async (req, res) => {
     try {
       const { agentId, type, status } = req.query;
@@ -158,13 +141,10 @@ export function setupRoutes(app: Express) {
               { toAgentId: agentId as string },
             ],
           }),
-          ...(type && { type: type as string }),
-          ...(status && { status: status as string }),
+          ...(type && { type: type as MessageType }),
+          ...(status && { status: status as any }),
         },
-        include: {
-          fromAgent: true,
-          toAgent: true,
-        },
+        include: { fromAgent: true, toAgent: true },
         orderBy: { createdAt: "desc" },
         take: 50,
       });
@@ -176,20 +156,13 @@ export function setupRoutes(app: Express) {
     }
   });
 
-  // Get pending drafts
   app.get("/api/drafts/pending", async (_req, res) => {
     try {
       const drafts = await db.message.findMany({
-        where: {
-          type: "external_draft",
-          status: "pending",
-        },
-        include: {
-          fromAgent: true,
-        },
+        where: { type: "external_draft", status: "pending" },
+        include: { fromAgent: true },
         orderBy: { createdAt: "desc" },
       });
-
       res.json(drafts);
     } catch (error) {
       console.error("[API] Error fetching drafts:", error);
@@ -199,19 +172,13 @@ export function setupRoutes(app: Express) {
 
   // ================== ACTIVITY LOG ==================
 
-  // Get activity log
   app.get("/api/activity", async (req, res) => {
     try {
       const { agentId, limit } = req.query;
 
       const activities = await db.activityLog.findMany({
-        where: {
-          ...(agentId && { agentId: agentId as string }),
-        },
-        include: {
-          agent: true,
-          task: true,
-        },
+        where: { ...(agentId && { agentId: agentId as string }) },
+        include: { agent: true, task: true },
         orderBy: { timestamp: "desc" },
         take: parseInt(limit as string) || 100,
       });
@@ -225,13 +192,11 @@ export function setupRoutes(app: Express) {
 
   // ================== GAME STATE ==================
 
-  // Get game state
   app.get("/api/game-state", async (_req, res) => {
     try {
       const state = await db.gameState.findUnique({
         where: { playerId: "default" },
       });
-
       res.json(state || { budgetRemainingUsd: 100, budgetLimitUsd: 100 });
     } catch (error) {
       console.error("[API] Error fetching game state:", error);

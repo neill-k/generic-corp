@@ -3,6 +3,8 @@ import type { Server as SocketIOServer } from "socket.io";
 import { db } from "../db/index.js";
 import { EventBus } from "../services/event-bus.js";
 import { QUEUE_NAMES } from "@generic-corp/shared";
+
+const TASK_QUEUE_NAME = QUEUE_NAMES.AGENT_TASKS;
 import { getAgent } from "../agents/index.js";
 
 // Redis connection config
@@ -15,15 +17,15 @@ const connection = {
 let taskQueue: Queue;
 let taskWorker: Worker;
 
-export async function initializeQueues(io: SocketIOServer) {
+export async function initializeQueues(_io: SocketIOServer) {
   console.log("[Queues] Initializing BullMQ queues...");
 
   // Create task queue
-  taskQueue = new Queue(QUEUE_NAMES.TASKS, { connection });
+  taskQueue = new Queue(TASK_QUEUE_NAME, { connection });
 
   // Create worker to process tasks
   taskWorker = new Worker(
-    QUEUE_NAMES.TASKS,
+    TASK_QUEUE_NAME,
     async (job: Job) => {
       const { taskId, agentId } = job.data;
 
@@ -99,7 +101,7 @@ export async function initializeQueues(io: SocketIOServer) {
             status: result.success ? "completed" : "failed",
             previousStatus: "in_progress",
             completedAt: new Date(),
-            result,
+            result: JSON.parse(JSON.stringify(result)),
           },
         });
 

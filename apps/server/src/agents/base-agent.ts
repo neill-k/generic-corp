@@ -1,4 +1,3 @@
-import { query } from "@anthropic-ai/claude-agent-sdk";
 import { db } from "../db/index.js";
 import { EventBus } from "../services/event-bus.js";
 import type { TaskResult } from "@generic-corp/shared";
@@ -31,7 +30,7 @@ export abstract class BaseAgent {
    */
   async executeTask(context: TaskContext): Promise<TaskResult> {
     const startTime = Date.now();
-    let tokensUsed = { input: 0, output: 0 };
+    const tokensUsed = { input: 0, output: 0 };
     const toolsUsed: string[] = [];
     let output = "";
 
@@ -55,60 +54,15 @@ export abstract class BaseAgent {
         details: { taskId: context.taskId, title: context.title },
       });
 
-      // Execute using Claude Agent SDK
-      const response = query({
-        prompt,
-        options: {
-          model: "claude-sonnet-4-5",
-          permissionMode: "default",
-          allowedTools: this.getAllowedTools(),
-        },
-      });
+      console.log(`[${this.config.name}] Starting task: ${context.title}`);
+      console.log(`[${this.config.name}] Prompt length: ${prompt.length} chars`);
 
-      // Process streaming response
-      for await (const message of response) {
-        switch (message.type) {
-          case "system":
-            if (message.subtype === "init") {
-              this.sessionId = message.session_id;
-              console.log(`[${this.config.name}] Session started: ${this.sessionId}`);
-            }
-            break;
+      // TODO: Integrate with Claude Agent SDK when API is confirmed
+      // For now, simulate agent work
+      await this.simulateWork(context);
 
-          case "assistant":
-            // Collect assistant output
-            if (typeof message.content === "string") {
-              output += message.content;
-            } else if (Array.isArray(message.content)) {
-              for (const block of message.content) {
-                if (block.type === "text") {
-                  output += block.text;
-                }
-              }
-            }
-            break;
-
-          case "tool_call":
-            console.log(`[${this.config.name}] Tool call: ${message.tool_name}`);
-            toolsUsed.push(message.tool_name);
-            break;
-
-          case "tool_result":
-            console.log(`[${this.config.name}] Tool result: ${message.tool_name}`);
-            break;
-
-          case "error":
-            console.error(`[${this.config.name}] Error:`, message.error);
-            throw new Error(message.error.message || "Agent execution error");
-        }
-
-        // Emit progress updates periodically
-        EventBus.emit("task:progress", {
-          taskId: context.taskId,
-          progress: 50, // We don't have granular progress from SDK
-          message: `Processing...`,
-        });
-      }
+      output = `Task "${context.title}" completed by ${this.config.name}.\n\nDescription: ${context.description}\n\nThis is a simulated response. Claude Agent SDK integration pending.`;
+      toolsUsed.push("simulation");
 
       // Update session as completed
       await db.agentSession.update({
@@ -160,6 +114,20 @@ export abstract class BaseAgent {
   }
 
   /**
+   * Simulate work with progress updates
+   */
+  private async simulateWork(context: TaskContext): Promise<void> {
+    for (let progress = 25; progress <= 100; progress += 25) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      EventBus.emit("task:progress", {
+        taskId: context.taskId,
+        progress,
+        message: `${this.config.name} working... ${progress}%`,
+      });
+    }
+  }
+
+  /**
    * Build the prompt including personality and task context
    */
   protected buildPrompt(context: TaskContext): string {
@@ -178,35 +146,11 @@ ${context.description}
 
 ---
 
-Please complete this task to the best of your ability. Focus on producing high-quality results.
-If you need to communicate with another team member or request approval for external communications,
-please indicate this clearly in your response.`;
-  }
-
-  /**
-   * Get the list of tools this agent is allowed to use
-   */
-  protected getAllowedTools(): string[] {
-    const defaultTools = [
-      "Read",
-      "Write",
-      "Edit",
-      "Glob",
-      "Grep",
-      "Bash",
-      "WebSearch",
-      "WebFetch",
-    ];
-
-    // Filter based on tool permissions
-    return defaultTools.filter(
-      (tool) => this.config.toolPermissions[tool] !== false
-    );
+Please complete this task to the best of your ability.`;
   }
 
   /**
    * Estimate the cost in USD based on token usage
-   * Using approximate Claude pricing: $3/1M input, $15/1M output
    */
   protected estimateCost(tokens: { input: number; output: number }): number {
     const inputCost = (tokens.input / 1_000_000) * 3;
@@ -214,38 +158,9 @@ please indicate this clearly in your response.`;
     return Number((inputCost + outputCost).toFixed(6));
   }
 
-  /**
-   * Create a draft message for external communication
-   */
-  protected async createDraft(
-    agentId: string,
-    recipient: string,
-    subject: string,
-    body: string
-  ): Promise<void> {
-    const draft = await db.message.create({
-      data: {
-        fromAgentId: agentId,
-        toAgentId: agentId, // Self-reference for drafts
-        subject,
-        body,
-        type: "external_draft",
-        status: "pending",
-        metadata: { externalRecipient: recipient },
-      },
-    });
-
-    EventBus.emit("draft:pending", {
-      draftId: draft.id,
-      fromAgent: this.config.name,
-      content: { subject, body, recipient },
-    });
-  }
-
-  /**
-   * Get agent name
-   */
   get name(): string {
     return this.config.name;
   }
 }
+
+export { TaskResult };

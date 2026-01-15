@@ -1,5 +1,5 @@
 import { db } from "./index.js";
-import { AGENT_CONFIGS, AGENT_IDS } from "@generic-corp/shared";
+import { AGENT_CONFIGS } from "@generic-corp/shared";
 
 // Agent personality prompts
 const PERSONALITY_PROMPTS: Record<string, string> = {

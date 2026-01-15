@@ -51,6 +51,7 @@ model Agent {
   role             String
   personalityPrompt String       @map("personality_prompt")
   status           AgentStatus  @default(idle)
+  currentTaskId    String?      @map("current_task_id")
   capabilities     Json         @default("[]")
   toolPermissions  Json         @default("{}") @map("tool_permissions")
   version          Int          @default(1)
@@ -81,6 +82,7 @@ model Task {
   priority        TaskPriority @default(normal)
   progressPercent Int          @default(0) @map("progress_percent")
   progressDetails Json         @default("{}") @map("progress_details")
+  result          Json?
   deadline        DateTime?
   startedAt       DateTime?    @map("started_at")
   completedAt     DateTime?    @map("completed_at")
@@ -92,7 +94,7 @@ model Task {
   deletedAt       DateTime?    @map("deleted_at")
 
   // Relations
-  agent           Agent        @relation("AssignedTasks", fields: [agentId], references: [id])
+  assignedTo      Agent        @relation("AssignedTasks", fields: [agentId], references: [id])
   createdBy       Agent        @relation("CreatedTasks", fields: [createdById], references: [id])
   dependencies    TaskDependency[] @relation("TaskDependencies")
   dependents      TaskDependency[] @relation("DependentTasks")
@@ -132,7 +134,7 @@ model TaskDependency {
 
   // Relations
   task            Task   @relation("TaskDependencies", fields: [taskId], references: [id])
-  dependsOnTask   Task   @relation("DependentTasks", fields: [dependsOnTaskId], references: [id])
+  dependsOn       Task   @relation("DependentTasks", fields: [dependsOnTaskId], references: [id])
 
   @@unique([taskId, dependsOnTaskId])
   @@map("task_dependencies")
@@ -142,10 +144,9 @@ model ActivityLog {
   id        String   @id @default(uuid())
   agentId   String   @map("agent_id")
   taskId    String?  @map("task_id")
-  eventType String   @map("event_type")
-  eventData Json     @default("{}") @map("event_data")
-  ipAddress String?  @map("ip_address")
-  createdAt DateTime @default(now()) @map("created_at")
+  action    String
+  details   Json     @default("{}")
+  timestamp DateTime @default(now())
 
   // Relations
   agent     Agent    @relation(fields: [agentId], references: [id])
@@ -157,11 +158,10 @@ model ActivityLog {
 model AgentSession {
   id              String    @id @default(uuid())
   agentId         String    @map("agent_id")
-  claudeSessionId String    @map("claude_session_id")
-  inputTokens     Int       @default(0) @map("input_tokens")
-  outputTokens    Int       @default(0) @map("output_tokens")
-  costUsd         Decimal   @default(0) @map("cost_usd") @db.Decimal(10, 6)
-  modelInfo       Json      @default("{}") @map("model_info")
+  taskId          String?   @map("task_id")
+  status          String    @default("active")
+  tokensUsed      Json      @default("{}") @map("tokens_used")
+  toolCalls       Json      @default("[]") @map("tool_calls")
   startedAt       DateTime  @default(now()) @map("started_at")
   endedAt         DateTime? @map("ended_at")
 
