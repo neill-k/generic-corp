@@ -8,6 +8,7 @@ import { setupRoutes } from "./api/index.js";
 import { initializeQueues } from "./queues/index.js";
 import { seedAgents } from "./db/seed.js";
 import { initializeAgents } from "./agents/index.js";
+import { initEncryption } from "./services/encryption.js";
 
 const app = express();
 const httpServer = createServer(app);
@@ -34,7 +35,14 @@ const io = setupWebSocket(httpServer);
 // Initialize queues and start server
 async function start() {
   try {
-    // Seed agents if needed
+    try {
+      initEncryption();
+      console.log("[Server] Encryption initialized");
+    } catch (err) {
+      console.warn("[Server] Encryption not available:", err instanceof Error ? err.message : err);
+      console.warn("[Server] Provider account features will be disabled");
+    }
+
     await seedAgents();
 
     // Initialize agent implementations

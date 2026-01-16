@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { db } from "../db/index.js";
-import type { TaskStatus, MessageType } from "@prisma/client";
+import { EventBus } from "../services/event-bus.js";
+import { setupProviderRoutes } from "./providers/index.js";
 
 export function setupRoutes(app: Express) {
   // ================== AGENTS ==================
@@ -50,11 +51,15 @@ export function setupRoutes(app: Express) {
     try {
       const { status, agentId } = req.query;
 
+      const statusFilter = typeof status === "string" ? status : undefined;
+      const agentIdFilter = typeof agentId === "string" ? agentId : undefined;
+
       const tasks = await db.task.findMany({
         where: {
-          ...(status && { status: status as TaskStatus }),
-          ...(agentId && { agentId: agentId as string }),
+          ...(statusFilter ? { status: statusFilter as any } : {}),
+          ...(agentIdFilter ? { agentId: agentIdFilter } : {}),
         },
+
         include: {
           assignedTo: true,
           createdBy: true,
@@ -94,10 +99,14 @@ export function setupRoutes(app: Express) {
 
   app.post("/api/tasks", async (req, res) => {
     try {
-      const { agentId, title, description, priority } = req.body;
+      const { agentId, title, description, priority, provider, providerAccountId } = req.body;
 
       if (!agentId || !title) {
         return res.status(400).json({ error: "agentId and title are required" });
+      }
+
+      if (providerAccountId && !provider) {
+        return res.status(400).json({ error: "provider is required when providerAccountId is set" });
       }
 
       const agent = await db.agent.findFirst({
@@ -108,6 +117,26 @@ export function setupRoutes(app: Express) {
         return res.status(404).json({ error: `Agent ${agentId} not found` });
       }
 
+      if (providerAccountId) {
+        const providerAccount = await db.providerAccount.findUnique({
+          where: { id: providerAccountId },
+        });
+
+        if (!providerAccount) {
+          return res.status(404).json({ error: `Provider account ${providerAccountId} not found` });
+        }
+
+        if (providerAccount.status !== "active") {
+          return res.status(400).json({ error: `Provider account is not active: ${providerAccount.status}` });
+        }
+
+        if (providerAccount.provider !== provider) {
+          return res.status(400).json({
+            error: `Provider mismatch: account is ${providerAccount.provider}, but task specifies ${provider}`,
+          });
+        }
+      }
+
       const task = await db.task.create({
         data: {
           agentId: agent.id,
@@ -116,14 +145,42 @@ export function setupRoutes(app: Express) {
           description: description || "",
           priority: priority || "normal",
           status: "pending",
+          provider: provider || null,
+          providerAccountId: providerAccountId || null,
         },
-        include: { assignedTo: true },
+        include: { assignedTo: true, providerAccount: true },
       });
 
       res.status(201).json(task);
     } catch (error) {
       console.error("[API] Error creating task:", error);
       res.status(500).json({ error: "Failed to create task" });
+    }
+  });
+
+  app.post("/api/tasks/:id/execute", async (req, res) => {
+    try {
+      const task = await db.task.findUnique({
+        where: { id: req.params.id },
+        include: { assignedTo: true },
+      });
+
+      if (!task) {
+        return res.status(404).json({ error: "Task not found" });
+      }
+
+      if (task.status !== "pending") {
+        return res.status(409).json({
+          error: `Task is not executable from status ${task.status}`,
+        });
+      }
+
+      EventBus.emit("task:queued", { agentId: task.agentId, task });
+
+      res.status(200).json({ success: true, taskId: task.id });
+    } catch (error) {
+      console.error("[API] Error executing task:", error);
+      res.status(500).json({ error: "Failed to execute task" });
     }
   });
 
@@ -135,14 +192,16 @@ export function setupRoutes(app: Express) {
 
       const messages = await db.message.findMany({
         where: {
+
           ...(agentId && {
             OR: [
               { fromAgentId: agentId as string },
               { toAgentId: agentId as string },
             ],
           }),
-          ...(type && { type: type as MessageType }),
-          ...(status && { status: status as any }),
+          ...(typeof type === "string" ? { type: type as any } : {}),
+          ...(status ? { status: status as any } : {}),
+
         },
         include: { fromAgent: true, toAgent: true },
         orderBy: { createdAt: "desc" },
@@ -203,6 +262,10 @@ export function setupRoutes(app: Express) {
       res.status(500).json({ error: "Failed to fetch game state" });
     }
   });
+
+  // ================== PROVIDER ACCOUNTS ==================
+
+  app.use("/api/providers", setupProviderRoutes());
 
   console.log("[API] Routes configured");
 }

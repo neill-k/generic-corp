@@ -36,7 +36,7 @@ GENERIC CORP is an isometric management game that serves as an interface for rea
 
 | Component | Status | Priority |
 |-----------|--------|----------|
-| Claude Agent SDK Integration | Pending | High - API differences to resolve |
+| Claude Agent SDK Integration | Done | High - Real SDK wired via BaseAgent + E2E coverage |
 | MCP Tools Server | Not Started | High - Needed for real agent work |
 | Frontend UI Components | Not Started | Medium |
 | Phaser Isometric Scene | Not Started | Medium |

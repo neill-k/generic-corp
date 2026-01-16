@@ -1,3 +1,4 @@
+import { query } from "@anthropic-ai/claude-agent-sdk";
 import { db } from "../db/index.js";
 import { EventBus } from "../services/event-bus.js";
 import type { TaskResult } from "@generic-corp/shared";
@@ -57,12 +58,45 @@ export abstract class BaseAgent {
       console.log(`[${this.config.name}] Starting task: ${context.title}`);
       console.log(`[${this.config.name}] Prompt length: ${prompt.length} chars`);
 
-      // TODO: Integrate with Claude Agent SDK when API is confirmed
-      // For now, simulate agent work
-      await this.simulateWork(context);
+      if (!process.env.ANTHROPIC_API_KEY) {
+        throw new Error("ANTHROPIC_API_KEY is required for agent execution");
+      }
 
-      output = `Task "${context.title}" completed by ${this.config.name}.\n\nDescription: ${context.description}\n\nThis is a simulated response. Claude Agent SDK integration pending.`;
-      toolsUsed.push("simulation");
+      const response = query({
+        prompt,
+        options: {
+          model: "claude-sonnet-4-5",
+          permissionMode: "default",
+        },
+      });
+
+      for await (const message of response) {
+        if (message.type === "assistant") {
+          const blocks = message.message.content;
+          for (const block of blocks) {
+            if (block.type === "text") {
+              output += block.text;
+            }
+          }
+        }
+
+        if (message.type === "result") {
+          if (message.subtype !== "success") {
+            throw new Error(message.errors.join("\n"));
+          }
+
+          output = message.result;
+          tokensUsed.input = message.usage.input_tokens;
+          tokensUsed.output = message.usage.output_tokens;
+          break;
+        }
+      }
+
+      if (tokensUsed.input <= 0 || tokensUsed.output <= 0) {
+        throw new Error("Agent execution did not report token usage");
+      }
+
+      toolsUsed.push("claude-agent-sdk");
 
       // Update session as completed
       await db.agentSession.update({
@@ -113,23 +147,7 @@ export abstract class BaseAgent {
     }
   }
 
-  /**
-   * Simulate work with progress updates
-   */
-  private async simulateWork(context: TaskContext): Promise<void> {
-    for (let progress = 25; progress <= 100; progress += 25) {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      EventBus.emit("task:progress", {
-        taskId: context.taskId,
-        progress,
-        message: `${this.config.name} working... ${progress}%`,
-      });
-    }
-  }
 
-  /**
-   * Build the prompt including personality and task context
-   */
   protected buildPrompt(context: TaskContext): string {
     return `${this.config.personalityPrompt}
 
@@ -149,9 +167,6 @@ ${context.description}
 Please complete this task to the best of your ability.`;
   }
 
-  /**
-   * Estimate the cost in USD based on token usage
-   */
   protected estimateCost(tokens: { input: number; output: number }): number {
     const inputCost = (tokens.input / 1_000_000) * 3;
     const outputCost = (tokens.output / 1_000_000) * 15;

@@ -90,4 +90,4 @@ Copy `apps/server/.env.example` to `apps/server/.env` and configure as needed.
 - [x] Phaser isometric game shell
 - [x] React dashboard with agent list
 - [x] Zustand state management
-- [ ] Full agent task execution test
+- [x] Full agent task execution test

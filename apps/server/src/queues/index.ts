@@ -6,6 +6,7 @@ import { QUEUE_NAMES } from "@generic-corp/shared";
 
 const TASK_QUEUE_NAME = QUEUE_NAMES.AGENT_TASKS;
 import { getAgent } from "../agents/index.js";
+import { executeWithProvider } from "../providers/index.js";
 
 // Redis connection config
 const connection = {
@@ -67,31 +68,42 @@ export async function initializeQueues(_io: SocketIOServer) {
         // Get task details
         const task = await db.task.findUnique({
           where: { id: taskId },
-          include: { assignedTo: true },
+          include: { assignedTo: true, providerAccount: true },
         });
 
         if (!task) {
           throw new Error(`Task ${taskId} not found`);
         }
 
-        // Get the agent implementation
-        const agent = getAgent(task.assignedTo.name);
-
         let result;
-        if (agent) {
-          // Execute using actual agent
-          result = await agent.executeTask({
-            taskId,
-            agentId,
-            title: task.title,
-            description: task.description,
-            priority: task.priority,
+
+        if (task.providerAccountId && task.provider) {
+          console.log(`[Worker] Executing task ${taskId} via provider ${task.provider}`);
+          const providerResult = await executeWithProvider(task.providerAccountId, {
+            prompt: task.description || task.title,
           });
+          result = {
+            success: true,
+            output: providerResult.output,
+            provider: task.provider,
+            tokensUsed: providerResult.tokensUsed,
+          };
         } else {
-          // Fallback to simulation for agents not yet implemented
-          console.log(`[Worker] Agent ${task.assignedTo.name} not implemented, using simulation`);
-          await simulateTaskExecution(taskId, agentId);
-          result = { success: true, output: "Task completed (simulated)" };
+          const agent = getAgent(task.assignedTo.name);
+
+          if (agent) {
+            result = await agent.executeTask({
+              taskId,
+              agentId,
+              title: task.title,
+              description: task.description,
+              priority: task.priority,
+            });
+          } else {
+            console.log(`[Worker] Agent ${task.assignedTo.name} not implemented, using simulation`);
+            await simulateTaskExecution(taskId, agentId);
+            result = { success: true, output: "Task completed (simulated)" };
+          }
         }
 
         // Update task with result
