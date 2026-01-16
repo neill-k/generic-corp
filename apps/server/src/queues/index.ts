@@ -62,7 +62,7 @@ export async function initializeQueues(_io: SocketIOServer) {
         EventBus.emit("task:progress", {
           taskId,
           progress: 0,
-          message: "Task started",
+          details: { message: "Task started" },
         });
 
         // Get task details
@@ -92,6 +92,11 @@ export async function initializeQueues(_io: SocketIOServer) {
           const agent = getAgent(task.assignedTo.name);
 
           if (agent) {
+            // Ensure agent has the full record for tool permissions
+            if (!agent.hasAgentRecord()) {
+              agent.setAgentRecord(task.assignedTo);
+            }
+
             result = await agent.executeTask({
               taskId,
               agentId,
@@ -205,6 +210,7 @@ export async function initializeQueues(_io: SocketIOServer) {
 }
 
 // Temporary simulation function - will be replaced with actual agent execution
+// NOTE: This function only emits progress updates. The worker handles final task status update.
 async function simulateTaskExecution(taskId: string, agentId: string) {
   // Simulate progress updates
   for (let progress = 25; progress <= 100; progress += 25) {
@@ -213,47 +219,15 @@ async function simulateTaskExecution(taskId: string, agentId: string) {
     EventBus.emit("task:progress", {
       taskId,
       progress,
-      message: `Processing... ${progress}%`,
+      details: { message: `Processing... ${progress}%` },
     });
   }
 
-  // Mark task as completed
-  await db.task.update({
-    where: { id: taskId },
-    data: {
-      status: "completed",
-      previousStatus: "in_progress",
-      completedAt: new Date(),
-      result: {
-        success: true,
-        output: "Task completed successfully (simulated)",
-        tokensUsed: { input: 0, output: 0 },
-        costUsd: 0,
-      },
-    },
-  });
+  // NOTE: Do NOT update task status or emit completion here.
+  // The worker will handle final status update and completion event.
+  // This prevents double-completion issues.
 
-  // Reset agent status
-  await db.agent.update({
-    where: { id: agentId },
-    data: {
-      status: "idle",
-      currentTaskId: null,
-    },
-  });
-
-  // Emit completion
-  EventBus.emit("task:completed", {
-    taskId,
-    result: { success: true, output: "Task completed successfully (simulated)" },
-  });
-
-  EventBus.emit("agent:status", {
-    agentId,
-    status: "idle",
-  });
-
-  // Log activity
+  // Log activity (using DB schema format, not event format)
   await db.activityLog.create({
     data: {
       agentId,

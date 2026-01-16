@@ -1,7 +1,12 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { db } from "../db/index.js";
 import { EventBus } from "../services/event-bus.js";
+import { sanitizePromptInput } from "../services/security.js";
+import { getToolsForAgent } from "../services/tools/index.js";
+import { executeTool } from "../services/tool-executor.js";
+import { getToolDescriptions } from "../services/tool-executor.js";
 import type { TaskResult } from "@generic-corp/shared";
+import type { Agent } from "@generic-corp/shared";
 
 export interface AgentConfig {
   name: string;
@@ -21,9 +26,35 @@ export interface TaskContext {
 export abstract class BaseAgent {
   protected config: AgentConfig;
   protected sessionId?: string;
+  protected agent?: Agent; // Full agent record from DB
 
   constructor(config: AgentConfig) {
     this.config = config;
+  }
+
+  /**
+   * Set the full agent record (needed for tool permissions)
+   */
+  setAgentRecord(agent: any) {
+    // Convert Prisma types to our Agent type
+    this.agent = {
+      ...agent,
+      capabilities: Array.isArray(agent.capabilities) 
+        ? agent.capabilities as string[]
+        : typeof agent.capabilities === 'object' && agent.capabilities !== null
+        ? Object.keys(agent.capabilities)
+        : [],
+      toolPermissions: typeof agent.toolPermissions === 'object' && agent.toolPermissions !== null
+        ? agent.toolPermissions as Record<string, boolean>
+        : {},
+    } as Agent;
+  }
+
+  /**
+   * Check if agent record is set
+   */
+  hasAgentRecord(): boolean {
+    return this.agent !== undefined;
   }
 
   /**
@@ -45,23 +76,32 @@ export abstract class BaseAgent {
         },
       });
 
-      // Build the prompt with personality and task
+      // Get agent record for tool permissions
+      if (!this.agent) {
+        const agentRecord = await db.agent.findUnique({
+          where: { id: context.agentId },
+        });
+        if (!agentRecord) {
+          throw new Error(`Agent ${context.agentId} not found`);
+        }
+        this.setAgentRecord(agentRecord);
+      }
+
+      // Build the prompt with personality, task, and available tools
       const prompt = this.buildPrompt(context);
 
       // Log task start
       EventBus.emit("activity:log", {
         agentId: context.agentId,
-        action: "task_started",
-        details: { taskId: context.taskId, title: context.title },
+        eventType: "task_started",
+        eventData: { taskId: context.taskId, title: context.title },
       });
 
       console.log(`[${this.config.name}] Starting task: ${context.title}`);
       console.log(`[${this.config.name}] Prompt length: ${prompt.length} chars`);
 
-      if (!process.env.ANTHROPIC_API_KEY) {
-        throw new Error("ANTHROPIC_API_KEY is required for agent execution");
-      }
-
+      // Claude Agent SDK auto-detects credentials from ~/.claude/.credentials.json
+      // No need to set ANTHROPIC_API_KEY manually
       const response = query({
         prompt,
         options: {
@@ -70,12 +110,34 @@ export abstract class BaseAgent {
         },
       });
 
+      // Process response and handle tool calls
       for await (const message of response) {
         if (message.type === "assistant") {
           const blocks = message.message.content;
           for (const block of blocks) {
             if (block.type === "text") {
               output += block.text;
+
+              // Check for tool calls in the output
+              const toolCall = this.extractToolCall(block.text);
+              if (toolCall) {
+                const toolContext = {
+                  agentId: context.agentId,
+                  agentName: this.config.name,
+                  taskId: context.taskId,
+                };
+
+                const toolResult = await executeTool(toolCall, toolContext);
+                toolsUsed.push(toolCall.name);
+
+                // Add tool result to output
+                output += `\n\n[Tool ${toolCall.name} executed: ${toolResult.success ? "success" : "failed"}]\n`;
+                if (toolResult.error) {
+                  output += `Error: ${toolResult.error}\n`;
+                } else {
+                  output += `Result: ${JSON.stringify(toolResult.result, null, 2)}\n`;
+                }
+              }
             }
           }
         }
@@ -85,7 +147,23 @@ export abstract class BaseAgent {
             throw new Error(message.errors.join("\n"));
           }
 
-          output = message.result;
+          // Final result might contain tool calls too
+          const finalOutput = message.result || output;
+          const toolCall = this.extractToolCall(finalOutput);
+          if (toolCall) {
+            const toolContext = {
+              agentId: context.agentId,
+              agentName: this.config.name,
+              taskId: context.taskId,
+            };
+
+            const toolResult = await executeTool(toolCall, toolContext);
+            toolsUsed.push(toolCall.name);
+            output += `\n\n[Tool ${toolCall.name} executed: ${toolResult.success ? "success" : "failed"}]\n`;
+          } else {
+            output = finalOutput;
+          }
+
           tokensUsed.input = message.usage.input_tokens;
           tokensUsed.output = message.usage.output_tokens;
           break;
@@ -112,8 +190,8 @@ export abstract class BaseAgent {
       // Log completion
       EventBus.emit("activity:log", {
         agentId: context.agentId,
-        action: "task_completed",
-        details: { taskId: context.taskId, duration: Date.now() - startTime },
+        eventType: "task_completed",
+        eventData: { taskId: context.taskId, duration: Date.now() - startTime },
       });
 
       // Calculate estimated cost (rough estimate)
@@ -132,8 +210,8 @@ export abstract class BaseAgent {
       // Log failure
       EventBus.emit("activity:log", {
         agentId: context.agentId,
-        action: "task_failed",
-        details: { taskId: context.taskId, error: errorMessage },
+        eventType: "task_failed",
+        eventData: { taskId: context.taskId, error: errorMessage },
       });
 
       return {
@@ -149,6 +227,16 @@ export abstract class BaseAgent {
 
 
   protected buildPrompt(context: TaskContext): string {
+    // Sanitize input
+    const sanitizedDescription = sanitizePromptInput(context.description);
+
+    // Get available tools for this agent
+    const availableTools = this.agent
+      ? getToolsForAgent(this.agent)
+      : [];
+    const toolDescriptions =
+      availableTools.length > 0 ? getToolDescriptions(availableTools) : "";
+
     return `${this.config.personalityPrompt}
 
 ---
@@ -158,13 +246,47 @@ You have been assigned the following task:
 **Title:** ${context.title}
 
 **Description:**
-${context.description}
+${sanitizedDescription}
 
 **Priority:** ${context.priority}
 
 ---
 
+${toolDescriptions ? `## Available Tools
+
+You have access to the following tools. Use them when appropriate to complete your task:
+
+${toolDescriptions}
+
+To use a tool, include a JSON code block in your response with the tool name and input parameters.` : ""}
+
 Please complete this task to the best of your ability.`;
+  }
+
+  /**
+   * Extract tool call from agent output
+   */
+  protected extractToolCall(text: string): { name: string; input: Record<string, unknown> } | null {
+    // Look for JSON code blocks with tool calls
+    const jsonBlockRegex = /```json\s*\{[^}]*"tool"[^}]*\}\s*```/s;
+    const match = text.match(jsonBlockRegex);
+
+    if (match) {
+      try {
+        const jsonStr = match[0].replace(/```json\s*|\s*```/g, "");
+        const parsed = JSON.parse(jsonStr);
+        if (parsed.tool && parsed.input) {
+          return {
+            name: parsed.tool,
+            input: parsed.input,
+          };
+        }
+      } catch (e) {
+        // Invalid JSON, ignore
+      }
+    }
+
+    return null;
   }
 
   protected estimateCost(tokens: { input: number; output: number }): number {
