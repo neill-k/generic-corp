@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Agent, Task, Message, ActivityLogEntry } from "@generic-corp/shared";
+import type { Agent, Task, Message, ActivityEvent } from "@generic-corp/shared";
 
 interface GameState {
   // Connection state
@@ -23,8 +23,8 @@ interface GameState {
   removePendingDraft: (draftId: string) => void;
 
   // Activity feed
-  activities: ActivityLogEntry[];
-  addActivity: (activity: ActivityLogEntry) => void;
+  activities: ActivityEvent[];
+  addActivity: (activity: ActivityEvent) => void;
 
   // Selected agent for detail view
   selectedAgentId: string | null;

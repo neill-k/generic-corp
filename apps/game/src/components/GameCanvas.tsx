@@ -58,28 +58,39 @@ class OfficeScene extends Phaser.Scene {
     // 5 desk positions for our 5 agents
     const deskPositions = [
       { x: 300, y: 150, label: "Marcus" },
-      { x: 200, y: 200, label: "Sable" },
-      { x: 400, y: 200, label: "DeVonte" },
-      { x: 250, y: 280, label: "Yuki" },
-      { x: 350, y: 280, label: "Gray" },
+      { x: 200, y: 190, label: "Sable" },
+      { x: 400, y: 190, label: "DeVonte" },
+      { x: 250, y: 270, label: "Yuki" },
+      { x: 350, y: 270, label: "Gray" },
     ];
 
     deskPositions.forEach((pos) => {
-      // Draw desk (simple rectangle for now)
+      // Draw desk with isometric perspective
       const desk = this.add.graphics();
-      desk.fillStyle(0x16213e, 1);
-      desk.fillRect(pos.x - 30, pos.y - 15, 60, 30);
-      desk.lineStyle(2, 0x0f3460, 1);
-      desk.strokeRect(pos.x - 30, pos.y - 15, 60, 30);
+      
+      // Desk top (isometric rectangle)
+      desk.fillStyle(0x2a3f5f, 1);
+      desk.fillPoints([
+        { x: pos.x - 35, y: pos.y - 10 },
+        { x: pos.x + 5, y: pos.y - 20 },
+        { x: pos.x + 35, y: pos.y - 10 },
+        { x: pos.x - 5, y: pos.y },
+      ], true);
 
-      // Add label
-      this.add
-        .text(pos.x, pos.y + 25, pos.label, {
-          fontSize: "12px",
-          color: "#888888",
-          fontFamily: "JetBrains Mono",
-        })
-        .setOrigin(0.5);
+      // Desk edge
+      desk.lineStyle(2, 0x1a2a3a, 1);
+      desk.strokePoints([
+        { x: pos.x - 35, y: pos.y - 10 },
+        { x: pos.x + 5, y: pos.y - 20 },
+        { x: pos.x + 35, y: pos.y - 10 },
+        { x: pos.x - 5, y: pos.y },
+        { x: pos.x - 35, y: pos.y - 10 },
+      ], true);
+
+      // Desk legs (simplified)
+      desk.fillStyle(0x1a2a3a, 1);
+      desk.fillRect(pos.x - 30, pos.y, 8, 15);
+      desk.fillRect(pos.x + 22, pos.y, 8, 15);
     });
   }
 
@@ -108,6 +119,15 @@ class OfficeScene extends Phaser.Scene {
       "Graham \"Gray\" Sutton": { x: 350, y: 270 },
     };
 
+    // Agent colors for visual distinction
+    const agentColors: Record<string, number> = {
+      "Marcus Bell": 0x4a90e2,
+      "Sable Chen": 0xe94560,
+      "DeVonte Jackson": 0x00d4aa,
+      "Yuki Tanaka": 0xff6b6b,
+      "Graham \"Gray\" Sutton": 0x95a5a6,
+    };
+
     agents.forEach((agent) => {
       const pos = agentPositions[agent.name];
       if (!pos) return;
@@ -118,13 +138,33 @@ class OfficeScene extends Phaser.Scene {
         // Create new agent sprite
         container = this.add.container(pos.x, pos.y);
 
-        // Simple circle for agent (will be replaced with proper sprites)
-        const circle = this.add.circle(0, 0, 15, 0xe94560);
-        const statusRing = this.add.circle(0, 0, 18);
+        // Agent body (circle with agent-specific color)
+        const color = agentColors[agent.name] || 0x888888;
+        const circle = this.add.circle(0, -5, 12, color);
+        circle.setName("body");
+
+        // Status indicator ring
+        const statusRing = this.add.circle(0, -5, 16);
         statusRing.setStrokeStyle(2, 0x00ff00);
         statusRing.setName("statusRing");
 
-        container.add([circle, statusRing]);
+        // Name label
+        const label = this.add.text(0, 10, agent.name.split(" ")[0], {
+          fontSize: "10px",
+          color: "#ffffff",
+          fontFamily: "JetBrains Mono",
+          backgroundColor: "#000000",
+          padding: { x: 4, y: 2 },
+        });
+        label.setOrigin(0.5);
+        label.setName("label");
+
+        // Working animation indicator (hidden by default)
+        const workingIndicator = this.add.circle(0, -15, 4, 0xffff00);
+        workingIndicator.setName("workingIndicator");
+        workingIndicator.setVisible(false);
+
+        container.add([statusRing, circle, label, workingIndicator]);
         this.agents.set(agent.id, container);
 
         // Make interactive
@@ -132,10 +172,33 @@ class OfficeScene extends Phaser.Scene {
         circle.on("pointerdown", () => {
           this.game.events.emit("agentClicked", agent.id);
         });
+
+        // Hover effect
+        circle.on("pointerover", () => {
+          this.tweens.add({
+            targets: container,
+            scaleX: 1.2,
+            scaleY: 1.2,
+            duration: 200,
+            ease: "Power2",
+          });
+        });
+
+        circle.on("pointerout", () => {
+          this.tweens.add({
+            targets: container,
+            scaleX: 1,
+            scaleY: 1,
+            duration: 200,
+            ease: "Power2",
+          });
+        });
       }
 
-      // Update status ring color
+      // Update status ring color and animations
       const statusRing = container.getByName("statusRing") as Phaser.GameObjects.Arc;
+      const workingIndicator = container.getByName("workingIndicator") as Phaser.GameObjects.Arc;
+      
       if (statusRing) {
         const statusColors: Record<string, number> = {
           idle: 0x00ff00,
@@ -143,7 +206,38 @@ class OfficeScene extends Phaser.Scene {
           blocked: 0xff0000,
           offline: 0x666666,
         };
-        statusRing.setStrokeStyle(2, statusColors[agent.status] || 0x666666);
+        const color = statusColors[agent.status] || 0x666666;
+        statusRing.setStrokeStyle(2, color);
+
+        // Pulse animation for working/blocked states
+        if (agent.status === "working" || agent.status === "blocked") {
+          this.tweens.add({
+            targets: statusRing,
+            alpha: { from: 1, to: 0.5 },
+            duration: 500,
+            yoyo: true,
+            repeat: -1,
+          });
+        } else {
+          this.tweens.killTweensOf(statusRing);
+          statusRing.setAlpha(1);
+        }
+      }
+
+      // Show/hide working indicator
+      if (workingIndicator) {
+        workingIndicator.setVisible(agent.status === "working");
+        if (agent.status === "working") {
+          this.tweens.add({
+            targets: workingIndicator,
+            y: { from: -15, to: -20 },
+            duration: 500,
+            yoyo: true,
+            repeat: -1,
+          });
+        } else {
+          this.tweens.killTweensOf(workingIndicator);
+        }
       }
     });
   }

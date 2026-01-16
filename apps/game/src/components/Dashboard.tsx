@@ -3,7 +3,7 @@ import { useSocket } from "../hooks/useSocket";
 import { useState } from "react";
 
 export function Dashboard() {
-  const { agents, selectedAgentId, setSelectedAgent, budget, pendingDrafts } =
+  const { agents, selectedAgentId, setSelectedAgent, budget, pendingDrafts, tasks } =
     useGameStore();
   const { assignTask, approveDraft, rejectDraft } = useSocket();
   const [taskTitle, setTaskTitle] = useState("");
@@ -94,6 +94,35 @@ export function Dashboard() {
               <div className="text-xs text-gray-500">{agent.role}</div>
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* Task Queue */}
+      <div className="mb-4">
+        <div className="text-xs text-gray-500 uppercase tracking-wide mb-2">
+          Task Queue
+        </div>
+        <div className="space-y-1 max-h-32 overflow-y-auto">
+          {tasks.filter((t) => t.status !== "completed" && t.status !== "failed").length === 0 ? (
+            <div className="text-xs text-gray-500 p-2 text-center">No active tasks</div>
+          ) : (
+            tasks
+              .filter((t) => t.status !== "completed" && t.status !== "failed")
+              .slice(0, 5)
+              .map((task) => (
+                <div
+                  key={task.id}
+                  className="p-2 bg-corp-dark rounded text-xs"
+                >
+                  <div className="font-medium truncate">{task.title}</div>
+                  <div className="text-gray-500 text-xs mt-1">
+                    {task.status === "in_progress" && task.progressPercent !== undefined
+                      ? `${task.progressPercent}%`
+                      : task.status}
+                  </div>
+                </div>
+              ))
+          )}
         </div>
       </div>
 
