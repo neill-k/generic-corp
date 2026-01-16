@@ -18,8 +18,8 @@
     "db:generate": "pnpm --filter @generic-corp/server run db:generate",
     "db:push": "pnpm --filter @generic-corp/server run db:push",
     "db:migrate": "pnpm --filter @generic-corp/server run db:migrate",
-    "docker:up": "docker-compose up -d",
-    "docker:down": "docker-compose down"
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down"
   },
   "keywords": ["ai-agents", "game", "phaser", "claude-sdk", "multi-agent"],
   "author": "Neill Killgore",

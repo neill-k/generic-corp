@@ -1,5 +1,7 @@
 import { BaseAgent } from "./base-agent.js";
 import { SableAgent } from "./sable-agent.js";
+import { DeVonteAgent } from "./devonte-agent.js";
+import { db } from "../db/index.js";
 
 // Agent registry - maps agent names to their implementations
 const agentRegistry: Map<string, BaseAgent> = new Map();
@@ -7,16 +9,31 @@ const agentRegistry: Map<string, BaseAgent> = new Map();
 /**
  * Initialize all agent instances
  */
-export function initializeAgents() {
+export async function initializeAgents() {
   console.log("[Agents] Initializing agent instances...");
 
-  // Phase 1: Only Sable is fully implemented
-  const sable = new SableAgent();
-  agentRegistry.set("Sable Chen", sable);
+  // Load agents from database
+  const agents = await db.agent.findMany({
+    where: { deletedAt: null },
+  });
+
+  // Phase 1: Sable and DeVonte are fully implemented
+  const sableAgentRecord = agents.find((a) => a.name === "Sable Chen");
+  if (sableAgentRecord) {
+    const sable = new SableAgent();
+    sable.setAgentRecord(sableAgentRecord);
+    agentRegistry.set("Sable Chen", sable);
+  }
+
+  const devonteAgentRecord = agents.find((a) => a.name === "DeVonte Jackson");
+  if (devonteAgentRecord) {
+    const devonte = new DeVonteAgent();
+    devonte.setAgentRecord(devonteAgentRecord);
+    agentRegistry.set("DeVonte Jackson", devonte);
+  }
 
   // TODO: Add other agents in future phases
   // - MarcusAgent (CEO, coordinator)
-  // - DeVonteAgent (Full-stack, rapid prototyping)
   // - YukiAgent (SRE, infrastructure)
   // - GrayAgent (Data engineer)
 
@@ -46,3 +63,4 @@ export function hasAgent(name: string): boolean {
 
 export { BaseAgent } from "./base-agent.js";
 export { SableAgent } from "./sable-agent.js";
+export { DeVonteAgent } from "./devonte-agent.js";

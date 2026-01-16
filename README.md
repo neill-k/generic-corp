@@ -72,6 +72,23 @@ pnpm db:migrate   # Run migrations
 
 Copy `apps/server/.env.example` to `apps/server/.env` and configure as needed.
 
+**Note:** The Claude Agent SDK automatically detects credentials from `~/.claude/.credentials.json`. 
+No need to set `ANTHROPIC_API_KEY` in `.env` - the SDK handles authentication automatically.
+
+### Testing
+
+See [TESTING.md](./TESTING.md) for comprehensive testing guide.
+
+**Quick API Test:**
+```bash
+# Run automated API tests
+./scripts/test-api.sh
+
+# Or test manually:
+curl http://localhost:3000/health
+curl http://localhost:3000/api/agents
+```
+
 ## Architecture
 
 - **Frontend**: Phaser 3 for isometric rendering, React for UI, Zustand for state, Socket.io for real-time

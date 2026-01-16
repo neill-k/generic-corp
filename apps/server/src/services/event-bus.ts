@@ -4,13 +4,13 @@ import { EventEmitter } from "events";
 type EventMap = {
   "agent:status": { agentId: string; status: string; taskId?: string };
   "task:queued": { agentId: string; task: any };
-  "task:progress": { taskId: string; progress: number; message?: string };
+  "task:progress": { taskId: string; progress: number; details?: Record<string, unknown> };
   "task:completed": { taskId: string; result: any };
   "task:failed": { taskId: string; error: string };
   "message:new": { toAgentId: string; message: any };
   "draft:pending": { draftId: string; fromAgent: string; content: any };
   "draft:rejected": { draftId: string; reason?: string };
-  "activity:log": { agentId: string; action: string; details?: any };
+  "activity:log": { agentId: string; eventType: string; eventData?: Record<string, unknown> };
 };
 
 class TypedEventEmitter {

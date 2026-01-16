@@ -46,7 +46,7 @@ async function start() {
     await seedAgents();
 
     // Initialize agent implementations
-    initializeAgents();
+    await initializeAgents();
 
     // Initialize BullMQ queues
     await initializeQueues(io);

@@ -41,10 +41,23 @@ export function useSocket() {
       console.log("[Socket] Received initial state:", data);
       setAgents(data.agents || []);
       setPendingDrafts(data.pendingDrafts || []);
+      // Set tasks from initial state
+      if (data.tasks && Array.isArray(data.tasks)) {
+        data.tasks.forEach((task: any) => {
+          addTask(task);
+        });
+      }
       if (data.gameState) {
+        // Ensure budget values are numbers (Prisma Decimal may serialize as string)
+        const remaining = typeof data.gameState.budgetRemainingUsd === "string"
+          ? parseFloat(data.gameState.budgetRemainingUsd)
+          : Number(data.gameState.budgetRemainingUsd);
+        const limit = typeof data.gameState.budgetLimitUsd === "string"
+          ? parseFloat(data.gameState.budgetLimitUsd)
+          : Number(data.gameState.budgetLimitUsd);
         setBudget({
-          remaining: data.gameState.budgetRemainingUsd,
-          limit: data.gameState.budgetLimitUsd,
+          remaining: remaining || 100,
+          limit: limit || 100,
         });
       }
     });
@@ -58,12 +71,18 @@ export function useSocket() {
     // Task updates
     socket.on(WS_EVENTS.TASK_PROGRESS, (data) => {
       console.log("[Socket] Task progress:", data);
-      updateTask(data.taskId, { progress: data.progress });
+      updateTask(data.taskId, { 
+        progressPercent: typeof data.progress === 'number' ? data.progress : 0,
+        progressDetails: data.details || {}
+      });
     });
 
     socket.on(WS_EVENTS.TASK_COMPLETED, (data) => {
       console.log("[Socket] Task completed:", data);
-      updateTask(data.taskId, { status: "completed", result: data.result });
+      updateTask(data.taskId, { 
+        status: "completed",
+        completedAt: new Date()
+      });
     });
 
     socket.on(WS_EVENTS.TASK_FAILED, (data) => {
@@ -96,6 +115,7 @@ export function useSocket() {
     setBudget,
     updateAgent,
     updateTask,
+    addTask,
     addPendingDraft,
     addActivity,
   ]);

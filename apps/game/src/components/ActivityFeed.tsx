@@ -67,21 +67,21 @@ export function ActivityFeed() {
               key={activity.id || index}
               className="flex items-start gap-2 text-xs py-1 border-b border-corp-accent/30 last:border-0"
             >
-              <span className={getActionColor(activity.action)}>
-                {getActionIcon(activity.action)}
+              <span className={getActionColor(activity.eventType)}>
+                {getActionIcon(activity.eventType)}
               </span>
               <div className="flex-1 min-w-0">
                 <span className="text-corp-highlight">
                   {getAgentName(activity.agentId)}
                 </span>
                 <span className="text-gray-400 ml-1">
-                  {activity.action.replace(/_/g, " ")}
+                  {activity.eventType.replace(/_/g, " ")}
                 </span>
-                {activity.details && (
+                {activity.eventData && Object.keys(activity.eventData).length > 0 && (
                   <span className="text-gray-500 block truncate">
-                    {typeof activity.details === "string"
-                      ? activity.details
-                      : JSON.stringify(activity.details)}
+                    {typeof activity.eventData === "string"
+                      ? activity.eventData
+                      : JSON.stringify(activity.eventData)}
                   </span>
                 )}
               </div>

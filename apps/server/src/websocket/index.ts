@@ -91,6 +91,16 @@ export function setupWebSocket(httpServer: HttpServer) {
       try {
         const { draftId } = data;
 
+        // Fetch the draft first
+        const draft = await db.message.findUnique({
+          where: { id: draftId },
+          include: { fromAgent: true },
+        });
+
+        if (!draft) {
+          throw new Error(`Draft ${draftId} not found`);
+        }
+
         await db.message.update({
           where: { id: draftId },
           data: {
@@ -100,9 +110,20 @@ export function setupWebSocket(httpServer: HttpServer) {
           },
         });
 
-        // TODO: Actually send the email when email service is implemented
+        // Send the email via email service
+        const { EmailService } = await import("../services/email-service.js");
+        const emailResult = await EmailService.sendEmail({
+          to: draft.externalRecipient || "",
+          subject: draft.subject,
+          body: draft.body,
+          from: draft.fromAgent?.name || "Generic Corp",
+        });
 
-        callback({ success: true });
+        if (!emailResult.success) {
+          throw new Error(emailResult.error || "Failed to send email");
+        }
+
+        callback({ success: true, messageId: emailResult.messageId });
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";
         callback({ success: false, error: message });
@@ -224,10 +245,36 @@ async function sendInitialState(socket: any) {
     where: { playerId: "default" },
   });
 
+  // Fetch all active tasks for the UI
+  const tasks = await db.task.findMany({
+    where: {
+      status: { in: ["pending", "in_progress", "blocked"] },
+      deletedAt: null,
+    },
+    include: {
+      assignedTo: true,
+      createdBy: true,
+    },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+  });
+
+  // Convert Decimal to number for JSON serialization
+  const serializedGameState = gameState ? {
+    ...gameState,
+    budgetRemainingUsd: typeof gameState.budgetRemainingUsd === "string"
+      ? parseFloat(gameState.budgetRemainingUsd)
+      : Number(gameState.budgetRemainingUsd),
+    budgetLimitUsd: typeof gameState.budgetLimitUsd === "string"
+      ? parseFloat(gameState.budgetLimitUsd)
+      : Number(gameState.budgetLimitUsd),
+  } : null;
+
   socket.emit(WS_EVENTS.INIT, {
     agents,
     pendingDrafts,
-    gameState,
+    tasks,
+    gameState: serializedGameState,
     timestamp: Date.now(),
   });
 }
