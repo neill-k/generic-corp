@@ -13,8 +13,15 @@ interface GameState {
 
   // Tasks
   tasks: Task[];
+  setTasks: (tasks: Task[]) => void;
   addTask: (task: Task) => void;
   updateTask: (taskId: string, updates: Partial<Task>) => void;
+
+  // Messages
+  messages: Message[];
+  setMessages: (messages: Message[]) => void;
+  addMessage: (message: Message) => void;
+  updateMessage: (messageId: string, updates: Partial<Message>) => void;
 
   // Pending drafts
   pendingDrafts: Message[];
@@ -37,6 +44,10 @@ interface GameState {
   // Budget tracking
   budget: { remaining: number; limit: number };
   setBudget: (budget: { remaining: number; limit: number }) => void;
+
+  // UI state
+  activePanel: "dashboard" | "messages";
+  setActivePanel: (panel: "dashboard" | "messages") => void;
 }
 
 export const useGameStore = create<GameState>((set) => ({
@@ -56,14 +67,47 @@ export const useGameStore = create<GameState>((set) => ({
 
   // Tasks
   tasks: [],
+  setTasks: (tasks) => set({ tasks }),
   addTask: (task) =>
-    set((state) => ({
-      tasks: [task, ...state.tasks].slice(0, 100), // Keep last 100
-    })),
+    set((state) => {
+      // Check if task already exists
+      const exists = state.tasks.some((t) => t.id === task.id);
+      if (exists) {
+        return {
+          tasks: state.tasks.map((t) => (t.id === task.id ? task : t)),
+        };
+      }
+      return {
+        tasks: [task, ...state.tasks].slice(0, 100), // Keep last 100
+      };
+    }),
   updateTask: (taskId, updates) =>
     set((state) => ({
       tasks: state.tasks.map((t) =>
         t.id === taskId ? { ...t, ...updates } : t
+      ),
+    })),
+
+  // Messages
+  messages: [],
+  setMessages: (messages) => set({ messages }),
+  addMessage: (message) =>
+    set((state) => {
+      // Check if message already exists
+      const exists = state.messages.some((m) => m.id === message.id);
+      if (exists) {
+        return {
+          messages: state.messages.map((m) => (m.id === message.id ? message : m)),
+        };
+      }
+      return {
+        messages: [message, ...state.messages].slice(0, 100), // Keep last 100
+      };
+    }),
+  updateMessage: (messageId, updates) =>
+    set((state) => ({
+      messages: state.messages.map((m) =>
+        m.id === messageId ? { ...m, ...updates } : m
       ),
     })),
 
@@ -97,4 +141,8 @@ export const useGameStore = create<GameState>((set) => ({
   // Budget
   budget: { remaining: 100, limit: 100 },
   setBudget: (budget) => set({ budget }),
+
+  // UI state
+  activePanel: "dashboard",
+  setActivePanel: (panel) => set({ activePanel: panel }),
 }));

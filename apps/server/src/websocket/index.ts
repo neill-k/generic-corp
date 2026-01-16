@@ -259,6 +259,19 @@ async function sendInitialState(socket: any) {
     take: 50,
   });
 
+  // Fetch recent messages for the message center
+  const messages = await db.message.findMany({
+    where: {
+      deletedAt: null,
+    },
+    include: {
+      fromAgent: true,
+      toAgent: true,
+    },
+    orderBy: { createdAt: "desc" },
+    take: 100,
+  });
+
   // Convert Decimal to number for JSON serialization
   const serializedGameState = gameState ? {
     ...gameState,
@@ -274,6 +287,7 @@ async function sendInitialState(socket: any) {
     agents,
     pendingDrafts,
     tasks,
+    messages,
     gameState: serializedGameState,
     timestamp: Date.now(),
   });

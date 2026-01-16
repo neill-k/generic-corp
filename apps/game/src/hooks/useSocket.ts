@@ -10,12 +10,16 @@ export function useSocket() {
   const {
     setConnected,
     setAgents,
+    setTasks,
     setPendingDrafts,
+    setMessages,
     setBudget,
     updateAgent,
     updateTask,
     addTask,
+    addMessage,
     addPendingDraft,
+    removePendingDraft,
     addActivity,
   } = useGameStore();
 
@@ -41,20 +45,27 @@ export function useSocket() {
       console.log("[Socket] Received initial state:", data);
       setAgents(data.agents || []);
       setPendingDrafts(data.pendingDrafts || []);
+
       // Set tasks from initial state
       if (data.tasks && Array.isArray(data.tasks)) {
-        data.tasks.forEach((task: any) => {
-          addTask(task);
-        });
+        setTasks(data.tasks);
       }
+
+      // Set messages from initial state
+      if (data.messages && Array.isArray(data.messages)) {
+        setMessages(data.messages);
+      }
+
       if (data.gameState) {
         // Ensure budget values are numbers (Prisma Decimal may serialize as string)
-        const remaining = typeof data.gameState.budgetRemainingUsd === "string"
-          ? parseFloat(data.gameState.budgetRemainingUsd)
-          : Number(data.gameState.budgetRemainingUsd);
-        const limit = typeof data.gameState.budgetLimitUsd === "string"
-          ? parseFloat(data.gameState.budgetLimitUsd)
-          : Number(data.gameState.budgetLimitUsd);
+        const remaining =
+          typeof data.gameState.budgetRemainingUsd === "string"
+            ? parseFloat(data.gameState.budgetRemainingUsd)
+            : Number(data.gameState.budgetRemainingUsd);
+        const limit =
+          typeof data.gameState.budgetLimitUsd === "string"
+            ? parseFloat(data.gameState.budgetLimitUsd)
+            : Number(data.gameState.budgetLimitUsd);
         setBudget({
           remaining: remaining || 100,
           limit: limit || 100,
@@ -71,17 +82,17 @@ export function useSocket() {
     // Task updates
     socket.on(WS_EVENTS.TASK_PROGRESS, (data) => {
       console.log("[Socket] Task progress:", data);
-      updateTask(data.taskId, { 
-        progressPercent: typeof data.progress === 'number' ? data.progress : 0,
-        progressDetails: data.details || {}
+      updateTask(data.taskId, {
+        progressPercent: typeof data.progress === "number" ? data.progress : 0,
+        progressDetails: data.details || {},
       });
     });
 
     socket.on(WS_EVENTS.TASK_COMPLETED, (data) => {
       console.log("[Socket] Task completed:", data);
-      updateTask(data.taskId, { 
+      updateTask(data.taskId, {
         status: "completed",
-        completedAt: new Date()
+        completedAt: new Date(),
       });
     });
 
@@ -90,10 +101,22 @@ export function useSocket() {
       updateTask(data.taskId, { status: "failed" });
     });
 
+    // Message events
+    socket.on(WS_EVENTS.MESSAGE_NEW, (data) => {
+      console.log("[Socket] New message:", data);
+      addMessage(data.message);
+    });
+
     // Draft notifications
     socket.on(WS_EVENTS.DRAFT_PENDING, (data) => {
       console.log("[Socket] New draft pending:", data);
       addPendingDraft(data);
+    });
+
+    // Draft rejected
+    socket.on(WS_EVENTS.DRAFT_REJECTED, (data) => {
+      console.log("[Socket] Draft rejected:", data);
+      removePendingDraft(data.draftId);
     });
 
     // Activity log
@@ -111,12 +134,16 @@ export function useSocket() {
   }, [
     setConnected,
     setAgents,
+    setTasks,
     setPendingDrafts,
+    setMessages,
     setBudget,
     updateAgent,
     updateTask,
     addTask,
+    addMessage,
     addPendingDraft,
+    removePendingDraft,
     addActivity,
   ]);
 
@@ -141,11 +168,31 @@ export function useSocket() {
         socketRef.current.emit(
           WS_EVENTS.TASK_ASSIGN,
           { agentId, title, description, priority },
-          resolve
+          (response: { success: boolean; taskId?: string; error?: string }) => {
+            if (response.success && response.taskId) {
+              // Add task to local state immediately for responsiveness
+              addTask({
+                id: response.taskId,
+                agentId,
+                createdBy: "player",
+                title,
+                description,
+                status: "pending",
+                priority: priority as any,
+                progressPercent: 0,
+                progressDetails: {},
+                version: 1,
+                retryCount: 0,
+                maxRetries: 3,
+                createdAt: new Date(),
+              });
+            }
+            resolve(response);
+          }
         );
       });
     },
-    []
+    [addTask]
   );
 
   const approveDraft = useCallback(
@@ -156,10 +203,15 @@ export function useSocket() {
           return;
         }
 
-        socketRef.current.emit(WS_EVENTS.DRAFT_APPROVE, { draftId }, resolve);
+        socketRef.current.emit(WS_EVENTS.DRAFT_APPROVE, { draftId }, (response: { success: boolean; error?: string }) => {
+          if (response.success) {
+            removePendingDraft(draftId);
+          }
+          resolve(response);
+        });
       });
     },
-    []
+    [removePendingDraft]
   );
 
   const rejectDraft = useCallback(
@@ -176,11 +228,16 @@ export function useSocket() {
         socketRef.current.emit(
           WS_EVENTS.DRAFT_REJECT,
           { draftId, reason },
-          resolve
+          (response: { success: boolean; error?: string }) => {
+            if (response.success) {
+              removePendingDraft(draftId);
+            }
+            resolve(response);
+          }
         );
       });
     },
-    []
+    [removePendingDraft]
   );
 
   const sendMessage = useCallback(
@@ -198,11 +255,27 @@ export function useSocket() {
         socketRef.current.emit(
           WS_EVENTS.MESSAGE_SEND,
           { toAgentId, subject, body },
-          resolve
+          (response: { success: boolean; messageId?: string; error?: string }) => {
+            if (response.success && response.messageId) {
+              // Add message to local state immediately for responsiveness
+              addMessage({
+                id: response.messageId,
+                fromAgentId: "player",
+                toAgentId,
+                subject,
+                body,
+                type: "direct",
+                status: "pending",
+                isExternalDraft: false,
+                createdAt: new Date(),
+              });
+            }
+            resolve(response);
+          }
         );
       });
     },
-    []
+    [addMessage]
   );
 
   return {
