@@ -165,7 +165,7 @@ class OfficeScene extends Phaser.Scene {
     });
   }
 
-  shutdown() {
+  shutdown(data?: object) {
     // Clean up all timer events
     this.agentTimerEvents.forEach((timer) => timer.remove());
     this.agentTimerEvents.clear();
@@ -173,6 +173,9 @@ class OfficeScene extends Phaser.Scene {
     // Remove game event listeners
     this.game.events.off("updateAgents", this.queueAgentUpdates, this);
     this.game.events.off("updateTasks", this.updateAgentTasks, this);
+
+    // Call parent shutdown
+    super.shutdown(data);
   }
 
   private drawBackground() {
