@@ -165,6 +165,16 @@ class OfficeScene extends Phaser.Scene {
     });
   }
 
+  shutdown() {
+    // Clean up all timer events
+    this.agentTimerEvents.forEach((timer) => timer.remove());
+    this.agentTimerEvents.clear();
+
+    // Remove game event listeners
+    this.game.events.off("updateAgents", this.queueAgentUpdates, this);
+    this.game.events.off("updateTasks", this.updateAgentTasks, this);
+  }
+
   private drawBackground() {
     // Dark gradient background
     const graphics = this.add.graphics();
@@ -729,6 +739,13 @@ class OfficeScene extends Phaser.Scene {
     // Update stored agent data
     container.setData("agent", agent);
 
+    // Clean up any existing timer event for this agent
+    const existingTimer = this.agentTimerEvents.get(agent.name);
+    if (existingTimer) {
+      existingTimer.remove();
+      this.agentTimerEvents.delete(agent.name);
+    }
+
     // Update status ring color
     const statusRing = container.getByName("statusRing") as Phaser.GameObjects.Arc;
     if (statusRing) {
@@ -755,13 +772,6 @@ class OfficeScene extends Phaser.Scene {
     const statusIndicator = container.getByName("statusIndicator") as Phaser.GameObjects.Container;
     if (statusIndicator) {
       statusIndicator.removeAll(true);
-
-      // Clean up any existing timer event for this agent
-      const existingTimer = this.agentTimerEvents.get(agent.name);
-      if (existingTimer) {
-        existingTimer.remove();
-        this.agentTimerEvents.delete(agent.name);
-      }
 
       if (agent.status === "blocked" && this.indicatorPool) {
         // Get indicator from pool
