@@ -753,9 +753,10 @@ class OfficeScene extends Phaser.Scene {
     if (statusIndicator) {
       // Release any pooled indicators back to the pool before removing
       if (this.indicatorPool) {
+        const pool = this.indicatorPool;
         statusIndicator.list.forEach(child => {
           if (child instanceof Phaser.GameObjects.Container) {
-            this.indicatorPool!.release(child);
+            pool.release(child);
           }
         });
       }
