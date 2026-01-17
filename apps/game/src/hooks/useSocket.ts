@@ -174,7 +174,7 @@ export function useSocket() {
               addTask({
                 id: response.taskId,
                 agentId,
-                createdBy: "player",
+                createdBy: agentId,
                 title,
                 description,
                 status: "pending",
