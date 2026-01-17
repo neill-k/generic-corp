@@ -150,7 +150,7 @@ export function MessageCenter() {
             >
               <option value="">Select agent...</option>
               {agents
-                .filter((a) => a.name !== "Marcus Bell") // Can't message yourself
+                .filter((a) => a.id !== selectedAgentId) // Can't message yourself
                 .map((agent) => (
                   <option key={agent.id} value={agent.id}>
                     {agent.name} ({agent.role})
