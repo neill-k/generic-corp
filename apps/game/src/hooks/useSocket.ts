@@ -8,6 +8,7 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:3000";
 export function useSocket() {
   const socketRef = useRef<Socket | null>(null);
   const {
+    agents,
     setConnected,
     setAgents,
     setTasks,
@@ -257,10 +258,14 @@ export function useSocket() {
           { toAgentId, subject, body },
           (response: { success: boolean; messageId?: string; error?: string }) => {
             if (response.success && response.messageId) {
+              // Find the player agent (Marcus Bell)
+              const playerAgent = agents.find((a) => a.name === "Marcus Bell");
+              const fromAgentId = playerAgent?.id || "player"; // Fallback to "player" if not found
+              
               // Add message to local state immediately for responsiveness
               addMessage({
                 id: response.messageId,
-                fromAgentId: "player",
+                fromAgentId,
                 toAgentId,
                 subject,
                 body,
@@ -275,7 +280,7 @@ export function useSocket() {
         );
       });
     },
-    [addMessage]
+    [agents, addMessage]
   );
 
   return {
