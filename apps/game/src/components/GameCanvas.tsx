@@ -696,7 +696,7 @@ class OfficeScene extends Phaser.Scene {
       });
 
       // Show tooltip
-      const tasks = (this as any).currentTasks as Task[] || [];
+      const tasks = (this as { currentTasks?: Task[] }).currentTasks ?? [];
       const currentTask = tasks.find(t => t.agentId === agent.id && t.status === "in_progress");
       this.showTooltip(agent, pos.x, pos.y, currentTask?.title);
     });
