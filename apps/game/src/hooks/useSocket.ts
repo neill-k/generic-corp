@@ -21,6 +21,7 @@ export function useSocket() {
     addPendingDraft,
     removePendingDraft,
     addActivity,
+    agents,
   } = useGameStore();
 
   const connect = useCallback(() => {
@@ -252,6 +253,10 @@ export function useSocket() {
           return;
         }
 
+        // Get Marcus Bell's agent ID (the player's agent)
+        const marcus = agents.find((a) => a.name === "Marcus Bell");
+        const fromAgentId = marcus?.id || "player";
+
         socketRef.current.emit(
           WS_EVENTS.MESSAGE_SEND,
           { toAgentId, subject, body },
@@ -260,7 +265,7 @@ export function useSocket() {
               // Add message to local state immediately for responsiveness
               addMessage({
                 id: response.messageId,
-                fromAgentId: "player",
+                fromAgentId,
                 toAgentId,
                 subject,
                 body,
@@ -275,7 +280,7 @@ export function useSocket() {
         );
       });
     },
-    [addMessage]
+    [addMessage, agents]
   );
 
   return {
