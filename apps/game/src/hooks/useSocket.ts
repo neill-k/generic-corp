@@ -1,6 +1,7 @@
 import { useCallback, useRef } from "react";
 import { io, Socket } from "socket.io-client";
 import { WS_EVENTS } from "@generic-corp/shared";
+import type { TaskPriority } from "@generic-corp/shared";
 import { useGameStore } from "../store/gameStore";
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:3000";
@@ -158,7 +159,7 @@ export function useSocket() {
       agentId: string,
       title: string,
       description: string,
-      priority: string = "normal"
+      priority: TaskPriority = "normal"
     ): Promise<{ success: boolean; taskId?: string; error?: string }> => {
       return new Promise((resolve) => {
         if (!socketRef.current) {
@@ -179,7 +180,7 @@ export function useSocket() {
                 title,
                 description,
                 status: "pending",
-                priority: priority as any,
+                priority,
                 progressPercent: 0,
                 progressDetails: {},
                 version: 1,
