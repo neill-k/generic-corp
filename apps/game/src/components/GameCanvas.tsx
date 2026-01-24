@@ -751,6 +751,15 @@ class OfficeScene extends Phaser.Scene {
     // Update status indicator using object pool
     const statusIndicator = container.getByName("statusIndicator") as Phaser.GameObjects.Container;
     if (statusIndicator) {
+      // Release any pooled indicators back to the pool before removing
+      if (this.indicatorPool) {
+        const pool = this.indicatorPool;
+        statusIndicator.list.forEach(child => {
+          if (child instanceof Phaser.GameObjects.Container) {
+            pool.release(child);
+          }
+        });
+      }
       statusIndicator.removeAll(true);
 
       if (agent.status === "blocked" && this.indicatorPool) {
