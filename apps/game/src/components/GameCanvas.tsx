@@ -120,6 +120,9 @@ class OfficeScene extends Phaser.Scene {
   // Animation frame counters
   private animationFrames: Map<string, number> = new Map();
 
+  // Timer events for agent status animations
+  private agentTimerEvents: Map<string, Phaser.Time.TimerEvent> = new Map();
+
   // Object pool for indicators (initialized in create())
   private indicatorPool: IndicatorPool | null = null;
 
@@ -160,6 +163,19 @@ class OfficeScene extends Phaser.Scene {
       callbackScope: this,
       loop: true,
     });
+  }
+
+  shutdown(data?: object) {
+    // Clean up all timer events
+    this.agentTimerEvents.forEach((timer) => timer.remove());
+    this.agentTimerEvents.clear();
+
+    // Remove game event listeners
+    this.game.events.off("updateAgents", this.queueAgentUpdates, this);
+    this.game.events.off("updateTasks", this.updateAgentTasks, this);
+
+    // Call parent shutdown
+    super.shutdown(data);
   }
 
   private drawBackground() {
@@ -726,6 +742,13 @@ class OfficeScene extends Phaser.Scene {
     // Update stored agent data
     container.setData("agent", agent);
 
+    // Clean up any existing timer event for this agent
+    const existingTimer = this.agentTimerEvents.get(agent.name);
+    if (existingTimer) {
+      existingTimer.remove();
+      this.agentTimerEvents.delete(agent.name);
+    }
+
     // Update status ring color
     const statusRing = container.getByName("statusRing") as Phaser.GameObjects.Arc;
     if (statusRing) {
@@ -809,7 +832,7 @@ class OfficeScene extends Phaser.Scene {
 
         // Animate dots
         let dotCount = 0;
-        this.time.addEvent({
+        const timerEvent = this.time.addEvent({
           delay: 300,
           callback: () => {
             const dotsText = statusIndicator.list.find(
@@ -822,6 +845,8 @@ class OfficeScene extends Phaser.Scene {
           },
           loop: true,
         });
+        // Store the timer event so we can clean it up later
+        this.agentTimerEvents.set(agent.name, timerEvent);
       } else {
         statusIndicator.setVisible(false);
         this.tweens.killTweensOf(statusIndicator);
