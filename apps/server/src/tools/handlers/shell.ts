@@ -1,7 +1,7 @@
-import { exec } from "child_process";
+import { execFile } from "child_process";
 import { promisify } from "util";
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 // Maximum output size
 const MAX_OUTPUT_SIZE = 1024 * 100; // 100KB
@@ -28,44 +28,115 @@ const ALLOWED_COMMANDS = [
   "mv",
 ];
 
-// Blocked patterns (even within allowed commands)
-const BLOCKED_PATTERNS = [
-  /[;&|`$]/,           // Command chaining/substitution
+// Blocked argument patterns (checked against individual arguments)
+const BLOCKED_ARG_PATTERNS = [
   /\.\.\//,            // Directory traversal
-  /\/etc\//,           // System directories
-  /\/usr\//,
-  /\/var\//,
-  /\/root/,
-  /sudo/,
-  /chmod/,
-  /chown/,
-  /rm\s+-rf?\s+\//,    // Dangerous rm commands
+  /^\/etc\//,          // System directories
+  /^\/usr\//,
+  /^\/var\//,
+  /^\/root/,
 ];
+
+// Blocked commands that should never be executed
+const BLOCKED_COMMANDS = ["sudo", "chmod", "chown"];
+
+/**
+ * Parse a command string into command and arguments
+ * Handles quoted strings properly
+ */
+function parseCommand(command: string): { cmd: string; args: string[] } {
+  const tokens: string[] = [];
+  let current = "";
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+  let escaped = false;
+
+  for (let i = 0; i < command.length; i++) {
+    const char = command[i];
+
+    if (escaped) {
+      current += char;
+      escaped = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      escaped = true;
+      continue;
+    }
+
+    if (char === "'" && !inDoubleQuote) {
+      inSingleQuote = !inSingleQuote;
+      continue;
+    }
+
+    if (char === '"' && !inSingleQuote) {
+      inDoubleQuote = !inDoubleQuote;
+      continue;
+    }
+
+    if (char === " " && !inSingleQuote && !inDoubleQuote) {
+      if (current.length > 0) {
+        tokens.push(current);
+        current = "";
+      }
+      continue;
+    }
+
+    current += char;
+  }
+
+  if (current.length > 0) {
+    tokens.push(current);
+  }
+
+  if (tokens.length === 0) {
+    throw new Error("Empty command");
+  }
+
+  return { cmd: tokens[0], args: tokens.slice(1) };
+}
 
 /**
  * Validate command is safe to execute
  */
-function validateCommand(command: string): void {
-  const trimmedCommand = command.trim();
-  const firstWord = trimmedCommand.split(/\s+/)[0];
+function validateCommand(cmd: string, args: string[]): void {
+  // Check if command is blocked
+  if (BLOCKED_COMMANDS.includes(cmd)) {
+    throw new Error(`Command not allowed: ${cmd}`);
+  }
 
-  // Check if command is allowed
-  if (!ALLOWED_COMMANDS.includes(firstWord)) {
+  // Check if command is in allowlist
+  if (!ALLOWED_COMMANDS.includes(cmd)) {
     throw new Error(
-      `Command not allowed: ${firstWord}. Allowed commands: ${ALLOWED_COMMANDS.join(", ")}`
+      `Command not allowed: ${cmd}. Allowed commands: ${ALLOWED_COMMANDS.join(", ")}`
     );
   }
 
-  // Check for blocked patterns
-  for (const pattern of BLOCKED_PATTERNS) {
-    if (pattern.test(trimmedCommand)) {
-      throw new Error(`Command contains blocked pattern: ${trimmedCommand}`);
+  // Validate each argument against blocked patterns
+  for (const arg of args) {
+    for (const pattern of BLOCKED_ARG_PATTERNS) {
+      if (pattern.test(arg)) {
+        throw new Error(`Argument contains blocked pattern: ${arg}`);
+      }
+    }
+  }
+
+  // Special validation for rm command
+  if (cmd === "rm") {
+    const hasForceRecursive = args.some(
+      (arg) => arg === "-rf" || arg === "-fr" || (arg.startsWith("-") && arg.includes("r") && arg.includes("f"))
+    );
+    const hasRootPath = args.some((arg) => arg === "/" || arg.startsWith("/*"));
+    if (hasForceRecursive && hasRootPath) {
+      throw new Error("Dangerous rm command blocked");
     }
   }
 }
 
 /**
  * Execute a shell command (restricted to safe commands)
+ * Uses execFile with argument arrays to prevent command injection
  */
 export async function shellExec(params: {
   command: string;
@@ -76,15 +147,18 @@ export async function shellExec(params: {
   stderr: string;
   exitCode: number;
 }> {
-  // Validate command
-  validateCommand(params.command);
+  // Parse command into executable and arguments
+  const { cmd, args } = parseCommand(params.command);
+
+  // Validate command and arguments
+  validateCommand(cmd, args);
 
   // Default working directory to sandbox
   const cwd =
     params.cwd || process.env.AGENT_SANDBOX_ROOT || "/tmp/generic-corp-sandbox";
 
   try {
-    const { stdout, stderr } = await execAsync(params.command, {
+    const { stdout, stderr } = await execFileAsync(cmd, args, {
       cwd,
       maxBuffer: MAX_OUTPUT_SIZE,
       timeout: 30000, // 30 second timeout
@@ -119,4 +193,4 @@ export async function shellExec(params: {
 }
 
 // Export for testing
-export { ALLOWED_COMMANDS, BLOCKED_PATTERNS, validateCommand };
+export { ALLOWED_COMMANDS, BLOCKED_ARG_PATTERNS, BLOCKED_COMMANDS, validateCommand, parseCommand };

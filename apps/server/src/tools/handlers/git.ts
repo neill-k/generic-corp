@@ -1,20 +1,21 @@
-import { exec } from "child_process";
+import { execFile } from "child_process";
 import { promisify } from "util";
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 // Maximum output size to prevent memory issues
 const MAX_OUTPUT_SIZE = 1024 * 100; // 100KB
 
 /**
- * Execute a git command safely
+ * Execute a git command safely using execFile with argument arrays
+ * This prevents command injection by not using shell interpretation
  */
 async function execGitCommand(
-  command: string,
+  args: string[],
   cwd: string
 ): Promise<{ stdout: string; stderr: string }> {
   try {
-    const { stdout, stderr } = await execAsync(command, {
+    const { stdout, stderr } = await execFileAsync("git", args, {
       cwd,
       maxBuffer: MAX_OUTPUT_SIZE,
       timeout: 30000, // 30 second timeout
@@ -36,14 +37,14 @@ export async function gitStatus(params: {
 }): Promise<{ status: string; branch: string; changes: string[] }> {
   // Get current branch
   const { stdout: branchOutput } = await execGitCommand(
-    "git branch --show-current",
+    ["branch", "--show-current"],
     params.repoPath
   );
   const branch = branchOutput.trim();
 
   // Get status in porcelain format for easy parsing
   const { stdout: statusOutput } = await execGitCommand(
-    "git status --porcelain",
+    ["status", "--porcelain"],
     params.repoPath
   );
 
@@ -68,18 +69,18 @@ export async function gitCommit(params: {
 }): Promise<{ commitHash: string; filesCommitted: number }> {
   // Stage files
   if (params.files && params.files.length > 0) {
-    // Stage specific files
+    // Stage specific files - use argument array to prevent injection
     for (const file of params.files) {
-      await execGitCommand(`git add "${file}"`, params.repoPath);
+      await execGitCommand(["add", "--", file], params.repoPath);
     }
   } else {
     // Stage all changes
-    await execGitCommand("git add -A", params.repoPath);
+    await execGitCommand(["add", "-A"], params.repoPath);
   }
 
   // Check if there are changes to commit
   const { stdout: statusCheck } = await execGitCommand(
-    "git status --porcelain",
+    ["status", "--porcelain"],
     params.repoPath
   );
 
@@ -89,18 +90,17 @@ export async function gitCommit(params: {
 
   // Count staged files
   const { stdout: stagedFiles } = await execGitCommand(
-    "git diff --cached --name-only",
+    ["diff", "--cached", "--name-only"],
     params.repoPath
   );
   const filesCommitted = stagedFiles.trim().split("\n").filter(Boolean).length;
 
-  // Create commit with safe message handling
-  const safeMessage = params.message.replace(/"/g, '\\"').replace(/\n/g, "\\n");
-  await execGitCommand(`git commit -m "${safeMessage}"`, params.repoPath);
+  // Create commit - message is passed as argument, not interpolated into shell command
+  await execGitCommand(["commit", "-m", params.message], params.repoPath);
 
   // Get the commit hash
   const { stdout: hashOutput } = await execGitCommand(
-    "git rev-parse HEAD",
+    ["rev-parse", "HEAD"],
     params.repoPath
   );
   const commitHash = hashOutput.trim();
@@ -115,8 +115,8 @@ export async function gitDiff(params: {
   repoPath: string;
   staged?: boolean;
 }): Promise<{ diff: string }> {
-  const command = params.staged ? "git diff --cached" : "git diff";
-  const { stdout } = await execGitCommand(command, params.repoPath);
+  const args = params.staged ? ["diff", "--cached"] : ["diff"];
+  const { stdout } = await execGitCommand(args, params.repoPath);
   return { diff: stdout };
 }
 
@@ -127,9 +127,9 @@ export async function gitLog(params: {
   repoPath: string;
   count?: number;
 }): Promise<{ commits: Array<{ hash: string; message: string; date: string }> }> {
-  const count = params.count || 10;
+  const count = Math.min(Math.max(1, params.count || 10), 100); // Clamp between 1 and 100
   const { stdout } = await execGitCommand(
-    `git log --oneline -${count} --format="%H|%s|%ci"`,
+    ["log", "--oneline", `-${count}`, "--format=%H|%s|%ci"],
     params.repoPath
   );
 

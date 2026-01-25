@@ -7,29 +7,61 @@ const SANDBOX_ROOT =
 
 /**
  * Resolve a path safely within the sandbox
+ * Uses fs.realpath to resolve symlinks and prevent symlink-based sandbox escapes
  * Throws if the resolved path is outside the sandbox
  */
-function resolveSafePath(filePath: string): string {
+async function resolveSafePath(filePath: string): Promise<string> {
   // Normalize and resolve the path
   const normalizedPath = path.normalize(filePath);
 
-  // If it's an absolute path, it must be within sandbox
+  // Compute the logical path (without resolving symlinks yet)
+  let logicalPath: string;
   if (path.isAbsolute(normalizedPath)) {
-    if (!normalizedPath.startsWith(SANDBOX_ROOT)) {
-      throw new Error("Access denied: Path outside sandbox");
-    }
-    return normalizedPath;
+    logicalPath = normalizedPath;
+  } else {
+    logicalPath = path.resolve(SANDBOX_ROOT, normalizedPath);
   }
 
-  // Resolve relative path within sandbox
-  const resolved = path.resolve(SANDBOX_ROOT, normalizedPath);
-
-  // Verify it's still within sandbox (prevents ../ attacks)
-  if (!resolved.startsWith(SANDBOX_ROOT)) {
+  // First check: logical path must be within sandbox
+  if (!logicalPath.startsWith(SANDBOX_ROOT + path.sep) && logicalPath !== SANDBOX_ROOT) {
     throw new Error("Access denied: Path outside sandbox");
   }
 
-  return resolved;
+  // Second check: resolve symlinks and verify the real path is within sandbox
+  // This prevents symlink-based sandbox escapes
+  try {
+    const realPath = await fs.realpath(logicalPath);
+    const realSandboxRoot = await fs.realpath(SANDBOX_ROOT);
+
+    if (!realPath.startsWith(realSandboxRoot + path.sep) && realPath !== realSandboxRoot) {
+      throw new Error("Access denied: Symlink points outside sandbox");
+    }
+
+    return realPath;
+  } catch (error) {
+    // If the path doesn't exist yet (for write operations), verify the parent directory
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      const parentDir = path.dirname(logicalPath);
+      try {
+        const realParentDir = await fs.realpath(parentDir);
+        const realSandboxRoot = await fs.realpath(SANDBOX_ROOT);
+
+        if (!realParentDir.startsWith(realSandboxRoot + path.sep) && realParentDir !== realSandboxRoot) {
+          throw new Error("Access denied: Parent directory symlink points outside sandbox");
+        }
+
+        // Return the logical path since the file doesn't exist yet
+        return path.join(realParentDir, path.basename(logicalPath));
+      } catch (parentError) {
+        // Parent doesn't exist either - return logical path, mkdir will handle creation
+        if ((parentError as NodeJS.ErrnoException).code === "ENOENT") {
+          return logicalPath;
+        }
+        throw parentError;
+      }
+    }
+    throw error;
+  }
 }
 
 /**
@@ -50,7 +82,7 @@ export async function filesystemRead(params: {
   path: string;
 }): Promise<{ content: string }> {
   await ensureSandbox();
-  const safePath = resolveSafePath(params.path);
+  const safePath = await resolveSafePath(params.path);
 
   try {
     const content = await fs.readFile(safePath, "utf-8");
@@ -71,7 +103,7 @@ export async function filesystemWrite(params: {
   content: string;
 }): Promise<{ success: boolean; path: string }> {
   await ensureSandbox();
-  const safePath = resolveSafePath(params.path);
+  const safePath = await resolveSafePath(params.path);
 
   // Ensure parent directory exists
   await fs.mkdir(path.dirname(safePath), { recursive: true });
@@ -89,7 +121,7 @@ export async function filesystemList(params: {
   entries: Array<{ name: string; type: "file" | "directory" }>;
 }> {
   await ensureSandbox();
-  const safePath = resolveSafePath(params.path);
+  const safePath = await resolveSafePath(params.path);
 
   try {
     const entries = await fs.readdir(safePath, { withFileTypes: true });

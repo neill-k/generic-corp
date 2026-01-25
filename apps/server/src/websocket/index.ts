@@ -1,8 +1,56 @@
-import { Server as SocketIOServer } from "socket.io";
+import { Server as SocketIOServer, Socket } from "socket.io";
 import type { Server as HttpServer } from "http";
+import crypto from "crypto";
 import { db } from "../db/index.js";
 import { EventBus } from "../services/event-bus.js";
 import { WS_EVENTS } from "@generic-corp/shared";
+
+// Simple token-based authentication for WebSocket connections
+// In production, this should use JWT with proper key management
+const WS_SECRET = process.env.WS_AUTH_SECRET || crypto.randomBytes(32).toString("hex");
+
+// Valid session tokens (in production, use Redis or database-backed sessions)
+const validTokens = new Map<string, { playerId: string; expiresAt: number }>();
+
+/**
+ * Generate a session token for WebSocket authentication
+ */
+export function generateWsToken(playerId: string): string {
+  const token = crypto.randomBytes(32).toString("hex");
+  const expiresAt = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+  validTokens.set(token, { playerId, expiresAt });
+  return token;
+}
+
+/**
+ * Validate a WebSocket authentication token
+ */
+function validateWsToken(token: string): { valid: boolean; playerId?: string } {
+  const session = validTokens.get(token);
+  if (!session) {
+    return { valid: false };
+  }
+  if (Date.now() > session.expiresAt) {
+    validTokens.delete(token);
+    return { valid: false };
+  }
+  return { valid: true, playerId: session.playerId };
+}
+
+/**
+ * Clean up expired tokens periodically
+ */
+function cleanupExpiredTokens(): void {
+  const now = Date.now();
+  for (const [token, session] of validTokens.entries()) {
+    if (now > session.expiresAt) {
+      validTokens.delete(token);
+    }
+  }
+}
+
+// Run cleanup every hour
+setInterval(cleanupExpiredTokens, 60 * 60 * 1000);
 
 export function setupWebSocket(httpServer: HttpServer) {
   const io = new SocketIOServer(httpServer, {
@@ -11,6 +59,30 @@ export function setupWebSocket(httpServer: HttpServer) {
       methods: ["GET", "POST"],
     },
     transports: ["websocket", "polling"],
+  });
+
+  // Authentication middleware
+  io.use((socket: Socket, next) => {
+    const token = socket.handshake.auth?.token || socket.handshake.query?.token;
+
+    // In development mode, allow unauthenticated connections if explicitly enabled
+    if (process.env.NODE_ENV === "development" && process.env.WS_AUTH_DISABLED === "true") {
+      (socket as any).playerId = "default";
+      return next();
+    }
+
+    if (!token || typeof token !== "string") {
+      return next(new Error("Authentication required: missing token"));
+    }
+
+    const validation = validateWsToken(token);
+    if (!validation.valid) {
+      return next(new Error("Authentication failed: invalid or expired token"));
+    }
+
+    // Attach playerId to socket for later use
+    (socket as any).playerId = validation.playerId;
+    next();
   });
 
   // ================== SERVER -> CLIENT EVENTS ==================
@@ -46,7 +118,8 @@ export function setupWebSocket(httpServer: HttpServer) {
   // ================== CLIENT -> SERVER COMMANDS ==================
 
   io.on("connection", async (socket) => {
-    console.log(`[WebSocket] Client connected: ${socket.id}`);
+    const playerId = (socket as any).playerId || "default";
+    console.log(`[WebSocket] Client connected: ${socket.id} (player: ${playerId})`);
 
     // Send initial state
     await sendInitialState(socket);
