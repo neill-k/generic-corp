@@ -85,37 +85,53 @@ export const systemCronJobs: CronJobDefinition[] = [
     handler: async (_job: Job) => {
       const agents = await db.agent.findMany({
         where: { deletedAt: null },
+        select: { id: true, name: true },
       });
 
-      for (const agent of agents) {
-        // Calculate task statistics
-        const [completed, failed, total] = await Promise.all([
-          db.task.count({
-            where: { agentId: agent.id, status: "completed" },
-          }),
-          db.task.count({
-            where: { agentId: agent.id, status: "failed" },
-          }),
-          db.task.count({
-            where: { agentId: agent.id },
-          }),
-        ]);
+      if (agents.length === 0) {
+        console.log("[System] No agents to update stats for");
+        return;
+      }
 
+      const agentIds = agents.map((a) => a.id);
+
+      // Single query to get task counts grouped by agent and status
+      // Fixes N+1 query issue (was doing 3 queries per agent)
+      const taskStats = await db.task.groupBy({
+        by: ["agentId", "status"],
+        where: {
+          agentId: { in: agentIds },
+          deletedAt: null,
+        },
+        _count: { id: true },
+      });
+
+      // Build a lookup map: agentId -> { status -> count }
+      const statsByAgent = new Map<string, Map<string, number>>();
+      for (const stat of taskStats) {
+        if (!statsByAgent.has(stat.agentId)) {
+          statsByAgent.set(stat.agentId, new Map());
+        }
+        statsByAgent.get(stat.agentId)!.set(stat.status, stat._count.id);
+      }
+
+      // Log stats for each agent
+      for (const agent of agents) {
+        const stats = statsByAgent.get(agent.id) || new Map();
+        const completed = stats.get("completed") || 0;
+        const failed = stats.get("failed") || 0;
+        const pending = stats.get("pending") || 0;
+        const inProgress = stats.get("in_progress") || 0;
+        const blocked = stats.get("blocked") || 0;
+        const cancelled = stats.get("cancelled") || 0;
+
+        const total = completed + failed + pending + inProgress + blocked + cancelled;
         const successRate = total > 0 ? Math.round((completed / total) * 100) : 0;
 
-        // Calculate token usage from sessions
-        const sessions = await db.agentSession.aggregate({
-          where: { agentId: agent.id },
-          _sum: {
-            inputTokens: true,
-            outputTokens: true,
-          },
-        });
-
-        const tokensUsed =
-          (sessions._sum.inputTokens || 0) + (sessions._sum.outputTokens || 0);
-
-        console.log(`[System] Updated stats for ${agent.name}: ${completed}/${total} tasks (${failed} failed), ${successRate}% success, ${tokensUsed} tokens`);
+        console.log(
+          `[System] Stats for ${agent.name}: ${completed}/${total} tasks ` +
+            `(${failed} failed, ${pending} pending), ${successRate}% success`
+        );
       }
     },
   },

@@ -41,13 +41,67 @@ export const workerCronJobs: CronJobDefinition[] = [
         return;
       }
 
-      // Assign tasks to agents
-      for (let i = 0; i < Math.min(pendingTasks.length, idleAgents.length); i++) {
-        const task = pendingTasks[i];
-        const agent = idleAgents[i];
+      // Assign tasks to agents using atomic operations
+      for (const task of pendingTasks) {
+        // Find the assigned agent
+        const agent = idleAgents.find((a) => a.id === task.agentId);
+        if (!agent) {
+          continue;
+        }
 
-        // Only process tasks assigned to this agent
-        if (task.agentId !== agent.id) {
+        // Atomic claim: only update if task is still pending and agent is still idle
+        // This prevents double-assignment race conditions
+        const claimResult = await db.$transaction(async (tx) => {
+          // Atomically claim the task
+          const updatedTask = await tx.task.updateMany({
+            where: {
+              id: task.id,
+              status: "pending",
+              deletedAt: null,
+            },
+            data: {
+              status: "in_progress",
+              startedAt: new Date(),
+              previousStatus: "pending",
+            },
+          });
+
+          if (updatedTask.count === 0) {
+            // Task was already claimed by another worker
+            return { claimed: false };
+          }
+
+          // Atomically update agent status
+          const updatedAgent = await tx.agent.updateMany({
+            where: {
+              id: agent.id,
+              status: "idle",
+              deletedAt: null,
+            },
+            data: {
+              status: "working",
+              currentTaskId: task.id,
+            },
+          });
+
+          if (updatedAgent.count === 0) {
+            // Agent is no longer idle, rollback task status
+            await tx.task.update({
+              where: { id: task.id },
+              data: {
+                status: "pending",
+                startedAt: null,
+                previousStatus: null,
+              },
+            });
+            return { claimed: false };
+          }
+
+          return { claimed: true };
+        });
+
+        if (!claimResult.claimed) {
+          console.log(`[Workers] Task "${task.title}" already claimed or agent ${agent.name} busy`);
           continue;
         }
 
@@ -69,6 +123,18 @@ export const workerCronJobs: CronJobDefinition[] = [
           });
         } catch (error) {
           console.error(`[Workers] Error starting task ${task.id}:`, error);
+
+          // Rollback on failure
+          await db.$transaction([
+            db.task.update({
+              where: { id: task.id },
+              data: { status: "pending", startedAt: null },
+            }),
+            db.agent.update({
+              where: { id: agent.id },
+              data: { status: "idle", currentTaskId: null },
+            }),
+          ]);
         }
       }
     },
@@ -85,33 +151,61 @@ export const workerCronJobs: CronJobDefinition[] = [
         where: {
           status: "in_progress",
           startedAt: { lt: thirtyMinutesAgo },
+          deletedAt: null,
         },
-        include: { agent: true },
+        include: { assignedTo: true },
       });
 
+      let resetCount = 0;
       for (const task of stuckTasks) {
-        console.log(`[Workers] Task "${task.title}" appears stuck`);
-
-        // Mark as blocked
-        await db.task.update({
-          where: { id: task.id },
+        // Use atomic update to prevent race conditions with concurrent task processing
+        // Only reset if the task is still in_progress (hasn't been completed meanwhile)
+        const resetResult = await db.task.updateMany({
+          where: {
+            id: task.id,
+            status: "in_progress", // Only reset if still in_progress
+            deletedAt: null,
+          },
           data: {
             status: "blocked",
-            errorDetails: { reason: "Task exceeded 30 minute timeout" },
+            previousStatus: "in_progress",
+            errorDetails: {
+              reason: "Task exceeded 30 minute timeout",
+              stuckSince: task.startedAt?.toISOString(),
+              detectedAt: new Date().toISOString(),
+            },
           },
         });
 
-        // Reset agent to idle
+        if (resetResult.count === 0) {
+          // Task was already handled (completed, failed, etc.)
+          console.log(`[Workers] Task "${task.title}" already handled, skipping`);
+          continue;
+        }
+
+        console.log(`[Workers] Task "${task.title}" stuck, marking as blocked`);
+        resetCount++;
+
+        // Reset agent to idle using atomic update
         if (task.agentId) {
-          await db.agent.update({
-            where: { id: task.agentId },
-            data: { status: "idle" },
+          const agentReset = await db.agent.updateMany({
+            where: {
+              id: task.agentId,
+              status: "working",
+              currentTaskId: task.id, // Only reset if still working on this task
+            },
+            data: {
+              status: "idle",
+              currentTaskId: null,
+            },
           });
 
-          EventBus.emit("agent:status", {
-            agentId: task.agentId,
-            status: "idle",
-          });
+          if (agentReset.count > 0) {
+            EventBus.emit("agent:status", {
+              agentId: task.agentId,
+              status: "idle",
+            });
+          }
         }
 
         EventBus.emit("task:failed", {
@@ -121,8 +215,8 @@ export const workerCronJobs: CronJobDefinition[] = [
         });
       }
 
-      if (stuckTasks.length > 0) {
-        console.log(`[Workers] Reset ${stuckTasks.length} stuck tasks`);
+      if (resetCount > 0) {
+        console.log(`[Workers] Reset ${resetCount} stuck tasks`);
       }
     },
   },
