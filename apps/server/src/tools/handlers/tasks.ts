@@ -40,7 +40,7 @@ export async function taskCreate(
       title: params.title,
       description: fullDescription,
       agentId: params.assigneeId,
-      createdBy: context.agentId,
+      createdById: context.agentId, // Fixed: use correct field name from schema
       status: "pending",
       priority: params.priority || "normal",
       progressPercent: 0,

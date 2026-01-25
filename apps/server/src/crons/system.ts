@@ -31,22 +31,27 @@ export const systemCronJobs: CronJobDefinition[] = [
   {
     name: "system:cleanup-completed-tasks",
     pattern: "0 3 * * *", // 3:00 AM daily
-    description: "Clean up old completed/failed tasks",
+    description: "Soft delete old completed/failed tasks",
     handler: async (_job: Job) => {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-      // Archive old completed/failed tasks
-      const deleted = await db.task.deleteMany({
+      // Soft delete old completed/failed tasks to prevent FK violations
+      // and retain data for audit purposes
+      const softDeleted = await db.task.updateMany({
         where: {
           status: { in: ["completed", "failed", "cancelled"] },
           completedAt: { lt: thirtyDaysAgo },
+          deletedAt: null, // Only soft delete tasks not already deleted
+        },
+        data: {
+          deletedAt: new Date(),
         },
       });
 
-      console.log(`[System] Cleaned up ${deleted.count} old tasks`);
+      console.log(`[System] Soft deleted ${softDeleted.count} old tasks`);
 
-      // Also clean up old activity logs
+      // Hard delete activity logs older than 60 days (no FK dependencies)
       const sixtyDaysAgo = new Date();
       sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
 
@@ -57,6 +62,20 @@ export const systemCronJobs: CronJobDefinition[] = [
       });
 
       console.log(`[System] Cleaned up ${deletedLogs.count} old activity logs`);
+
+      // Clean up orphaned agent sessions (sessions for soft-deleted agents)
+      const orphanedSessions = await db.agentSession.deleteMany({
+        where: {
+          agent: {
+            deletedAt: { not: null },
+          },
+          endedAt: { not: null }, // Only delete ended sessions
+        },
+      });
+
+      if (orphanedSessions.count > 0) {
+        console.log(`[System] Cleaned up ${orphanedSessions.count} orphaned agent sessions`);
+      }
     },
   },
   {

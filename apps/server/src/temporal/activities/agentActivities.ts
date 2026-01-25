@@ -81,21 +81,53 @@ export async function executeAgentTask(params: {
   return result;
 }
 
+// Valid task status transitions to prevent invalid state changes
+const VALID_STATUS_TRANSITIONS: Record<string, string[]> = {
+  pending: ["in_progress", "cancelled"],
+  in_progress: ["completed", "failed", "blocked", "cancelled"],
+  blocked: ["in_progress", "cancelled"],
+  completed: [], // Terminal state
+  failed: ["pending"], // Can retry
+  cancelled: [], // Terminal state
+};
+
 /**
  * Activity: Update task status in database
+ * Uses atomic updateMany with current status check to prevent race conditions
  */
 export async function updateTaskStatus(params: {
   taskId: string;
   status: string;
+  expectedCurrentStatus?: string;
   progressPercent?: number;
   progressDetails?: Record<string, unknown>;
   errorDetails?: Record<string, unknown>;
   completedAt?: Date;
-}): Promise<void> {
-  await db.task.update({
-    where: { id: params.taskId },
+}): Promise<{ success: boolean; message?: string }> {
+  // Build the where clause - always include taskId and optionally check current status
+  const whereClause: { id: string; status?: { in: string[] }; deletedAt: null } = {
+    id: params.taskId,
+    deletedAt: null,
+  };
+
+  // If expectedCurrentStatus is provided, validate the transition
+  if (params.expectedCurrentStatus) {
+    const validNextStatuses = VALID_STATUS_TRANSITIONS[params.expectedCurrentStatus] || [];
+    if (!validNextStatuses.includes(params.status)) {
+      return {
+        success: false,
+        message: `Invalid status transition: ${params.expectedCurrentStatus} -> ${params.status}`,
+      };
+    }
+    whereClause.status = { in: [params.expectedCurrentStatus] };
+  }
+
+  // Atomic update - only updates if the current status matches expected
+  const result = await db.task.updateMany({
+    where: whereClause,
     data: {
       status: params.status,
+      previousStatus: params.expectedCurrentStatus,
       progressPercent: params.progressPercent,
       progressDetails: params.progressDetails ?? undefined,
       errorDetails: params.errorDetails ?? undefined,
@@ -103,25 +135,81 @@ export async function updateTaskStatus(params: {
       startedAt: params.status === "in_progress" ? new Date() : undefined,
     },
   });
+
+  if (result.count === 0) {
+    return {
+      success: false,
+      message: params.expectedCurrentStatus
+        ? `Task ${params.taskId} status was not ${params.expectedCurrentStatus} (may have been updated concurrently)`
+        : `Task ${params.taskId} not found or already deleted`,
+    };
+  }
+
+  return { success: true };
 }
 
 /**
  * Activity: Update agent status
+ * Uses optimistic locking with version field to detect concurrent modifications
  */
 export async function updateAgentStatus(params: {
   agentId: string;
   status: "idle" | "working" | "blocked" | "offline";
-}): Promise<void> {
-  await db.agent.update({
-    where: { id: params.agentId },
-    data: { status: params.status },
-  });
+  expectedVersion?: number;
+}): Promise<{ success: boolean; newVersion?: number; message?: string }> {
+  try {
+    // If version provided, use optimistic locking
+    if (params.expectedVersion !== undefined) {
+      const result = await db.agent.updateMany({
+        where: {
+          id: params.agentId,
+          version: params.expectedVersion,
+          deletedAt: null,
+        },
+        data: {
+          status: params.status,
+          version: { increment: 1 },
+        },
+      });
 
-  // Emit status change event
-  EventBus.emit("agent:status", {
-    agentId: params.agentId,
-    status: params.status,
-  });
+      if (result.count === 0) {
+        return {
+          success: false,
+          message: `Agent ${params.agentId} version mismatch (expected ${params.expectedVersion}) - concurrent modification detected`,
+        };
+      }
+
+      // Emit status change event
+      EventBus.emit("agent:status", {
+        agentId: params.agentId,
+        status: params.status,
+      });
+
+      return { success: true, newVersion: params.expectedVersion + 1 };
+    }
+
+    // Without version check, just update directly
+    const agent = await db.agent.update({
+      where: { id: params.agentId },
+      data: {
+        status: params.status,
+        version: { increment: 1 },
+      },
+    });
+
+    // Emit status change event
+    EventBus.emit("agent:status", {
+      agentId: params.agentId,
+      status: params.status,
+    });
+
+    return { success: true, newVersion: agent.version };
+  } catch (error) {
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Failed to update agent status",
+    };
+  }
 }
 
 /**
@@ -213,32 +301,52 @@ export async function logActivity(params: {
 
 /**
  * Activity: Update game budget
+ * Uses atomic transaction with Serializable isolation to prevent TOCTOU race conditions
  */
 export async function updateBudget(params: {
   playerId: string;
   costUsd: number;
 }): Promise<{ success: boolean; newBalance: number }> {
-  const gameState = await db.gameState.findFirst({
-    where: { playerId: params.playerId },
-  });
+  try {
+    const result = await db.$transaction(
+      async (tx) => {
+        // Lock and read the current state
+        const gameState = await tx.gameState.findFirst({
+          where: { playerId: params.playerId },
+        });
 
-  if (!gameState) {
+        if (!gameState) {
+          return { success: false, newBalance: 0 };
+        }
+
+        const currentBalance = Number(gameState.budgetRemainingUsd);
+        const newBalance = currentBalance - params.costUsd;
+
+        if (newBalance < 0) {
+          return { success: false, newBalance: currentBalance };
+        }
+
+        // Atomic update within the transaction
+        await tx.gameState.update({
+          where: { id: gameState.id },
+          data: { budgetRemainingUsd: newBalance },
+        });
+
+        return { success: true, newBalance };
+      },
+      {
+        // Use Serializable isolation to prevent concurrent read-modify-write races
+        isolationLevel: "Serializable",
+        timeout: 5000, // 5 second timeout
+      }
+    );
+
+    return result;
+  } catch (error) {
+    // Handle transaction conflicts (retry logic could be added here)
+    console.error("[Budget] Transaction failed:", error);
     return { success: false, newBalance: 0 };
   }
-
-  const currentBalance = Number(gameState.budgetRemainingUsd);
-  const newBalance = currentBalance - params.costUsd;
-
-  if (newBalance < 0) {
-    return { success: false, newBalance: currentBalance };
-  }
-
-  await db.gameState.update({
-    where: { id: gameState.id },
-    data: { budgetRemainingUsd: newBalance },
-  });
-
-  return { success: true, newBalance };
 }
 
 /**
