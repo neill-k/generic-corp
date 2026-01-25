@@ -304,6 +304,8 @@ export async function logActivity(params: {
 /**
  * Activity: Update game budget
  * Uses atomic transaction with Serializable isolation to prevent TOCTOU race conditions
+ *
+ * FIXED: Now emits EventBus event for UI Integration (was a "silent action" anti-pattern)
  */
 export async function updateBudget(params: {
   playerId: string;
@@ -342,6 +344,16 @@ export async function updateBudget(params: {
         timeout: 5000, // 5 second timeout
       }
     );
+
+    // FIXED: Emit EventBus event for immediate UI update
+    // This was a "silent action" - budget changed but UI wasn't notified
+    if (result.success) {
+      EventBus.emit("budget:updated", {
+        playerId: params.playerId,
+        newBalance: result.newBalance,
+        costUsd: params.costUsd,
+      });
+    }
 
     return result;
   } catch (error) {

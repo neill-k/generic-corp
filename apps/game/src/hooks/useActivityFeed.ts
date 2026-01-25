@@ -13,6 +13,7 @@ interface UseActivityFeedReturn {
   isAtBottom: boolean;
   scrollToBottom: () => void;
   clearEvents: () => void;
+  addEvent: (event: Omit<ActivityEvent, "id" | "timestamp">) => void;
 }
 
 /**
@@ -68,6 +69,7 @@ export function useActivityFeed(options: UseActivityFeedOptions = {}): UseActivi
     isAtBottom: isAtBottomRef.current,
     scrollToBottom,
     clearEvents,
+    addEvent,
   };
 }
 

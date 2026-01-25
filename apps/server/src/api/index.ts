@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import { Prisma } from "@prisma/client";
 import { db } from "../db/index.js";
 import { EventBus } from "../services/event-bus.js";
 import { setupProviderRoutes } from "./providers/index.js";
@@ -266,6 +267,209 @@ export function setupRoutes(app: Express) {
   // ================== PROVIDER ACCOUNTS ==================
 
   app.use("/api/providers", setupProviderRoutes());
+
+  // ================== HELP & CAPABILITY DISCOVERY ==================
+  // These endpoints improve Capability Discovery for users
+
+  app.get("/api/help", async (req, res) => {
+    try {
+      const { topic } = req.query;
+
+      const topics: Record<string, { content: string; relatedTopics: string[] }> = {
+        overview: {
+          content: `# Generic Corp Help
+
+Welcome! This is an AI-powered agent management system.
+
+## Quick Start
+- **Assign tasks**: POST /api/tasks to create tasks for agents
+- **View agents**: GET /api/agents to see all available agents
+- **Monitor activity**: GET /api/activity to see recent events
+
+## Available Endpoints
+- GET /api/agents - List all agents
+- GET /api/tasks - List all tasks
+- POST /api/tasks - Create a new task
+- GET /api/messages - List messages
+- GET /api/activity - View activity log
+- GET /api/game-state - Get budget info
+- GET /api/help - Get help (you are here!)
+- GET /api/tools - List available agent tools`,
+          relatedTopics: ["tasks", "agents", "tools"],
+        },
+        tasks: {
+          content: `# Task Management
+
+## Create a Task
+POST /api/tasks with body:
+{
+  "agentId": "Agent Name",
+  "title": "Task title",
+  "description": "Task description",
+  "priority": "normal" // low, normal, high, urgent
+}
+
+## Task Status Flow
+pending → in_progress → completed/failed
+pending/in_progress/blocked → cancelled`,
+          relatedTopics: ["agents", "overview"],
+        },
+        agents: {
+          content: `# Agent Management
+
+## View Agents
+GET /api/agents - List all agents with status
+
+## Agent Status
+- idle: Available for work
+- working: Currently executing a task
+- blocked: Waiting on dependencies
+- offline: Not available`,
+          relatedTopics: ["tasks", "overview"],
+        },
+        tools: {
+          content: `# Available Tools
+
+Agents have access to various tools depending on their role.
+
+## Task Tools
+task_create, task_get, task_list, task_update, task_cancel, task_retry
+
+## Message Tools
+message_send, message_check_inbox, message_mark_read, message_reply
+
+## File & Git Tools (Engineers)
+filesystem_read, filesystem_write, git_status, git_commit
+
+## Help Tools
+help, capabilities_list`,
+          relatedTopics: ["agents", "overview"],
+        },
+      };
+
+      const topicKey = (typeof topic === "string" ? topic.toLowerCase() : "overview") as string;
+      const topicData = topics[topicKey] || topics.overview;
+
+      res.json({
+        topic: topics[topicKey] ? topicKey : "overview",
+        content: topicData.content,
+        relatedTopics: topicData.relatedTopics,
+        availableTopics: Object.keys(topics),
+      });
+    } catch (error) {
+      console.error("[API] Error fetching help:", error);
+      res.status(500).json({ error: "Failed to fetch help" });
+    }
+  });
+
+  app.get("/api/tools", async (_req, res) => {
+    try {
+      const { toolDefinitions } = await import("../tools/definitions/index.js");
+
+      const tools = toolDefinitions.map((tool) => ({
+        name: tool.name,
+        description: tool.description,
+        parameters: tool.input_schema.properties,
+        required: tool.input_schema.required,
+      }));
+
+      res.json({
+        count: tools.length,
+        tools,
+      });
+    } catch (error) {
+      console.error("[API] Error fetching tools:", error);
+      res.status(500).json({ error: "Failed to fetch tools" });
+    }
+  });
+
+  // ================== TASK CANCEL & RETRY ==================
+  // These endpoints provide Action Parity with agent tools
+
+  app.post("/api/tasks/:id/cancel", async (req, res) => {
+    try {
+      const { reason } = req.body;
+
+      const task = await db.task.findUnique({
+        where: { id: req.params.id },
+      });
+
+      if (!task) {
+        return res.status(404).json({ error: "Task not found" });
+      }
+
+      if (!["pending", "in_progress", "blocked"].includes(task.status)) {
+        return res.status(409).json({
+          error: `Cannot cancel task in status ${task.status}`,
+        });
+      }
+
+      await db.task.update({
+        where: { id: req.params.id },
+        data: {
+          status: "cancelled",
+          previousStatus: task.status,
+          errorDetails: reason ? { cancelReason: reason } : undefined,
+        },
+      });
+
+      EventBus.emit("task:cancelled", {
+        taskId: req.params.id,
+        agentId: task.agentId,
+        reason,
+      });
+
+      res.json({ success: true, message: `Task ${req.params.id} cancelled` });
+    } catch (error) {
+      console.error("[API] Error cancelling task:", error);
+      res.status(500).json({ error: "Failed to cancel task" });
+    }
+  });
+
+  app.post("/api/tasks/:id/retry", async (req, res) => {
+    try {
+      const task = await db.task.findUnique({
+        where: { id: req.params.id },
+      });
+
+      if (!task) {
+        return res.status(404).json({ error: "Task not found" });
+      }
+
+      if (task.status !== "failed") {
+        return res.status(409).json({
+          error: `Can only retry failed tasks. Current status: ${task.status}`,
+        });
+      }
+
+      if (task.retryCount >= task.maxRetries) {
+        return res.status(409).json({
+          error: `Task has exceeded maximum retries (${task.maxRetries})`,
+        });
+      }
+
+      await db.task.update({
+        where: { id: req.params.id },
+        data: {
+          status: "pending",
+          previousStatus: task.status,
+          retryCount: { increment: 1 },
+          errorDetails: Prisma.JsonNull,
+          progressPercent: 0,
+        },
+      });
+
+      EventBus.emit("task:queued", {
+        agentId: task.agentId,
+        task: { id: task.id },
+      });
+
+      res.json({ success: true, message: `Task ${req.params.id} queued for retry` });
+    } catch (error) {
+      console.error("[API] Error retrying task:", error);
+      res.status(500).json({ error: "Failed to retry task" });
+    }
+  });
 
   console.log("[API] Routes configured");
 }

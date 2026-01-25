@@ -127,6 +127,24 @@ export function useSocket() {
       addActivity(data);
     });
 
+    // Budget updates (UI Integration fix - was a silent action)
+    socket.on(WS_EVENTS.BUDGET_UPDATED, (data) => {
+      console.log("[Socket] Budget updated:", data);
+      setBudget({
+        remaining: typeof data.newBalance === "number" ? data.newBalance : parseFloat(data.newBalance),
+        limit: useGameStore.getState().budget.limit, // Keep existing limit
+      });
+    });
+
+    // Session completion (UI Integration fix - was a silent action)
+    socket.on(WS_EVENTS.SESSION_COMPLETED, (data) => {
+      console.log("[Socket] Session completed:", data);
+      // Update the agent's session info in the store
+      updateAgent(data.agentId, {
+        status: "idle", // Agent is now idle after completing session
+      });
+    });
+
     // Heartbeat
     socket.on(WS_EVENTS.HEARTBEAT, () => {
       // Just keep-alive, no action needed

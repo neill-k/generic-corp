@@ -1,8 +1,8 @@
-import Anthropic from "@anthropic-ai/sdk";
 import {
   toolDefinitions,
   getToolsForRole,
   hasToolAccess,
+  type ToolDefinition,
 } from "./definitions/index.js";
 import * as filesystemHandlers from "./handlers/filesystem.js";
 import * as gitHandlers from "./handlers/git.js";
@@ -87,14 +87,14 @@ const toolHandlers: Record<string, ToolHandler> = {
 /**
  * Get all tool definitions
  */
-export function getMcpTools(): Anthropic.Tool[] {
+export function getMcpTools(): ToolDefinition[] {
   return toolDefinitions;
 }
 
 /**
  * Get tools available to a specific role
  */
-export function getMcpToolsForRole(role: string): Anthropic.Tool[] {
+export function getMcpToolsForRole(role: string): ToolDefinition[] {
   return getToolsForRole(role);
 }
 

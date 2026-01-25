@@ -23,10 +23,10 @@ export const ceoCronJobs: CronJobDefinition[] = [
           db.agent.findMany({ where: { status: { not: "offline" } } }),
           db.activityLog.findMany({
             where: {
-              createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+              timestamp: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
             },
             take: 50,
-            orderBy: { createdAt: "desc" },
+            orderBy: { timestamp: "desc" },
           }),
         ]);
 
@@ -60,6 +60,7 @@ Instructions:
           priority: "high",
           status: "pending",
           agentId: ceo.id,
+          createdById: ceo.id,
         },
       });
 
@@ -96,20 +97,19 @@ Instructions:
       const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
       // Get last week's metrics
-      const [completedTasks, failedTasks, agents] = await Promise.all([
+      const [completedTasks, failedTasks, agents, tasksByAgent] = await Promise.all([
         db.task.count({
           where: { status: "completed", completedAt: { gte: oneWeekAgo } },
         }),
         db.task.count({
-          where: { status: "failed", updatedAt: { gte: oneWeekAgo } },
+          where: { status: "failed", completedAt: { gte: oneWeekAgo } },
         }),
         db.agent.findMany({
           where: { deletedAt: null },
-          include: {
-            tasks: {
-              where: { createdAt: { gte: oneWeekAgo } },
-            },
-          },
+        }),
+        db.task.findMany({
+          where: { createdAt: { gte: oneWeekAgo } },
+          select: { agentId: true, status: true },
         }),
       ]);
 
@@ -131,8 +131,9 @@ Instructions:
       // Build agent performance summary
       const agentSummary = agents
         .map((a) => {
-          const completed = a.tasks.filter((t) => t.status === "completed").length;
-          const total = a.tasks.length;
+          const agentTasks = tasksByAgent.filter((t) => t.agentId === a.id);
+          const completed = agentTasks.filter((t) => t.status === "completed").length;
+          const total = agentTasks.length;
           return `- ${a.name}: ${completed}/${total} tasks completed`;
         })
         .join("\n");
@@ -160,6 +161,7 @@ Instructions:
           priority: "high",
           status: "pending",
           agentId: ceo.id,
+          createdById: ceo.id,
         },
       });
 
@@ -197,8 +199,8 @@ Instructions:
       const [todaysActivity, blockedAgents, pendingDrafts, completedToday] =
         await Promise.all([
           db.activityLog.findMany({
-            where: { createdAt: { gte: today } },
-            orderBy: { createdAt: "asc" },
+            where: { timestamp: { gte: today } },
+            orderBy: { timestamp: "asc" },
           }),
           db.agent.findMany({
             where: { status: "blocked" },
@@ -246,6 +248,7 @@ Instructions:
           priority: "normal",
           status: "pending",
           agentId: ceo.id,
+          createdById: ceo.id,
         },
       });
 
@@ -293,15 +296,13 @@ Instructions:
           },
           _count: true,
         }),
-        db.agentSession.aggregate({
+        db.agentSession.findMany({
           where: {
             startedAt: { gte: lastMonth, lt: monthStart },
           },
-          _sum: {
-            inputTokens: true,
-            outputTokens: true,
+          select: {
+            tokensUsed: true,
           },
-          _count: true,
         }),
       ]);
 
@@ -318,9 +319,11 @@ Instructions:
         .map((t) => `- ${t.status}: ${t._count}`)
         .join("\n") || "No tasks last month";
 
-      const totalTokens =
-        (monthlySessions._sum.inputTokens || 0) +
-        (monthlySessions._sum.outputTokens || 0);
+      // Calculate total tokens from sessions (tokensUsed is JSON with input/output)
+      const totalTokens = monthlySessions.reduce((sum, session) => {
+        const tokens = session.tokensUsed as { input?: number; output?: number } | null;
+        return sum + (tokens?.input || 0) + (tokens?.output || 0);
+      }, 0);
 
       const task = await db.task.create({
         data: {
@@ -331,7 +334,7 @@ Last Month's Task Breakdown:
 ${taskBreakdown}
 
 Resource Usage:
-- Total Sessions: ${monthlySessions._count || 0}
+- Total Sessions: ${monthlySessions.length}
 - Total Tokens: ${totalTokens.toLocaleString()}
 
 Instructions:
@@ -343,6 +346,7 @@ Instructions:
           priority: "high",
           status: "pending",
           agentId: ceo.id,
+          createdById: ceo.id,
         },
       });
 

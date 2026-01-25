@@ -88,7 +88,8 @@ export abstract class BaseAgent {
       }
 
       // Build the prompt with personality, task, and available tools
-      const prompt = this.buildPrompt(context);
+      // This now includes dynamic context injection (dependencies, budget, team status)
+      const prompt = await this.buildPrompt(context);
 
       // Log task start
       EventBus.emit("activity:log", {
@@ -226,7 +227,7 @@ export abstract class BaseAgent {
   }
 
 
-  protected buildPrompt(context: TaskContext): string {
+  protected async buildPrompt(context: TaskContext): Promise<string> {
     // Sanitize input
     const sanitizedDescription = sanitizePromptInput(context.description);
 
@@ -236,6 +237,196 @@ export abstract class BaseAgent {
       : [];
     const toolDescriptions =
       availableTools.length > 0 ? getToolDescriptions(availableTools) : "";
+
+    // CONTEXT INJECTION: Automatic context refresh at session start
+    // This provides fresh system state without requiring explicit refresh_context call
+    // Addresses agent-native audit requirement for automatic context injection
+    const contextSections: string[] = [];
+
+    // Session start marker with timestamp for context freshness
+    contextSections.push(`## Session Context (Auto-Refreshed)
+**Session Start:** ${new Date().toISOString()}
+**Task ID:** ${context.taskId}
+This context was automatically injected at session start. Use \`refresh_context\` tool if you need updated data mid-session.`);
+
+    // 1. Inject task dependencies
+    const dependencies = await db.taskDependency.findMany({
+      where: { taskId: context.taskId },
+      include: {
+        dependsOn: {
+          select: { id: true, title: true, status: true },
+        },
+      },
+    });
+
+    if (dependencies.length > 0) {
+      const blockingDeps = dependencies.filter(d => d.dependsOn.status !== "completed");
+      contextSections.push(`## Task Dependencies
+${dependencies.map(d => `- ${d.dependsOn.title} (${d.dependsOn.status})${d.dependsOn.status !== "completed" ? " ⚠️ BLOCKING" : " ✓"}`).join("\n")}
+${blockingDeps.length > 0 ? `\n**Warning:** ${blockingDeps.length} blocking dependencies not yet completed.` : ""}`);
+    }
+
+    // 2. Inject budget information
+    const gameState = await db.gameState.findFirst({
+      where: { playerId: "default" },
+    });
+
+    if (gameState) {
+      const remaining = Number(gameState.budgetRemainingUsd);
+      const limit = Number(gameState.budgetLimitUsd);
+      const percentUsed = limit > 0 ? ((limit - remaining) / limit) * 100 : 0;
+      contextSections.push(`## Budget Context
+- Remaining: $${remaining.toFixed(2)} / $${limit.toFixed(2)}
+- Used: ${percentUsed.toFixed(1)}%
+${percentUsed > 80 ? "⚠️ Budget is running low. Be efficient with token usage." : ""}`);
+    }
+
+    // 3. Inject acceptance criteria if present in task
+    // Note: Acceptance criteria is extracted directly from sanitizedDescription
+    // since task.description is the same as what we already have
+
+    // Extract acceptance criteria from description if present
+    const acceptanceCriteriaMatch = sanitizedDescription.match(/## Acceptance Criteria\n([\s\S]*?)(?=\n##|$)/);
+    if (acceptanceCriteriaMatch) {
+      contextSections.push(`## Success Criteria
+Review these acceptance criteria and ensure your work meets them:
+${acceptanceCriteriaMatch[1].trim()}`);
+    }
+
+    // 4. Inject team context (other agents' status)
+    const otherAgents = await db.agent.findMany({
+      where: {
+        id: { not: context.agentId },
+        deletedAt: null,
+      },
+      select: {
+        name: true,
+        role: true,
+        status: true,
+        currentTaskId: true,
+      },
+      take: 5,
+    });
+
+    if (otherAgents.length > 0) {
+      const workingAgents = otherAgents.filter(a => a.status === "working");
+      if (workingAgents.length > 0) {
+        contextSections.push(`## Team Status
+${workingAgents.map(a => `- ${a.name} (${a.role}): ${a.status}`).join("\n")}
+Coordinate with team members if your task requires collaboration.`);
+      }
+    }
+
+    // 5. Inject recent activity for this task
+    const recentActivity = await db.activityLog.findMany({
+      where: { taskId: context.taskId },
+      orderBy: { timestamp: "desc" },
+      take: 3,
+    });
+
+    if (recentActivity.length > 0) {
+      contextSections.push(`## Recent Activity
+${recentActivity.map(a => `- ${a.action}: ${JSON.stringify(a.details)}`).join("\n")}`);
+    }
+
+    // 6. Inject relevant prompt template for task execution guidance
+    // This loads from prompt templates (prompt-native approach)
+    const { promptTemplates } = require("../tools/definitions/index.js");
+    const executionTemplate = promptTemplates.task_execution;
+    if (executionTemplate) {
+      contextSections.push(`## Task Execution Guidelines
+${executionTemplate.template}
+
+Use the help tool if you need guidance on available capabilities.`);
+    }
+
+    // 7. Inject tool access summary for this agent (prompt-native)
+    if (this.agent) {
+      const { toolPermissions } = require("../tools/definitions/index.js");
+      const role = this.agent.role?.toLowerCase().replace(/\s+/g, "_") || "default";
+      const allowedToolNames: string[] = toolPermissions[role] || toolPermissions.default || [];
+
+      // Group tools by category
+      const taskTools = allowedToolNames.filter((t: string) => t.startsWith("task_"));
+      const messageTools = allowedToolNames.filter((t: string) => t.startsWith("message_") || t.startsWith("draft_"));
+      const configTools = allowedToolNames.filter((t: string) => t.startsWith("config_") || t.startsWith("prompt_"));
+      const storageTools = allowedToolNames.filter((t: string) => t.startsWith("store_") || t.startsWith("context_"));
+
+      contextSections.push(`## Your Capabilities Summary
+You have access to ${allowedToolNames.length} tools:
+- Task Management: ${taskTools.length} tools (${taskTools.slice(0, 3).join(", ")}${taskTools.length > 3 ? "..." : ""})
+- Messaging: ${messageTools.length} tools
+- Storage: ${storageTools.length} tools
+- Configuration: ${configTools.length} tools (can query configs, templates)
+
+Use 'capabilities_list' for full details or 'suggest_tool' for recommendations.`);
+    }
+
+    // 8. Inject session history for continuity
+    const recentSessions = await db.agentSession.findMany({
+      where: { agentId: context.agentId },
+      orderBy: { startedAt: "desc" },
+      take: 3,
+      select: {
+        taskId: true,
+        status: true,
+        tokensUsed: true,
+        startedAt: true,
+      },
+    });
+
+    if (recentSessions.length > 0) {
+      contextSections.push(`## Session History
+Your last ${recentSessions.length} sessions:
+${recentSessions.map(s => {
+        const tokens = s.tokensUsed as { input?: number; output?: number } | null;
+        const tokenInfo = tokens ? ` (${tokens.input || 0} in, ${tokens.output || 0} out)` : "";
+        return `- ${s.status}${tokenInfo} - ${new Date(s.startedAt).toLocaleDateString()}`;
+      }).join("\n")}
+
+This context helps maintain continuity across sessions.`);
+    }
+
+    // 9. Inject collaboration guidelines from prompt template
+    const collabTemplate = promptTemplates.collaboration;
+    const teamMembers = await db.agent.findMany({
+      where: { deletedAt: null, id: { not: this.agent?.id } },
+      select: { name: true, role: true },
+      take: 5,
+    });
+
+    if (teamMembers.length > 0) {
+      const collabGuidelines = collabTemplate ? collabTemplate.template : `When collaborating:
+- Use message_send for async communication
+- Be specific about requests and deadlines
+- Share learnings in context_write for future reference`;
+
+      contextSections.push(`## Team Collaboration
+Your team members: ${teamMembers.map(a => `${a.name} (${a.role})`).join(", ")}
+
+${collabGuidelines}`);
+    }
+
+    // 10. Inject prompt-native configuration awareness
+    // This tells agents that behavior is defined by queryable configs, not hardcoded
+    const { taskStatusTransitions, workflowConfigs } = require("../tools/definitions/index.js");
+    contextSections.push(`## Prompt-Native Configuration
+Your behavior is guided by queryable configurations, not hardcoded rules:
+
+**Task Status Transitions** (query: \`config_get_status_transitions\`):
+${Object.entries(taskStatusTransitions).map(([from, to]) => `- ${from} → ${(to as string[]).join(", ") || "(terminal)"}`).join("\n")}
+
+**Available Workflows** (query: \`config_get_workflow\`):
+${Object.keys(workflowConfigs).join(", ")}
+
+**Prompt Templates** (query: \`prompt_template_list\`):
+Task execution, draft review, escalation, task prioritization, collaboration
+
+Use these config tools to understand and adapt to current system rules.`);
+
+    const contextSection = contextSections.length > 0
+      ? `\n---\n\n# Context\n\n${contextSections.join("\n\n")}\n`
+      : "";
 
     return `${this.config.personalityPrompt}
 
@@ -249,7 +440,7 @@ You have been assigned the following task:
 ${sanitizedDescription}
 
 **Priority:** ${context.priority}
-
+${contextSection}
 ---
 
 ${toolDescriptions ? `## Available Tools

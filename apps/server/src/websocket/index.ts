@@ -1,6 +1,7 @@
 import { Server as SocketIOServer, Socket } from "socket.io";
 import type { Server as HttpServer } from "http";
 import crypto from "crypto";
+import { Prisma } from "@prisma/client";
 import { db } from "../db/index.js";
 import { EventBus } from "../services/event-bus.js";
 import { WS_EVENTS } from "@generic-corp/shared";
@@ -112,6 +113,21 @@ export function setupWebSocket(httpServer: HttpServer) {
 
   EventBus.on("activity:log", (data) => {
     io.emit(WS_EVENTS.ACTIVITY_LOG, data);
+  });
+
+  // FIXED: Budget updates were a "silent action" - now emit to UI
+  EventBus.on("budget:updated", (data) => {
+    io.emit(WS_EVENTS.BUDGET_UPDATED, data);
+  });
+
+  // FIXED: Session updates were a "silent action" - now emit to UI
+  EventBus.on("agent:session-completed", (data) => {
+    io.emit(WS_EVENTS.SESSION_COMPLETED, data);
+  });
+
+  // Task cancelled event
+  EventBus.on("task:cancelled", (data) => {
+    io.emit(WS_EVENTS.TASK_CANCELLED, data);
   });
 
   // ================== CLIENT -> SERVER COMMANDS ==================
@@ -277,6 +293,108 @@ export function setupWebSocket(httpServer: HttpServer) {
           budgetLimitUsd: 100,
         },
       });
+    });
+
+    // Handle task cancellation (Action Parity - user can cancel tasks)
+    socket.on(WS_EVENTS.TASK_CANCEL, async (data, callback) => {
+      try {
+        const { taskId, reason } = data;
+
+        const task = await db.task.findUnique({
+          where: { id: taskId },
+        });
+
+        if (!task) {
+          callback({ success: false, error: `Task ${taskId} not found` });
+          return;
+        }
+
+        if (!["pending", "in_progress", "blocked"].includes(task.status)) {
+          callback({ success: false, error: `Cannot cancel task in status ${task.status}` });
+          return;
+        }
+
+        await db.task.update({
+          where: { id: taskId },
+          data: {
+            status: "cancelled",
+            previousStatus: task.status,
+            errorDetails: reason ? { cancelReason: reason } : undefined,
+          },
+        });
+
+        EventBus.emit("task:cancelled", { taskId, agentId: task.agentId, reason });
+
+        callback({ success: true });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        callback({ success: false, error: message });
+      }
+    });
+
+    // Handle task retry (Action Parity - user can retry failed tasks)
+    socket.on(WS_EVENTS.TASK_RETRY, async (data, callback) => {
+      try {
+        const { taskId } = data;
+
+        const task = await db.task.findUnique({
+          where: { id: taskId },
+        });
+
+        if (!task) {
+          callback({ success: false, error: `Task ${taskId} not found` });
+          return;
+        }
+
+        if (task.status !== "failed") {
+          callback({ success: false, error: `Can only retry failed tasks. Current status: ${task.status}` });
+          return;
+        }
+
+        if (task.retryCount >= task.maxRetries) {
+          callback({ success: false, error: `Task has exceeded maximum retries (${task.maxRetries})` });
+          return;
+        }
+
+        await db.task.update({
+          where: { id: taskId },
+          data: {
+            status: "pending",
+            previousStatus: task.status,
+            retryCount: { increment: 1 },
+            errorDetails: Prisma.JsonNull,
+            progressPercent: 0,
+          },
+        });
+
+        // Re-queue the task
+        EventBus.emit("task:queued", {
+          agentId: task.agentId,
+          task: { id: task.id },
+        });
+
+        callback({ success: true });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        callback({ success: false, error: message });
+      }
+    });
+
+    // Handle message mark read (Action Parity)
+    socket.on(WS_EVENTS.MESSAGE_MARK_READ, async (data, callback) => {
+      try {
+        const { messageIds } = data;
+
+        await db.message.updateMany({
+          where: { id: { in: messageIds } },
+          data: { readAt: new Date(), status: "read" },
+        });
+
+        callback({ success: true });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        callback({ success: false, error: message });
+      }
     });
 
     socket.on("disconnect", () => {

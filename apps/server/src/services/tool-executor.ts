@@ -31,10 +31,14 @@ export async function executeTool(
     // Execute tool with validated input
     const result = await tool.execute(validatedInput, context);
 
+    // Check success status - some tools return { success: boolean }, others don't
+    const resultWithSuccess = result as { success?: boolean; error?: string };
+    const isSuccess = resultWithSuccess.success !== false;
+
     return {
-      success: result.success !== false,
+      success: isSuccess,
       result,
-      error: result.success === false ? (result as { error: string }).error : undefined,
+      error: !isSuccess ? resultWithSuccess.error : undefined,
     };
   } catch (error) {
     return {

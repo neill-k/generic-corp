@@ -195,17 +195,25 @@ export const WS_EVENTS = {
   TASK_PROGRESS: "task:progress",
   TASK_COMPLETED: "task:completed",
   TASK_FAILED: "task:failed",
+  TASK_CANCELLED: "task:cancelled",
   MESSAGE_NEW: "message:new",
   DRAFT_PENDING: "draft:pending",
   DRAFT_REJECTED: "draft:rejected",
   ACTIVITY_LOG: "activity:log",
   HEARTBEAT: "heartbeat",
+  // Budget updates (fixes silent action anti-pattern)
+  BUDGET_UPDATED: "budget:updated",
+  // Session updates (fixes silent action anti-pattern)
+  SESSION_COMPLETED: "session:completed",
 
   // Client -> Server
   TASK_ASSIGN: "task:assign",
+  TASK_CANCEL: "task:cancel",
+  TASK_RETRY: "task:retry",
   DRAFT_APPROVE: "draft:approve",
   DRAFT_REJECT: "draft:reject",
   MESSAGE_SEND: "message:send",
+  MESSAGE_MARK_READ: "message:mark_read",
   STATE_SYNC: "state:sync",
 } as const;
 

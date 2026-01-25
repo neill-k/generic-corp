@@ -90,21 +90,29 @@ export function AgentPanel({
         </div>
       )}
 
-      {/* Tools */}
-      {agent.tools && agent.tools.length > 0 && (
+      {/* Tools - derived from toolPermissions */}
+      {agent.toolPermissions && Object.keys(agent.toolPermissions).filter(k => agent.toolPermissions[k]).length > 0 && (
         <div className="mb-4">
           <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
             Available Tools
           </h3>
           <div className="flex flex-wrap gap-1">
-            {agent.tools.map((tool) => (
-              <span
-                key={tool}
-                className="px-2 py-0.5 bg-blue-900/50 rounded text-[10px] text-blue-300"
-              >
-                {tool}
+            {Object.entries(agent.toolPermissions)
+              .filter(([, hasAccess]) => hasAccess)
+              .slice(0, 6)
+              .map(([tool]) => (
+                <span
+                  key={tool}
+                  className="px-2 py-0.5 bg-blue-900/50 rounded text-[10px] text-blue-300"
+                >
+                  {tool.replace(/_/g, " ")}
+                </span>
+              ))}
+            {Object.values(agent.toolPermissions).filter(Boolean).length > 6 && (
+              <span className="px-2 py-0.5 text-[10px] text-gray-500">
+                +{Object.values(agent.toolPermissions).filter(Boolean).length - 6} more
               </span>
-            ))}
+            )}
           </div>
         </div>
       )}

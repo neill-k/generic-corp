@@ -20,6 +20,7 @@ async function createLeadTask(params: {
       priority: params.priority,
       status: "pending",
       agentId: params.agentId,
+      createdById: params.agentId,
     },
   });
 
@@ -58,32 +59,35 @@ export const leadsCronJobs: CronJobDefinition[] = [
       }
 
       // Get engineering team status
-      const [blockedTasks, inProgressTasks, engineers] = await Promise.all([
+      const engineers = await db.agent.findMany({
+        where: { role: "engineer", status: { not: "offline" } },
+      });
+
+      const engineerIds = [engLead.id, ...engineers.map(e => e.id)];
+
+      const [blockedTasks, inProgressTasks] = await Promise.all([
         db.task.findMany({
           where: {
             status: "blocked",
-            agent: { role: { in: ["engineer", "engineering_lead"] } },
+            agentId: { in: engineerIds },
           },
-          include: { agent: true },
+          include: { assignedTo: true },
         }),
         db.task.findMany({
           where: {
             status: "in_progress",
-            agent: { role: { in: ["engineer", "engineering_lead"] } },
+            agentId: { in: engineerIds },
           },
-          include: { agent: true },
-        }),
-        db.agent.findMany({
-          where: { role: "engineer", status: { not: "offline" } },
+          include: { assignedTo: true },
         }),
       ]);
 
       const blockedList = blockedTasks
-        .map((t) => `- ${t.title} (assigned to ${t.agent?.name || "unknown"})`)
+        .map((t) => `- ${t.title} (assigned to ${t.assignedTo?.name || "unknown"})`)
         .join("\n") || "None";
 
       const inProgressList = inProgressTasks
-        .map((t) => `- ${t.title} (${t.agent?.name || "unknown"})`)
+        .map((t) => `- ${t.title} (${t.assignedTo?.name || "unknown"})`)
         .join("\n") || "None";
 
       const engineerStatus = engineers

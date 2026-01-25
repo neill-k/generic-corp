@@ -3,12 +3,22 @@ import { GameCanvas } from "./components/GameCanvas";
 import { Dashboard } from "./components/Dashboard";
 import { ActivityFeed } from "./components/ActivityFeed";
 import { MessageCenter } from "./components/MessageCenter";
+import { Onboarding } from "./components/Onboarding";
+import { CommandPalette } from "./components/CommandPalette";
 import { useSocket } from "./hooks/useSocket";
 import { useGameStore } from "./store/gameStore";
+import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 
 function App() {
   const { connect, disconnect } = useSocket();
-  const { isConnected, agents, activePanel, setActivePanel, messages, pendingDrafts } = useGameStore();
+  const { isConnected, agents, activePanel, setActivePanel, messages, pendingDrafts, setSelectedAgent } = useGameStore();
+  const {
+    showCommandPalette,
+    setShowCommandPalette,
+    showOnboarding,
+    completeOnboarding,
+    showHelp,
+  } = useKeyboardShortcuts();
 
   useEffect(() => {
     connect();
@@ -120,11 +130,22 @@ function App() {
           <span>Phase 2: Core Game Interface</span>
         </div>
         <div className="flex items-center gap-4">
-          <span>60 FPS Target</span>
+          <span className="text-gray-600">Ctrl+K for commands</span>
           <span>|</span>
-          <span>Phaser 3.80+</span>
+          <span>? for help</span>
         </div>
       </footer>
+
+      {/* Capability Discovery: Onboarding */}
+      {showOnboarding && <Onboarding onComplete={completeOnboarding} />}
+
+      {/* Capability Discovery: Command Palette */}
+      <CommandPalette
+        isOpen={showCommandPalette}
+        onClose={() => setShowCommandPalette(false)}
+        onShowOnboarding={showHelp}
+        onSelectAgent={(agentId) => setSelectedAgent(agentId)}
+      />
     </div>
   );
 }
