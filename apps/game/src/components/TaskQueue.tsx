@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import type { Task, TaskStatus, Agent, TaskPriority } from "@generic-corp/shared";
 
 interface TaskQueueProps {
@@ -18,8 +18,9 @@ export function TaskQueue({
     "in_progress"
   );
 
-  // Group tasks by status
-  const groupedTasks = groupTasksByStatus(tasks);
+  // Memoize expensive task grouping and sorting computation
+  // Only recalculates when tasks array changes
+  const groupedTasks = useMemo(() => groupTasksByStatus(tasks), [tasks]);
 
   const sections: { status: TaskStatus; label: string; color: string }[] = [
     { status: "in_progress", label: "In Progress", color: "bg-yellow-500" },
