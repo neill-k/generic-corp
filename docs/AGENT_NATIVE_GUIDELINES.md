@@ -1,796 +1,397 @@
 # Agent-Native Architecture Guidelines
 
-> Synthesized from Every.to (Dan Shipper), Steve Yegge's Gas Town, and industry best practices
-> for building mission-critical multi-agent systems in healthcare, aviation, and financial services.
-
-**Date**: January 2026
-**Purpose**: Ensure GENERIC CORP meets the safety, reliability, and auditability standards required for patient-facing healthcare systems, airline software development, and financial sector operations.
+> How to build autonomous multi-agent systems that ship quality work reliably.
+> Synthesized from Every.to (Dan Shipper) and Steve Yegge's Gas Town.
 
 ---
 
-## Table of Contents
+## Core Philosophy
 
-1. [Executive Summary](#executive-summary)
-2. [Every.to's Five Pillars of Agent-Native Design](#everytos-five-pillars-of-agent-native-design)
-3. [Gas Town: Lessons from Multi-Agent Orchestration](#gas-town-lessons-from-multi-agent-orchestration)
-4. [Critical Gaps in Current Plan](#critical-gaps-in-current-plan)
-5. [Mission-Critical Requirements](#mission-critical-requirements)
-6. [Recommended Enhancements](#recommended-enhancements)
-7. [Implementation Priorities](#implementation-priorities)
-8. [Sources](#sources)
+**Dan Shipper's key insight**: "Most new software will just be Claude Code in a trench coat—new features are just buttons that activate prompts to an underlying general agent."
+
+**Steve Yegge's key insight**: "AI agents are ephemeral. Work context should be permanent."
+
+**The goal**: Fully autonomous agents that ship quality code without babysitting.
 
 ---
 
-## Executive Summary
+## Part 1: Org Structure (How Agents Work Together)
 
-This document synthesizes insights from two major sources of agent-native thinking:
+### The Gas Town Model
 
-1. **Every.to (Dan Shipper)**: Provides the philosophical framework and five pillars for agent-native architecture
-2. **Steve Yegge's Gas Town**: Provides battle-tested operational lessons from a production multi-agent orchestrator
+Gas Town uses a three-tier hierarchy that actually works:
 
-**Key Insight**: The current GENERIC CORP plan is technically solid but needs enhancement for mission-critical deployments. The plan treats multi-agent systems as a *game* metaphor, which is excellent for usability, but healthcare/aviation/finance require additional:
-
-- **Deterministic audit trails** (not just activity logs)
-- **Formal verification of agent actions** (not just validation)
-- **Graceful degradation under failure** (not just error recovery)
-- **Human-in-the-loop guarantees** (not just draft approval)
-- **Regulatory compliance hooks** (HIPAA, SOX, FAA, etc.)
-
----
-
-## Every.to's Five Pillars of Agent-Native Design
-
-Dan Shipper's framework provides the architectural philosophy. Here's how each pillar applies to GENERIC CORP:
-
-### 1. Parity
-
-**Principle**: The agent should be able to do anything the user can do.
-
-**Current Plan Assessment**: ✅ Strong
-The MCP tool layer provides comprehensive capabilities (filesystem, git, database, messaging).
-
-**Enhancement for Mission-Critical**:
 ```
-REQUIREMENT: Tool parity must include READ-ONLY modes for sensitive systems.
-
-Healthcare: Agent can READ patient records but cannot WRITE without human approval
-Aviation: Agent can READ flight schedules but cannot MODIFY without sign-off
-Finance: Agent can QUERY transactions but cannot EXECUTE trades without confirmation
+Mayor (Orchestrator)
+  └── Polecats (Specialists)
+        └── Convoys (Workers)
 ```
+
+**Why this works**:
+- **Mayor** holds context about the overall goal - doesn't do work, routes work
+- **Polecats** are domain experts - they understand their area deeply
+- **Convoys** do the actual work - focused, disposable, parallelizable
+
+### Applied to GENERIC CORP
+
+Current plan has 10 agents with flat-ish structure. Here's how to make it work:
+
+```
+Marcus (CEO/Orchestrator)
+├── Technical Lead: Sable
+│   ├── DeVonte (Full-Stack)
+│   ├── Miranda (Software Engineer)
+│   └── Yuki (SRE)
+├── Data Lead: Graham
+│   └── (can spawn analysis workers)
+├── Business Lead: Walter
+│   ├── Frankie (Sales)
+│   └── Kenji (Marketing)
+└── Operations: Helen (EA)
+```
+
+**Key principles**:
+
+1. **Marcus routes, doesn't execute**
+   - Receives task → determines domain → delegates to lead
+   - Tracks progress across workstreams
+   - Resolves cross-team conflicts
+   - Never writes code or sends emails
+
+2. **Leads own their domain**
+   - Sable decides HOW to implement technical work
+   - Graham decides HOW to structure data pipelines
+   - Walter decides HOW to approach business problems
+   - They can reject or reshape tasks from Marcus
+
+3. **Workers are disposable and parallelizable**
+   - DeVonte, Miranda, Yuki can work in parallel
+   - If one fails, others continue
+   - Work products merge through the lead
+
+### Communication Patterns
+
+**What Gas Town got right**:
+```
+Task flow:    Marcus → Sable → DeVonte
+Status flow:  DeVonte → Sable → Marcus
+Artifacts:    DeVonte → Git → (anyone can read)
+```
+
+**Anti-patterns to avoid**:
+- ❌ Marcus directly assigning to DeVonte (bypasses Sable's context)
+- ❌ DeVonte messaging Frankie directly (cross-domain confusion)
+- ❌ All agents in one chat (cognitive overload)
 
 **Implementation**:
 ```typescript
-// Enhanced tool permission model
-interface ToolPermission {
-  tool: string;
-  mode: 'read' | 'write' | 'execute';
-  requiresApproval: boolean;
-  approvalLevel: 'team-lead' | 'supervisor' | 'compliance-officer';
-  auditRequired: boolean;
-  regulatoryFramework?: 'HIPAA' | 'SOX' | 'FAA' | 'GDPR';
+interface TaskRouting {
+  // Marcus routes to leads only
+  ceoCanAssignTo: ['sable', 'graham', 'walter', 'helen'];
+
+  // Leads route to their teams
+  techLeadCanAssignTo: ['devonte', 'miranda', 'yuki'];
+  dataLeadCanAssignTo: ['analytics_worker_*'];  // Can spawn workers
+  bizLeadCanAssignTo: ['frankie', 'kenji'];
+
+  // Workers cannot assign tasks
+  workerCanAssignTo: [];
 }
 ```
 
-### 2. Granularity
+### Parallel Execution
 
-**Principle**: Break capabilities into the smallest possible units.
+**Gas Town lesson**: "Four agents working simultaneously on Bats tests" - this is the whole point.
 
-**Current Plan Assessment**: ⚠️ Needs Work
-The plan has coarse tool categories. For mission-critical systems, we need finer granularity.
-
-**Enhancement for Mission-Critical**:
-```
-Instead of: filesystem_write(path, content)
-Provide:
-  - filesystem_write_config(path, content)      // Config files only
-  - filesystem_write_data(path, content)        // Data files only
-  - filesystem_write_code(path, content)        // Source code only
-  - filesystem_write_sensitive(path, content)   // PHI/PII - requires approval
-```
-
-**Why This Matters**:
-- Healthcare: Writing to a patient record is fundamentally different from writing to a log file
-- Aviation: Modifying flight control parameters vs. updating documentation
-- Finance: Executing a trade vs. generating a report
-
-### 3. Composability
-
-**Principle**: Small tools combine into complex workflows.
-
-**Current Plan Assessment**: ✅ Strong
-BullMQ + task queues enable workflow composition.
-
-**Enhancement for Mission-Critical**:
-```
-REQUIREMENT: Workflows must be DECLARATIVE and AUDITABLE.
-
-Before: Agent decides sequence dynamically
-After:  Workflow defined as a state machine with explicit transitions
-
-Example Healthcare Workflow:
-  review_patient_chart → verify_allergies → suggest_treatment →
-  [HUMAN APPROVAL] → document_decision → notify_care_team
-```
-
-**Implementation**:
+**How to enable it**:
 ```typescript
-// Workflow definition (XState-style)
-const patientCareWorkflow = {
-  id: 'patient-care',
-  initial: 'review_chart',
-  states: {
-    review_chart: {
-      on: { COMPLETE: 'verify_allergies' },
-      actions: ['log_chart_access'],
-    },
-    verify_allergies: {
-      on: { COMPLETE: 'suggest_treatment' },
-      actions: ['log_allergy_check'],
-    },
-    suggest_treatment: {
-      on: { APPROVE: 'document_decision', REJECT: 'review_chart' },
-      requiresApproval: true,  // HUMAN IN THE LOOP
-      approver: 'attending_physician',
-    },
-    // ...
-  },
-};
+// When Sable receives a feature request, she can parallelize:
+const subtasks = await sable.decompose(task);
+// [
+//   { assignee: 'devonte', work: 'implement API endpoint' },
+//   { assignee: 'miranda', work: 'write unit tests' },
+//   { assignee: 'yuki', work: 'set up monitoring' },
+// ]
+
+// All three execute simultaneously
+await Promise.all(subtasks.map(t => executeTask(t)));
+
+// Sable merges the results
+await sable.integrate(subtasks);
 ```
 
-### 4. Emergent Capability
-
-**Principle**: Systems should develop capabilities beyond initial specifications.
-
-**Current Plan Assessment**: ⚠️ Dangerous for Mission-Critical
-Emergent behavior is a *feature* for creative work but a *risk* for regulated industries.
-
-**Enhancement for Mission-Critical**:
-```
-REQUIREMENT: Bound emergent behavior within safety envelopes.
-
-Healthcare: Agent may discover new patterns but cannot PRESCRIBE without human review
-Aviation: Agent may optimize schedules but cannot modify SAFETY MARGINS
-Finance: Agent may identify trading opportunities but cannot exceed RISK LIMITS
-```
-
-**Implementation: Safety Envelopes**:
-```typescript
-interface SafetyEnvelope {
-  domain: 'healthcare' | 'aviation' | 'finance';
-
-  // Hard limits that cannot be exceeded
-  hardConstraints: {
-    maxAutonomousActions: number;      // e.g., 10 before human check-in
-    requiredApprovalThreshold: number;  // e.g., any action above risk score 7
-    forbiddenActions: string[];         // e.g., ['delete_patient_record']
-  };
-
-  // Soft limits that trigger warnings
-  softConstraints: {
-    unusualPatternDetection: boolean;
-    novelActionAlert: boolean;
-    resourceConsumptionLimit: number;
-  };
-
-  // Circuit breaker
-  circuitBreaker: {
-    errorThreshold: number;     // e.g., 3 errors
-    timeWindow: number;         // e.g., 5 minutes
-    cooldownPeriod: number;     // e.g., 15 minutes
-  };
-}
-```
-
-### 5. Self-Improvement
-
-**Principle**: Systems should learn and improve over time.
-
-**Current Plan Assessment**: ❌ Not Addressed
-The current plan has no mechanism for agent learning or improvement.
-
-**Enhancement for Mission-Critical**:
-```
-REQUIREMENT: Self-improvement must be CONTROLLED and VERSIONED.
-
-- Agents cannot modify their own system prompts autonomously
-- Prompt improvements must go through change management
-- All prompt versions are retained for audit
-- Rollback capability is mandatory
-```
-
-**Implementation**:
-```typescript
-interface AgentVersion {
-  id: string;
-  agentId: string;
-  version: number;
-  systemPrompt: string;
-  toolPermissions: ToolPermission[];
-
-  // Change management
-  changeReason: string;
-  approvedBy: string;
-  approvedAt: Date;
-
-  // Performance tracking
-  taskSuccessRate: number;
-  avgResponseTime: number;
-  errorRate: number;
-
-  // Audit
-  createdAt: Date;
-  retiredAt?: Date;
-  rollbackOf?: string;  // Previous version if this is a rollback
-}
-```
+**Key insight**: The lead (Sable) holds the integration context. Workers don't need to coordinate with each other - they just deliver their piece.
 
 ---
 
-## Gas Town: Lessons from Multi-Agent Orchestration
+## Part 2: Reliability (Systems That Don't Break)
 
-Steve Yegge's Gas Town provides battle-tested operational wisdom. Here are the key lessons:
+### The Gas Town Failure
 
-### Lesson 1: Persistent External State
+**What happened**: "Gas Town operated in an overly aggressive mode, merging code despite failing integration tests."
 
-**Gas Town Principle**: "AI agents are ephemeral. But work context should be permanent."
+**The problem wasn't autonomy** - it was lack of verification.
 
-**Current Plan Assessment**: ✅ Strong
-PostgreSQL + Redis provides persistence.
+### Verification, Not Approval
 
-**Enhancement for Mission-Critical**:
-```
-REQUIREMENT: State must be IMMUTABLE and APPEND-ONLY for regulated industries.
+The difference:
+- **Approval**: Human says "yes" before action (blocks autonomy)
+- **Verification**: System confirms action succeeded (enables autonomy)
 
-Current:  UPDATE task SET status = 'completed'
-Enhanced: INSERT INTO task_audit (task_id, status, changed_at, changed_by)
-```
-
-**Implementation: Event Sourcing**:
+**Implementation**:
 ```typescript
-// Instead of updating state, append events
-interface TaskEvent {
+// WRONG: Block on human
+async function completeTask(task: Task) {
+  await waitForHumanApproval(task);  // ❌ Kills autonomy
+  await markComplete(task);
+}
+
+// RIGHT: Verify automatically
+async function completeTask(task: Task) {
+  const checks = await runVerifications(task);
+  // - Does the code compile?
+  // - Do tests pass?
+  // - Is the PR created?
+  // - Does the commit exist?
+
+  if (checks.allPassed) {
+    await markComplete(task);
+  } else {
+    await markFailed(task, checks.failures);
+    await notifyLead(task.lead, checks.failures);  // Lead decides retry
+  }
+}
+```
+
+### Circuit Breakers (Not Safety Theater)
+
+**The real problem**: An agent in a bad state will burn money and create garbage.
+
+**Simple solution**:
+```typescript
+class AgentCircuitBreaker {
+  private failures = 0;
+  private readonly threshold = 3;
+  private readonly cooldown = 5 * 60 * 1000; // 5 minutes
+
+  async execute<T>(fn: () => Promise<T>): Promise<T> {
+    if (this.isOpen()) {
+      throw new Error('Agent circuit open - too many recent failures');
+    }
+
+    try {
+      const result = await fn();
+      this.failures = 0;  // Reset on success
+      return result;
+    } catch (error) {
+      this.failures++;
+      if (this.failures >= this.threshold) {
+        this.trip();
+        // Alert the lead, not a human committee
+        await this.alertLead();
+      }
+      throw error;
+    }
+  }
+}
+```
+
+**What this prevents**:
+- Agent loops burning $100/hour
+- Garbage commits piling up
+- Cascading failures across agents
+
+**What this doesn't do**:
+- Require human approval for every action
+- Block work that's succeeding
+- Add bureaucratic overhead
+
+### State Persistence
+
+**Gas Town principle**: Work survives agent death.
+
+**Implementation**:
+```typescript
+// Every agent action creates a persistent record
+interface WorkRecord {
   id: string;
   taskId: string;
-  eventType: 'CREATED' | 'STARTED' | 'PROGRESS' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
-  eventData: Record<string, unknown>;
   agentId: string;
-  timestamp: Date;
-
-  // For regulatory compliance
-  ipAddress?: string;
-  userAgent?: string;
-  sessionId?: string;
-
-  // Cryptographic integrity
-  previousEventHash: string;
-  eventHash: string;  // SHA-256 of event content
-}
-
-// Derive current state from events (CQRS pattern)
-function deriveTaskState(events: TaskEvent[]): Task {
-  return events.reduce((state, event) => {
-    switch (event.eventType) {
-      case 'CREATED': return { ...state, status: 'pending' };
-      case 'STARTED': return { ...state, status: 'in_progress', startedAt: event.timestamp };
-      // ...
-    }
-  }, {} as Task);
-}
-```
-
-### Lesson 2: Cognitive Overload Management
-
-**Gas Town Observation**: "Monitoring distributed worker progress creates unsustainable demand... like plate spinning."
-
-**Current Plan Assessment**: ⚠️ Limited
-Activity feed exists but no aggregation or prioritization.
-
-**Enhancement for Mission-Critical**:
-```
-REQUIREMENT: Provide SITUATION AWARENESS, not raw data.
-
-Healthcare: "3 patients need medication review before 2pm"
-Aviation: "2 flights have crew scheduling conflicts - URGENT"
-Finance: "Portfolio risk exceeds threshold by 15%"
-```
-
-**Implementation: Intelligent Dashboard**:
-```typescript
-interface SituationReport {
-  timestamp: Date;
-
-  // Aggregated status
-  agentStatuses: {
-    active: number;
-    blocked: number;
-    idle: number;
-  };
-
-  // Prioritized alerts (not raw activity)
-  alerts: Alert[];  // Sorted by priority
-
-  // Decisions requiring human input
-  pendingDecisions: Decision[];  // With deadlines
-
-  // Summary metrics
-  metrics: {
-    tasksCompletedLast24h: number;
-    avgCompletionTime: number;
-    errorRate: number;
-    budgetConsumed: number;
-  };
-
-  // Predicted issues (proactive alerting)
-  predictions: {
-    estimatedBudgetExhaustion: Date;
-    upcomingDeadlinesAtRisk: Task[];
-    resourceContentionRisk: string[];
-  };
-}
-```
-
-### Lesson 3: Progressive Authorization
-
-**Gas Town Observation**: "Gas Town operated in an overly aggressive mode, merging code despite failing integration tests."
-
-**Current Plan Assessment**: ✅ Partial
-Draft approval exists for external communications but not for other high-risk actions.
-
-**Enhancement for Mission-Critical**:
-```
-REQUIREMENT: Authorization levels for ALL high-impact actions.
-
-Level 0 (Autonomous):  Read-only operations, internal messages
-Level 1 (Notify):      Actions logged, human notified but not blocked
-Level 2 (Confirm):     Human must confirm within timeout (auto-reject)
-Level 3 (Approve):     Human must explicitly approve (no timeout)
-Level 4 (Multi-Sig):   Multiple humans must approve (healthcare committees)
-```
-
-**Implementation**:
-```typescript
-interface ActionAuthorization {
   action: string;
-  level: 0 | 1 | 2 | 3 | 4;
-
-  // For Level 2 (Confirm)
-  timeoutSeconds?: number;
-  timeoutBehavior?: 'approve' | 'reject' | 'escalate';
-
-  // For Level 3-4 (Approve/Multi-Sig)
-  requiredApprovers?: string[];
-  minimumApprovals?: number;
-
-  // Context-dependent escalation
-  escalateIf?: {
-    riskScoreAbove?: number;
-    valueAbove?: number;
-    affectedRecordsAbove?: number;
-  };
+  input: unknown;
+  output: unknown;
+  artifacts: string[];  // Git commits, file paths, PR URLs
+  timestamp: Date;
 }
 
-// Domain-specific defaults
-const healthcareAuthorizationDefaults: Record<string, ActionAuthorization> = {
-  'read_patient_chart': { action: 'read_patient_chart', level: 1 },
-  'update_patient_notes': { action: 'update_patient_notes', level: 2, timeoutSeconds: 300 },
-  'order_medication': { action: 'order_medication', level: 3, requiredApprovers: ['attending_md'] },
-  'modify_treatment_plan': { action: 'modify_treatment_plan', level: 4, minimumApprovals: 2 },
-};
-```
-
-### Lesson 4: Cost-Benefit Awareness
-
-**Gas Town Observation**: "A single 60-minute session consumed approximately $100 in tokens—roughly 10 times the cost of equivalent Claude Code usage."
-
-**Current Plan Assessment**: ✅ Partial
-Budget tracking exists but no cost-benefit analysis.
-
-**Enhancement for Mission-Critical**:
-```
-REQUIREMENT: Every task must have a PROJECTED COST and VALUE assessment.
-
-Healthcare: "This diagnostic review will cost $12 but could prevent a $50,000 malpractice claim"
-Aviation: "This schedule optimization costs $8 but saves $2,400 in crew overtime"
-Finance: "This analysis costs $25 but identifies $150,000 in tax savings"
-```
-
-**Implementation**:
-```typescript
-interface TaskEconomics {
-  taskId: string;
-
-  // Projected costs
-  estimatedTokenCost: number;
-  estimatedTimeCost: number;  // Agent time
-  estimatedHumanTimeCost: number;  // Approval/review time
-
-  // Projected value
-  estimatedValue: number;
-  valueConfidence: 'high' | 'medium' | 'low';
-  valueRationale: string;
-
-  // Actual costs (after completion)
-  actualTokenCost?: number;
-  actualTimeCost?: number;
-
-  // ROI tracking
-  roi?: number;  // (actualValue - actualCost) / actualCost
+// If agent dies mid-task, another can pick up
+async function resumeTask(taskId: string) {
+  const records = await getWorkRecords(taskId);
+  const lastCheckpoint = findLastSuccessfulCheckpoint(records);
+  const agent = await spawnAgent(taskId);
+  await agent.resumeFrom(lastCheckpoint);
 }
 ```
 
-### Lesson 5: Observable Task Dependencies
+### Error Recovery Hierarchy
 
-**Gas Town Observation**: "The Mayor initially misreported completion status. Agents discovered work existed in Git but hadn't been pushed."
+When things go wrong:
 
-**Current Plan Assessment**: ⚠️ Limited
-Task dependencies exist but no cross-system verification.
-
-**Enhancement for Mission-Critical**:
 ```
-REQUIREMENT: Task completion must be VERIFIED, not just reported.
-
-Before: Agent says "I committed the code" → Task marked complete
-After:  System verifies: Git commit exists + Tests pass + PR created → Task marked complete
+1. Agent retries (automatic, up to 3x)
+   └── Still failing?
+2. Lead reassigns to different worker
+   └── Still failing?
+3. Lead escalates to Marcus with context
+   └── Still failing?
+4. Marcus alerts human with full context
 ```
 
-**Implementation**:
-```typescript
-interface CompletionCriteria {
-  taskId: string;
-
-  // Required verifications
-  verifications: Verification[];
-
-  // Current status
-  verificationStatus: Record<string, 'pending' | 'verified' | 'failed'>;
-
-  // Only mark complete when ALL verifications pass
-  isComplete: boolean;  // Computed from verificationStatus
-}
-
-interface Verification {
-  id: string;
-  type: 'git_commit_exists' | 'tests_pass' | 'pr_created' | 'code_reviewed' |
-        'database_updated' | 'api_response_valid' | 'file_checksum_matches';
-  target: string;  // e.g., commit SHA, PR number, file path
-  verifiedAt?: Date;
-  verifiedBy: 'system' | 'human';
-}
-```
+**Key point**: Humans get involved when the SYSTEM can't figure it out, not as a gate on every action.
 
 ---
 
-## Critical Gaps in Current Plan
+## Part 3: Code Quality (Output That's Actually Good)
 
-Based on the synthesis of Every.to and Gas Town principles, here are the critical gaps:
+### The Every.to Approach
 
-### Gap 1: No Formal Audit Trail
+**Dan Shipper**: "All of the code is AI-written, but humans review."
 
-**Current State**: Activity logs exist but are not cryptographically secured.
+The pattern:
+1. Agent writes code
+2. Agent writes tests
+3. Agent runs tests
+4. If tests pass → PR created
+5. Human reviews PR (async, non-blocking)
 
-**Risk for Mission-Critical**:
-- Healthcare: HIPAA requires tamper-evident audit logs
-- Finance: SOX requires immutable transaction records
-- Aviation: FAA requires traceable decision chains
-
-**Required Enhancement**: Event sourcing with cryptographic chaining (see Lesson 1 above).
-
-### Gap 2: No Safety Envelopes
-
-**Current State**: Agents have role-based tool access but no behavioral bounds.
-
-**Risk for Mission-Critical**:
-- An agent could theoretically perform 1000 actions in a loop
-- No mechanism to detect "unusual" behavior patterns
-- No circuit breakers for runaway agents
-
-**Required Enhancement**: Safety envelopes with hard/soft constraints (see Pillar 4 above).
-
-### Gap 3: No Regulatory Compliance Framework
-
-**Current State**: No hooks for HIPAA, SOX, FAA, GDPR compliance.
-
-**Risk for Mission-Critical**:
-- Cannot generate compliance reports
-- Cannot prove chain of custody for decisions
-- Cannot demonstrate access controls to auditors
-
-**Required Enhancement**: Compliance module with domain-specific rules.
-
-### Gap 4: Single Point of Failure in Supervision
-
-**Current State**: Marcus (CEO agent) is the sole supervisor.
-
-**Risk for Mission-Critical**:
-- If Marcus fails, no oversight exists
-- Healthcare committees require multiple approvers
-- No separation of duties
-
-**Required Enhancement**: Multi-supervisor model with role separation.
-
-### Gap 5: No Graceful Degradation Strategy
-
-**Current State**: Error handling exists but no degradation modes.
-
-**Risk for Mission-Critical**:
-- What happens if Claude API is down?
-- What happens if Redis fails?
-- What happens if PostgreSQL is unreachable?
-
-**Required Enhancement**: Degradation modes that preserve safety guarantees.
-
----
-
-## Mission-Critical Requirements
-
-### Healthcare Requirements
-
-```yaml
-regulatory_framework: HIPAA
-required_capabilities:
-  - PHI access logging (who, what, when, why)
-  - Minimum necessary access principle
-  - Break-glass emergency access with audit
-  - 6-year audit log retention
-  - Encryption at rest and in transit
-  - Business associate agreement compliance
-
-authorization_levels:
-  read_patient_record: level_1  # Logged
-  update_patient_notes: level_2  # Confirm within 5 min
-  order_medication: level_3  # MD approval required
-  modify_treatment_plan: level_4  # Care team consensus
-
-prohibited_actions:
-  - Autonomous medication ordering
-  - Patient data export without approval
-  - Treatment modification without MD review
-  - Access to records outside care team
-```
-
-### Aviation Requirements
-
-```yaml
-regulatory_framework: FAA_14CFR
-required_capabilities:
-  - Safety-critical action separation
-  - Dual-authority for flight operations
-  - Configuration management with version control
-  - Incident reporting automation
-  - Fatigue rule compliance checking
-
-authorization_levels:
-  read_flight_schedule: level_0  # Autonomous
-  suggest_crew_change: level_2  # Dispatcher confirm
-  modify_flight_plan: level_3  # Captain approval
-  update_maintenance_record: level_4  # A&P + Inspector
-
-prohibited_actions:
-  - Autonomous flight dispatch
-  - Crew schedule changes exceeding duty limits
-  - Maintenance deferral without engineering approval
-  - Safety margin modifications
-```
-
-### Financial Services Requirements
-
-```yaml
-regulatory_framework: SOX, FINRA, SEC
-required_capabilities:
-  - Transaction immutability
-  - Segregation of duties
-  - Real-time risk monitoring
-  - Position limit enforcement
-  - Suspicious activity detection
-
-authorization_levels:
-  read_market_data: level_0  # Autonomous
-  generate_research: level_1  # Logged
-  suggest_trade: level_2  # Trader confirm
-  execute_trade: level_3  # Compliance approval for large trades
-  modify_risk_limits: level_4  # Risk committee
-
-prohibited_actions:
-  - Autonomous trading above threshold
-  - Cross-account transactions without approval
-  - Risk limit modifications without committee
-  - Material non-public information handling
-```
-
----
-
-## Recommended Enhancements
-
-### Enhancement 1: Add Compliance Module
+### Quality Gates (Automated)
 
 ```typescript
-// New file: apps/server/src/compliance/index.ts
-
-interface ComplianceModule {
-  framework: 'HIPAA' | 'SOX' | 'FAA' | 'GDPR' | 'FINRA';
-
-  // Pre-action checks
-  canPerformAction(action: AgentAction): ComplianceResult;
-
-  // Post-action logging
-  logAction(action: AgentAction, result: ActionResult): void;
-
-  // Audit report generation
-  generateAuditReport(dateRange: DateRange): AuditReport;
-
-  // Evidence preservation
-  preserveEvidence(incidentId: string): EvidencePackage;
+interface QualityGate {
+  name: string;
+  check: (artifacts: Artifact[]) => Promise<QualityResult>;
+  blocking: boolean;  // If true, must pass before merge
 }
 
-interface ComplianceResult {
-  allowed: boolean;
-  requiresApproval: boolean;
-  approvalLevel: number;
-  violations: ComplianceViolation[];
-  warnings: ComplianceWarning[];
-}
+const standardGates: QualityGate[] = [
+  {
+    name: 'typescript_compiles',
+    check: async (artifacts) => {
+      const result = await runCommand('pnpm typecheck');
+      return { passed: result.exitCode === 0, output: result.output };
+    },
+    blocking: true,
+  },
+  {
+    name: 'tests_pass',
+    check: async (artifacts) => {
+      const result = await runCommand('pnpm test');
+      return { passed: result.exitCode === 0, output: result.output };
+    },
+    blocking: true,
+  },
+  {
+    name: 'lint_clean',
+    check: async (artifacts) => {
+      const result = await runCommand('pnpm lint');
+      return { passed: result.exitCode === 0, output: result.output };
+    },
+    blocking: true,
+  },
+  {
+    name: 'no_console_logs',
+    check: async (artifacts) => {
+      const result = await grepFiles('console.log', artifacts.filter(a => a.type === 'code'));
+      return { passed: result.matches.length === 0, output: result.matches };
+    },
+    blocking: false,  // Warning only
+  },
+];
 ```
 
-### Enhancement 2: Add Safety Envelope System
+### Code Review by Agents
+
+**Radical idea from Every.to**: Agents can review each other's code.
 
 ```typescript
-// New file: apps/server/src/safety/envelope.ts
+// DeVonte writes code, Miranda reviews
+async function peerReview(pr: PullRequest) {
+  const author = pr.author;  // 'devonte'
+  const reviewer = selectReviewer(author);  // 'miranda' (different agent)
 
-class SafetyEnvelopeManager {
-  private envelopes: Map<string, SafetyEnvelope> = new Map();
-  private circuitBreakers: Map<string, CircuitBreaker> = new Map();
+  const review = await reviewer.reviewCode({
+    diff: pr.diff,
+    context: pr.description,
+    guidelines: [
+      'Check for obvious bugs',
+      'Verify error handling',
+      'Look for security issues',
+      'Ensure tests cover main paths',
+    ],
+  });
 
-  // Called before every agent action
-  async checkSafety(agentId: string, action: AgentAction): Promise<SafetyCheck> {
-    const envelope = this.envelopes.get(agentId);
-    const breaker = this.circuitBreakers.get(agentId);
-
-    // Check circuit breaker
-    if (breaker?.isOpen()) {
-      return { allowed: false, reason: 'circuit_breaker_open', cooldownRemaining: breaker.cooldownRemaining() };
-    }
-
-    // Check hard constraints
-    if (envelope?.hardConstraints.forbiddenActions.includes(action.type)) {
-      return { allowed: false, reason: 'forbidden_action' };
-    }
-
-    // Check action count
-    const recentActions = await this.countRecentActions(agentId, envelope?.timeWindow ?? 3600);
-    if (recentActions >= (envelope?.hardConstraints.maxAutonomousActions ?? 100)) {
-      return { allowed: false, reason: 'max_actions_exceeded', requiresHumanCheckin: true };
-    }
-
-    // Check soft constraints (warnings)
-    const warnings: string[] = [];
-    if (envelope?.softConstraints.novelActionAlert && await this.isNovelAction(agentId, action)) {
-      warnings.push('novel_action_detected');
-    }
-
-    return { allowed: true, warnings };
-  }
-
-  // Called after action failure
-  recordFailure(agentId: string, error: Error): void {
-    const breaker = this.circuitBreakers.get(agentId);
-    breaker?.recordFailure();
-
-    if (breaker?.shouldTrip()) {
-      breaker.trip();
-      this.notifySupervisors(agentId, 'circuit_breaker_tripped', error);
-    }
+  if (review.approved) {
+    await pr.addLabel('agent-approved');
+    // Human can still review, but it's not blocking
+  } else {
+    await pr.requestChanges(review.comments);
+    // Back to author to fix
   }
 }
 ```
 
-### Enhancement 3: Add Multi-Supervisor Model
+### Prompt Engineering for Quality
 
+**Every.to insight**: The prompt IS the product.
+
+**Agent system prompts should include**:
 ```typescript
-// Enhanced supervisor configuration
+const sableSystemPrompt = `
+You are Sable Chen, Principal Engineer at Generic Corp.
 
-interface SupervisorHierarchy {
-  // Primary supervisor (Marcus in current plan)
-  primary: {
-    agentId: string;
-    capabilities: string[];
-  };
+CODE QUALITY STANDARDS:
+- TypeScript strict mode, no 'any' types
+- All functions have error handling
+- All public APIs have JSDoc comments
+- No magic numbers - use named constants
+- Prefer composition over inheritance
+- Keep functions under 50 lines
+- One concept per file
 
-  // Backup supervisors
-  backups: {
-    agentId: string;
-    activationCondition: 'primary_offline' | 'primary_overloaded' | 'domain_specific';
-    domain?: string;  // e.g., 'healthcare', 'finance'
-  }[];
+TESTING STANDARDS:
+- Every feature has unit tests
+- Critical paths have integration tests
+- Test the behavior, not the implementation
+- Use descriptive test names: "should X when Y"
 
-  // Human escalation
-  humanEscalation: {
-    role: string;
-    contactMethod: 'email' | 'sms' | 'pager' | 'slack';
-    escalationDelay: number;  // seconds before escalating
-  }[];
-
-  // Committee approvals (for Level 4 actions)
-  committees: {
-    name: string;
-    members: string[];
-    quorum: number;  // Minimum approvals needed
-    domain: string;
-  }[];
-}
-
-const healthcareSupervisors: SupervisorHierarchy = {
-  primary: { agentId: 'marcus', capabilities: ['task_routing', 'budget_management'] },
-  backups: [
-    { agentId: 'helen', activationCondition: 'primary_offline' },
-    { agentId: 'sable', activationCondition: 'domain_specific', domain: 'technical' },
-  ],
-  humanEscalation: [
-    { role: 'on_call_physician', contactMethod: 'pager', escalationDelay: 300 },
-    { role: 'hospital_administrator', contactMethod: 'sms', escalationDelay: 600 },
-  ],
-  committees: [
-    { name: 'care_team', members: ['attending_md', 'nurse_lead', 'pharmacist'], quorum: 2, domain: 'treatment_changes' },
-  ],
-};
+BEFORE SUBMITTING:
+- Run typecheck, lint, and tests locally
+- Write a clear PR description explaining WHY
+- Link to the task/issue being addressed
+`;
 ```
 
-### Enhancement 4: Add Graceful Degradation
+### Self-Correction Loop
+
+**Gas Town lesson**: Agents misreport status. Build in verification.
 
 ```typescript
-// New file: apps/server/src/resilience/degradation.ts
+async function executeWithVerification(task: Task) {
+  // Agent does the work
+  const result = await agent.execute(task);
 
-enum OperatingMode {
-  NORMAL = 'normal',
-  DEGRADED_AI = 'degraded_ai',      // Claude API unavailable
-  DEGRADED_QUEUE = 'degraded_queue', // Redis unavailable
-  DEGRADED_DB = 'degraded_db',       // PostgreSQL unavailable
-  EMERGENCY = 'emergency',           // Multiple failures
-  READONLY = 'readonly',             // All writes disabled
-}
+  // Don't trust the agent's self-report
+  if (result.claimedComplete) {
+    const verification = await verifyCompletion(task, result);
 
-class DegradationManager {
-  private currentMode: OperatingMode = OperatingMode.NORMAL;
-
-  async determineMode(): Promise<OperatingMode> {
-    const checks = await Promise.all([
-      this.checkClaudeAPI(),
-      this.checkRedis(),
-      this.checkPostgres(),
-    ]);
-
-    const [claude, redis, postgres] = checks;
-
-    if (!claude && !redis && !postgres) return OperatingMode.EMERGENCY;
-    if (!claude) return OperatingMode.DEGRADED_AI;
-    if (!redis) return OperatingMode.DEGRADED_QUEUE;
-    if (!postgres) return OperatingMode.DEGRADED_DB;
-    return OperatingMode.NORMAL;
-  }
-
-  getCapabilities(mode: OperatingMode): Capabilities {
-    switch (mode) {
-      case OperatingMode.NORMAL:
-        return { ai: true, queues: true, persistence: true, realtime: true };
-
-      case OperatingMode.DEGRADED_AI:
-        // Queue tasks for later, show cached agent states, allow human-only workflows
-        return { ai: false, queues: true, persistence: true, realtime: true };
-
-      case OperatingMode.DEGRADED_QUEUE:
-        // Direct execution only, no async tasks, reduced concurrency
-        return { ai: true, queues: false, persistence: true, realtime: false };
-
-      case OperatingMode.DEGRADED_DB:
-        // In-memory only, CRITICAL: warn about data loss risk
-        return { ai: true, queues: true, persistence: false, realtime: true };
-
-      case OperatingMode.EMERGENCY:
-        // Human-only mode, all AI actions disabled
-        return { ai: false, queues: false, persistence: false, realtime: false };
-
-      case OperatingMode.READONLY:
-        // View-only, useful during maintenance
-        return { ai: false, queues: false, persistence: 'readonly', realtime: true };
+    if (!verification.passed) {
+      // Agent said it was done, but it's not
+      await agent.correct({
+        originalTask: task,
+        claimedResult: result,
+        actualState: verification.actualState,
+        instruction: 'Your previous attempt did not fully complete. Here is what is actually in the system. Please fix.',
+      });
     }
   }
 }
@@ -798,61 +399,43 @@ class DegradationManager {
 
 ---
 
-## Implementation Priorities
+## Summary: What Actually Matters
 
-Based on the mission-critical requirements, here's the recommended implementation order:
+### Org Structure
+- **Hierarchical routing**: Marcus → Leads → Workers
+- **Domain ownership**: Leads decide HOW, not just WHAT
+- **Parallel execution**: Workers don't coordinate, leads integrate
 
-### Phase 1: Safety Foundation (Before Production)
+### Reliability
+- **Verification, not approval**: Automated checks, not human gates
+- **Circuit breakers**: Stop runaway agents, don't block good ones
+- **Persistent state**: Work survives agent death
+- **Escalation hierarchy**: Agents → Leads → Marcus → Human (last resort)
 
-1. **Event Sourcing for Audit** - Replace direct updates with append-only events
-2. **Safety Envelopes** - Add hard constraints and circuit breakers
-3. **Compliance Logging** - Add tamper-evident logging infrastructure
-4. **Authorization Levels** - Extend draft approval to all high-risk actions
+### Code Quality
+- **Automated gates**: Compile, test, lint must pass
+- **Agent peer review**: Different agent reviews before merge
+- **Strong prompts**: Quality standards baked into agent identity
+- **Self-correction**: Don't trust self-reports, verify externally
 
-### Phase 2: Regulatory Readiness
+---
 
-1. **Compliance Module** - Domain-specific rules for HIPAA/SOX/FAA
-2. **Multi-Supervisor Model** - Eliminate single point of failure
-3. **Evidence Preservation** - Automated incident evidence packaging
-4. **Audit Report Generation** - Self-service compliance reports
+## What I Removed (And Why)
 
-### Phase 3: Operational Resilience
+The previous version had a lot of compliance theater:
+- ❌ Multi-level authorization (Level 0-4) - blocks autonomy
+- ❌ HIPAA/SOX/FAA compliance modules - premature optimization
+- ❌ Human-in-the-loop guarantees - defeats the purpose
+- ❌ Cryptographic audit trails - overkill for most uses
+- ❌ Committee approvals - bureaucracy
 
-1. **Graceful Degradation** - Operating modes for partial failures
-2. **Observability Enhancement** - Situation reports vs. raw logs
-3. **Cost-Benefit Tracking** - ROI measurement per task
-4. **Self-Improvement Controls** - Versioned, approved prompt changes
+**When you actually need compliance**: Build it as a separate layer on top. Don't bake it into the core. A healthcare deployment can add HIPAA logging without changing how agents work together.
 
 ---
 
 ## Sources
 
-### Every.to (Dan Shipper)
-- [Agent-native Architectures: How to Build Apps After the End of Code](https://every.to/chain-of-thought/agent-native-architectures-how-to-build-apps-after-the-end-of-code)
-- [The AI-native startup: 5 products, 7-figure revenue, 100% AI-written code](https://www.lennysnewsletter.com/p/inside-every-dan-shipper)
-- [Dan Shipper on X - Five Pillars of Agent-Native Design](https://x.com/danshipper/status/2009651408144835021)
-
-### Steve Yegge's Gas Town
-- [Gas Town GitHub Repository](https://github.com/steveyegge/gastown)
-- [A Day in Gas Town - DoltHub Blog](https://www.dolthub.com/blog/2026-01-15-a-day-in-gas-town/)
-- [Wrapping my head around Gas Town - Justin Abrahms](https://justin.abrah.ms/blog/2026-01-05-wrapping-my-head-around-gas-town.html)
-
-### Critical Analysis
-- [What I Learned from Steve Yegge's Gas Town - DEV Community](https://dev.to/kiwibreaksme/what-i-learned-from-steve-yegges-gas-town-and-a-small-tool-for-solo-developers-2me2)
-- [Steve Yegge's Gas Town AI Agent Orchestration System Decoded - ASCII News](https://ascii.co.uk/news/article/news-20260118-4f2079f3/steve-yegges-gas-town-ai-agent-orchestration-system-decoded)
-
----
-
-## Conclusion
-
-The GENERIC CORP plan is well-designed for general-purpose agent orchestration. However, deploying to healthcare, aviation, and financial services requires:
-
-1. **Audit trail integrity** - Not just logging, but cryptographically verifiable event chains
-2. **Bounded autonomy** - Agents work within safety envelopes, not open-ended
-3. **Multi-party approval** - Critical actions require multiple human sign-offs
-4. **Graceful failure** - System degrades safely, never fails catastrophically
-5. **Regulatory hooks** - Built-in compliance for HIPAA, SOX, FAA, etc.
-
-The enhancements in this document transform GENERIC CORP from a "game" into a "mission-critical operations platform" suitable for the industries that will depend on it.
-
-**Remember**: You could literally save lives in doing this right.
+- [Every.to: Agent-native Architectures](https://every.to/chain-of-thought/agent-native-architectures-how-to-build-apps-after-the-end-of-code)
+- [Every.to: The AI-native startup](https://www.lennysnewsletter.com/p/inside-every-dan-shipper)
+- [Gas Town: DoltHub Analysis](https://www.dolthub.com/blog/2026-01-15-a-day-in-gas-town/)
+- [Gas Town GitHub](https://github.com/steveyegge/gastown)

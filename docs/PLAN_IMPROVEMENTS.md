@@ -1,177 +1,187 @@
-# Plan Improvements for Mission-Critical Deployment
+# Plan Improvements
 
-> Concrete action items to transform GENERIC CORP from a game into a mission-critical platform
-
----
-
-## Executive Gap Analysis
-
-| Area | Current Plan | Required for Mission-Critical | Priority |
-|------|--------------|------------------------------|----------|
-| Audit Trail | Activity logs (mutable) | Event sourcing (immutable, chained) | **P0 - Blocker** |
-| Authorization | Draft approval for email | Multi-level for ALL high-risk actions | **P0 - Blocker** |
-| Safety Bounds | None | Hard constraints + circuit breakers | **P0 - Blocker** |
-| Supervision | Single agent (Marcus) | Multi-supervisor + human escalation | **P1 - Critical** |
-| Compliance | None | HIPAA/SOX/FAA hooks | **P1 - Critical** |
-| Resilience | Error recovery | Graceful degradation modes | **P1 - Critical** |
-| Observability | Raw activity feed | Situation awareness dashboard | **P2 - Important** |
-| Cost Tracking | Budget limits | Per-task ROI analysis | **P2 - Important** |
-| Versioning | None | Prompt version control + rollback | **P2 - Important** |
+> Concrete changes to make GENERIC CORP fully autonomous with reliable output.
 
 ---
 
-## P0: Blocker Items (Must Fix Before Any Deployment)
+## Current Plan Strengths
 
-### 1. Convert to Event Sourcing
-
-**Current** (`apps/server/src/services/task-service.ts`):
-```typescript
-// PROBLEM: Mutable updates destroy audit history
-await db.task.update({
-  where: { id: taskId },
-  data: { status: 'completed' }
-});
-```
-
-**Required**:
-```typescript
-// Create append-only event
-await db.taskEvent.create({
-  data: {
-    taskId,
-    eventType: 'COMPLETED',
-    eventData: { completedAt: new Date() },
-    agentId,
-    previousEventHash: await getLastEventHash(taskId),
-    eventHash: computeHash(eventData),
-  }
-});
-
-// Derive state from events
-const task = await deriveTaskState(taskId);
-```
-
-**Files to modify**:
-- `apps/server/src/services/task-service.ts`
-- `apps/server/src/services/message-service.ts`
-- `packages/shared/src/types.ts` (add event types)
-- `apps/server/src/db/schema.prisma` (add event tables)
+Your plan already gets a lot right:
+- ✅ BullMQ for task orchestration (simpler than Temporal)
+- ✅ WebSocket for real-time updates
+- ✅ PostgreSQL + Redis for persistence
+- ✅ Role-based tool access
+- ✅ Agent personalities with distinct capabilities
 
 ---
 
-### 2. Implement Authorization Levels
+## Gap 1: Flat Org Structure
 
-**Current** (`apps/server/src/agents/base-agent.ts`):
-```typescript
-// PROBLEM: Only validates tool permissions, not action severity
-protected getAllowedTools(): string[] {
-  return [...];
-}
+**Current**: All 10 agents report to Marcus, who does everything.
+
+**Problem**: Marcus becomes a bottleneck. No parallel execution. No domain expertise.
+
+**Fix**: Three-tier hierarchy.
+
+```
+Marcus (Orchestrator)
+├── Sable (Tech Lead) → DeVonte, Miranda, Yuki
+├── Graham (Data Lead) → spawns workers
+├── Walter (Biz Lead) → Frankie, Kenji
+└── Helen (Operations)
 ```
 
-**Required**:
+**Changes needed**:
+
+1. **Update agent config** (`apps/server/src/config/agents.ts`):
 ```typescript
-interface ActionRequest {
-  type: string;
-  tool: string;
-  params: Record<string, unknown>;
-  riskScore: number;
-}
-
-async executeAction(request: ActionRequest): Promise<ActionResult> {
-  const auth = await this.checkAuthorization(request);
-
-  switch (auth.level) {
-    case 0: // Autonomous
-      return this.executeDirectly(request);
-
-    case 1: // Notify
-      this.notifyHumans(request);
-      return this.executeDirectly(request);
-
-    case 2: // Confirm
-      return this.executeWithTimeout(request, auth.timeout);
-
-    case 3: // Approve
-      return this.queueForApproval(request, auth.requiredApprovers);
-
-    case 4: // Multi-sig
-      return this.queueForCommittee(request, auth.committee);
-  }
-}
+export const agentHierarchy = {
+  marcus: {
+    role: 'orchestrator',
+    canAssignTo: ['sable', 'graham', 'walter', 'helen'],
+    cannotExecute: true,  // Marcus routes, doesn't do work
+  },
+  sable: {
+    role: 'lead',
+    domain: 'technical',
+    canAssignTo: ['devonte', 'miranda', 'yuki'],
+    reportsTo: 'marcus',
+  },
+  devonte: {
+    role: 'worker',
+    domain: 'technical',
+    canAssignTo: [],  // Workers don't delegate
+    reportsTo: 'sable',
+  },
+  // ... etc
+};
 ```
 
-**Files to create**:
-- `apps/server/src/authorization/levels.ts`
-- `apps/server/src/authorization/checker.ts`
-- `apps/server/src/authorization/domains/healthcare.ts`
-- `apps/server/src/authorization/domains/finance.ts`
-- `apps/server/src/authorization/domains/aviation.ts`
+2. **Update task routing** (`apps/server/src/services/task-service.ts`):
+```typescript
+async function routeTask(task: Task) {
+  // Marcus determines domain
+  const domain = await marcus.classifyTask(task);
+
+  // Route to appropriate lead
+  const lead = getLeadForDomain(domain);
+  await assignTask(task, lead);
+
+  // Lead decides how to execute (may parallelize)
+}
+```
 
 ---
 
-### 3. Add Safety Envelopes
+## Gap 2: No Automated Verification
 
-**Current**: No behavioral bounds exist.
+**Current**: Task marked complete when agent says so.
 
-**Required** (`apps/server/src/safety/envelope.ts`):
+**Problem**: Gas Town showed agents misreport completion. Code merged with failing tests.
+
+**Fix**: Verification layer that checks actual state.
+
+**Changes needed**:
+
+1. **Add verification service** (`apps/server/src/services/verification-service.ts`):
 ```typescript
-class SafetyEnvelope {
-  constructor(private config: SafetyConfig) {}
+interface Verification {
+  type: 'git_commit_exists' | 'tests_pass' | 'pr_created' | 'build_succeeds';
+  check: () => Promise<boolean>;
+}
 
-  // Called BEFORE every agent action
-  async preAction(agentId: string, action: AgentAction): Promise<SafetyDecision> {
-    // Check circuit breaker
-    if (this.isCircuitOpen(agentId)) {
-      return { blocked: true, reason: 'circuit_breaker' };
+async function verifyTaskCompletion(task: Task, claimed: TaskResult): Promise<boolean> {
+  const verifications = getVerificationsForTask(task);
+
+  for (const v of verifications) {
+    const passed = await v.check();
+    if (!passed) {
+      await logVerificationFailure(task, v);
+      return false;
     }
-
-    // Check hard limits
-    if (this.exceedsHardLimits(agentId, action)) {
-      return { blocked: true, reason: 'hard_limit_exceeded' };
-    }
-
-    // Check forbidden actions
-    if (this.config.forbiddenActions.includes(action.type)) {
-      return { blocked: true, reason: 'forbidden_action' };
-    }
-
-    return { blocked: false };
   }
 
-  // Called AFTER every agent action
-  async postAction(agentId: string, result: ActionResult): Promise<void> {
-    if (result.error) {
-      this.recordFailure(agentId);
-      if (this.shouldTripCircuitBreaker(agentId)) {
-        this.tripCircuitBreaker(agentId);
-        await this.alertSupervisors(agentId, 'circuit_tripped');
-      }
-    } else {
-      this.recordSuccess(agentId);
+  return true;
+}
+```
+
+2. **Integrate into task completion** (`apps/server/src/agents/base-agent.ts`):
+```typescript
+async completeTask(task: Task, result: TaskResult) {
+  // Don't trust self-report
+  const verified = await verifyTaskCompletion(task, result);
+
+  if (!verified) {
+    // Self-correct
+    await this.retryWithContext(task, result, 'Verification failed');
+    return;
+  }
+
+  await markTaskComplete(task);
+}
+```
+
+---
+
+## Gap 3: No Circuit Breakers
+
+**Current**: Agent can fail infinitely, burning money.
+
+**Problem**: Gas Town spent $100/hour when things went wrong.
+
+**Fix**: Simple circuit breaker per agent.
+
+**Changes needed**:
+
+1. **Add circuit breaker** (`apps/server/src/agents/circuit-breaker.ts`):
+```typescript
+class CircuitBreaker {
+  private failures = 0;
+  private openedAt: Date | null = null;
+  private readonly threshold = 3;
+  private readonly cooldown = 5 * 60 * 1000;
+
+  isOpen(): boolean {
+    if (!this.openedAt) return false;
+    if (Date.now() - this.openedAt.getTime() > this.cooldown) {
+      this.reset();
+      return false;
     }
+    return true;
+  }
+
+  recordFailure(): void {
+    this.failures++;
+    if (this.failures >= this.threshold) {
+      this.openedAt = new Date();
+    }
+  }
+
+  recordSuccess(): void {
+    this.failures = 0;
+  }
+
+  reset(): void {
+    this.failures = 0;
+    this.openedAt = null;
   }
 }
 ```
 
-**Integration point** (`apps/server/src/agents/base-agent.ts`):
+2. **Wrap agent execution**:
 ```typescript
-async executeTask(task: Task, callbacks?: TaskProgressCallback): Promise<TaskResult> {
-  // ADD: Safety check before execution
-  const safetyCheck = await safetyEnvelope.preAction(this.agentConfig.id, { type: 'execute_task', task });
-  if (safetyCheck.blocked) {
-    return { success: false, error: `Blocked by safety system: ${safetyCheck.reason}` };
+async executeTask(task: Task) {
+  if (this.circuitBreaker.isOpen()) {
+    await this.escalateToLead(task, 'Circuit breaker open');
+    return;
   }
 
   try {
-    const result = await this.doExecuteTask(task, callbacks);
-
-    // ADD: Safety tracking after execution
-    await safetyEnvelope.postAction(this.agentConfig.id, result);
-
+    const result = await this.doExecute(task);
+    this.circuitBreaker.recordSuccess();
     return result;
   } catch (error) {
-    await safetyEnvelope.postAction(this.agentConfig.id, { error });
+    this.circuitBreaker.recordFailure();
     throw error;
   }
 }
@@ -179,276 +189,211 @@ async executeTask(task: Task, callbacks?: TaskProgressCallback): Promise<TaskRes
 
 ---
 
-## P1: Critical Items (Must Fix Before Production)
+## Gap 4: No Agent Peer Review
 
-### 4. Multi-Supervisor Model
+**Current**: Code goes straight to PR, human reviews.
 
-**Current issue**: Marcus is a single point of failure.
+**Problem**: Humans become bottleneck. Quality varies.
 
-**Required structure**:
-```
-Primary Supervisor (Marcus)
-    │
-    ├── Backup: Helen (if Marcus offline)
-    │
-    ├── Domain Specialist: Sable (technical decisions)
-    │
-    └── Human Escalation Chain:
-        ├── Tier 1: On-call engineer (5 min)
-        ├── Tier 2: Team lead (15 min)
-        └── Tier 3: Executive (30 min)
+**Fix**: Agent reviews agent code before PR.
 
-For Level 4 (Committee) actions:
-    └── Healthcare: Care Team (2 of 3 must approve)
-    └── Finance: Risk Committee (3 of 5 must approve)
-    └── Aviation: Safety Board (unanimous required)
-```
+**Changes needed**:
 
-**Files to create**:
-- `apps/server/src/supervision/hierarchy.ts`
-- `apps/server/src/supervision/escalation.ts`
-- `apps/server/src/supervision/committees.ts`
-
----
-
-### 5. Compliance Module
-
-**Required** (`apps/server/src/compliance/index.ts`):
+1. **Add review step to workflow**:
 ```typescript
-interface ComplianceModule {
-  // Before action
-  async canPerform(action: AgentAction): Promise<ComplianceResult>;
+async function submitWork(agent: Agent, work: WorkResult) {
+  // Create draft PR
+  const pr = await createDraftPR(work);
 
-  // After action
-  async logAction(action: AgentAction, result: ActionResult): Promise<void>;
+  // Get a different agent to review
+  const reviewer = selectReviewer(agent);  // Different agent, same domain
+  const review = await reviewer.reviewCode(pr);
 
-  // For auditors
-  async generateReport(dateRange: DateRange): Promise<ComplianceReport>;
-
-  // For incidents
-  async preserveEvidence(incidentId: string): Promise<EvidencePackage>;
-}
-
-// Domain implementations
-class HIPAACompliance implements ComplianceModule {
-  async canPerform(action: AgentAction): Promise<ComplianceResult> {
-    // Check minimum necessary access
-    // Verify purpose of use
-    // Check authorization
-    // Log access attempt
-  }
-}
-
-class SOXCompliance implements ComplianceModule {
-  async canPerform(action: AgentAction): Promise<ComplianceResult> {
-    // Check segregation of duties
-    // Verify transaction limits
-    // Ensure audit trail
+  if (review.approved) {
+    await pr.markReady();
+    await pr.addLabel('agent-approved');
+  } else {
+    // Send back to author with comments
+    await agent.handleReviewFeedback(pr, review);
   }
 }
 ```
 
----
+2. **Add review capability to agents** (in system prompt):
+```
+When reviewing code, check for:
+- Does it compile? Run typecheck.
+- Do tests pass? Run test suite.
+- Are there obvious bugs? Look for null checks, error handling.
+- Does it match the task requirements?
+- Is it reasonably clean? No obvious code smells.
 
-### 6. Graceful Degradation
-
-**Required modes**:
-
-| Mode | Claude API | Redis | PostgreSQL | Capabilities |
-|------|------------|-------|------------|--------------|
-| NORMAL | ✅ | ✅ | ✅ | Full |
-| DEGRADED_AI | ❌ | ✅ | ✅ | Human-only workflows, cached states |
-| DEGRADED_QUEUE | ✅ | ❌ | ✅ | Sync execution only |
-| DEGRADED_DB | ✅ | ✅ | ❌ | ⚠️ In-memory only, data loss risk |
-| EMERGENCY | ❌ | ❌ | ❌ | View-only, human escalation |
-
-**Files to create**:
-- `apps/server/src/resilience/degradation.ts`
-- `apps/server/src/resilience/health-checker.ts`
-- `apps/server/src/resilience/fallbacks.ts`
+If any of these fail, request changes with specific feedback.
+```
 
 ---
 
-## P2: Important Items (Should Fix Before Scale)
+## Gap 5: No Persistent Work Records
 
-### 7. Situation Awareness Dashboard
+**Current**: Agent execution is ephemeral. If agent dies, context lost.
 
-Replace raw activity feed with:
+**Problem**: Can't resume failed tasks. Can't audit what happened.
+
+**Fix**: Log every action to database.
+
+**Changes needed**:
+
+1. **Add work_records table**:
+```prisma
+model WorkRecord {
+  id        String   @id @default(cuid())
+  taskId    String
+  agentId   String
+  action    String
+  input     Json
+  output    Json?
+  artifacts String[] // Git SHAs, file paths, PR URLs
+  status    String   // 'started' | 'completed' | 'failed'
+  error     String?
+  createdAt DateTime @default(now())
+
+  task  Task  @relation(fields: [taskId], references: [id])
+  agent Agent @relation(fields: [agentId], references: [id])
+
+  @@index([taskId])
+  @@index([agentId])
+}
+```
+
+2. **Log actions in base agent**:
 ```typescript
-interface SituationReport {
-  // Aggregated status (not individual events)
-  agentOverview: {
-    working: string[];
-    blocked: string[];
-    idle: string[];
-  };
+async executeAction(action: string, input: unknown) {
+  const record = await db.workRecord.create({
+    data: { taskId: this.currentTask.id, agentId: this.id, action, input, status: 'started' }
+  });
 
-  // Prioritized alerts (not raw logs)
-  alerts: Alert[];  // Sorted by severity
+  try {
+    const output = await this.doAction(action, input);
+    await db.workRecord.update({
+      where: { id: record.id },
+      data: { output, status: 'completed' }
+    });
+    return output;
+  } catch (error) {
+    await db.workRecord.update({
+      where: { id: record.id },
+      data: { error: error.message, status: 'failed' }
+    });
+    throw error;
+  }
+}
+```
 
-  // Decisions awaiting human input
-  pendingDecisions: {
-    critical: Decision[];  // < 5 min remaining
-    urgent: Decision[];    // < 1 hour remaining
-    normal: Decision[];    // > 1 hour remaining
-  };
+3. **Enable task resumption**:
+```typescript
+async resumeTask(taskId: string) {
+  const records = await db.workRecord.findMany({
+    where: { taskId },
+    orderBy: { createdAt: 'asc' }
+  });
 
-  // Predictive warnings
-  predictions: {
-    budgetExhaustionETA: Date;
-    deadlinesAtRisk: Task[];
-    bottlenecks: string[];
-  };
+  const lastCompleted = records.filter(r => r.status === 'completed').at(-1);
+
+  // Give agent context about what was already done
+  await agent.continueFrom({
+    task: await getTask(taskId),
+    completedActions: records.filter(r => r.status === 'completed'),
+    lastFailure: records.find(r => r.status === 'failed'),
+  });
 }
 ```
 
 ---
 
-### 8. Per-Task ROI Tracking
+## Gap 6: Weak Quality Gates
 
-Add to task model:
+**Current**: No automated checks before merge.
+
+**Problem**: Bad code gets through. Manual review catches it too late.
+
+**Fix**: Automated quality gates that block merge.
+
+**Changes needed**:
+
+1. **Add quality gate runner** (`apps/server/src/services/quality-gates.ts`):
 ```typescript
-interface TaskEconomics {
-  // Estimated (before execution)
-  estimatedTokenCost: number;
-  estimatedValue: number;
-  estimatedROI: number;
+const gates: QualityGate[] = [
+  {
+    name: 'typecheck',
+    run: () => exec('pnpm typecheck'),
+    blocking: true,
+  },
+  {
+    name: 'lint',
+    run: () => exec('pnpm lint'),
+    blocking: true,
+  },
+  {
+    name: 'test',
+    run: () => exec('pnpm test'),
+    blocking: true,
+  },
+  {
+    name: 'build',
+    run: () => exec('pnpm build'),
+    blocking: true,
+  },
+];
 
-  // Actual (after execution)
-  actualTokenCost: number;
-  actualValue?: number;  // May need human assessment
-  actualROI?: number;
+async function runQualityGates(pr: PullRequest): Promise<GateResult[]> {
+  const results = await Promise.all(gates.map(async (gate) => {
+    const result = await gate.run();
+    return {
+      name: gate.name,
+      passed: result.exitCode === 0,
+      output: result.output,
+      blocking: gate.blocking,
+    };
+  }));
 
-  // Tracking
-  valueRationale: string;  // Why this task has value
-  valueAssessedBy: 'system' | 'human';
+  return results;
+}
+```
+
+2. **Block PR merge on failures**:
+```typescript
+async function canMerge(pr: PullRequest): Promise<boolean> {
+  const gateResults = await runQualityGates(pr);
+  const blockingFailures = gateResults.filter(r => r.blocking && !r.passed);
+
+  if (blockingFailures.length > 0) {
+    await pr.addComment(`Quality gates failed:\n${blockingFailures.map(f => `- ${f.name}`).join('\n')}`);
+    return false;
+  }
+
+  return true;
 }
 ```
 
 ---
 
-### 9. Prompt Version Control
+## Implementation Order
 
-Add to agent model:
-```typescript
-interface AgentVersion {
-  versionId: string;
-  agentId: string;
-  versionNumber: number;
-
-  // The actual prompt
-  systemPrompt: string;
-  toolPermissions: ToolPermission[];
-
-  // Change management
-  changeReason: string;
-  changedBy: string;  // Human who approved
-  changedAt: Date;
-
-  // Performance tracking
-  metrics: {
-    taskSuccessRate: number;
-    avgCompletionTime: number;
-    userSatisfaction: number;
-  };
-
-  // Rollback support
-  previousVersionId?: string;
-  isRollback: boolean;
-}
-```
+1. **Org structure** - Changes how tasks flow, do first
+2. **Circuit breakers** - Prevents runaway costs, quick win
+3. **Work records** - Enables everything else
+4. **Verification** - Catches bad completions
+5. **Quality gates** - Blocks bad code
+6. **Peer review** - Final quality layer
 
 ---
 
-## Implementation Checklist
+## What NOT to Add
 
-### Week 1: P0 Blockers
-- [ ] Design event sourcing schema
-- [ ] Implement TaskEvent and MessageEvent tables
-- [ ] Create event derivation functions
-- [ ] Add hash chaining for tamper evidence
-- [ ] Migrate existing code to append-only pattern
+- ❌ Human approval gates (blocks autonomy)
+- ❌ Compliance modules (add later if needed)
+- ❌ Multi-sig approvals (bureaucracy)
+- ❌ Cryptographic audit trails (overkill)
+- ❌ Graceful degradation modes (premature)
 
-### Week 2: P0 Blockers (continued)
-- [ ] Design authorization level system
-- [ ] Implement pre-action authorization checks
-- [ ] Create approval queue UI
-- [ ] Add timeout and escalation logic
-- [ ] Create domain-specific authorization configs
-
-### Week 3: P0 Blockers (continued)
-- [ ] Design safety envelope schema
-- [ ] Implement circuit breaker pattern
-- [ ] Add hard/soft constraint checking
-- [ ] Create supervisor alerting
-- [ ] Test with simulated failures
-
-### Week 4: P1 Critical
-- [ ] Design supervisor hierarchy
-- [ ] Implement backup activation
-- [ ] Create human escalation chain
-- [ ] Add committee voting system
-- [ ] Test failover scenarios
-
-### Week 5: P1 Critical (continued)
-- [ ] Design compliance interface
-- [ ] Implement HIPAA module
-- [ ] Implement SOX module
-- [ ] Create audit report generator
-- [ ] Add evidence preservation
-
-### Week 6: P1 Critical (continued)
-- [ ] Design degradation modes
-- [ ] Implement health checking
-- [ ] Add mode switching logic
-- [ ] Create fallback behaviors
-- [ ] Test all degradation scenarios
-
-### Weeks 7-8: P2 Important
-- [ ] Design situation awareness dashboard
-- [ ] Implement alert aggregation
-- [ ] Add predictive warnings
-- [ ] Implement ROI tracking
-- [ ] Add prompt version control
-
----
-
-## Testing Requirements for Mission-Critical
-
-### Unit Tests
-- [ ] Event sourcing: verify immutability, hash chaining
-- [ ] Authorization: verify all levels work correctly
-- [ ] Safety envelopes: verify constraints enforced
-- [ ] Circuit breakers: verify trip and recovery
-
-### Integration Tests
-- [ ] End-to-end task with all authorization levels
-- [ ] Supervisor failover scenarios
-- [ ] Compliance logging completeness
-- [ ] Degradation mode transitions
-
-### Chaos Engineering
-- [ ] Kill Claude API mid-task
-- [ ] Kill Redis mid-task
-- [ ] Kill PostgreSQL mid-task
-- [ ] Kill supervisor agent mid-task
-- [ ] Simulate runaway agent (1000 actions)
-
-### Compliance Audits
-- [ ] HIPAA: Verify access logging completeness
-- [ ] SOX: Verify segregation of duties
-- [ ] FAA: Verify decision chain traceability
-- [ ] Generate sample audit reports
-
----
-
-## Success Criteria
-
-Before deploying to any mission-critical environment:
-
-1. **Zero data loss** under any single-component failure
-2. **100% audit trail** for all agent actions
-3. **< 30 second** detection of runaway agents
-4. **100% human approval** for Level 3+ actions
-5. **Successful chaos tests** for all failure scenarios
-6. **Clean compliance audit** from third-party assessor
+Keep the system simple. Agents should be able to ship code end-to-end without human intervention. Humans review PRs async, not as a blocking gate.
