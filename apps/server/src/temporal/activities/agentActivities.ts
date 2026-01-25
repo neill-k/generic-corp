@@ -351,6 +351,17 @@ export async function updateBudget(params: {
 
 /**
  * Activity: Verify task completion against acceptance criteria
+ *
+ * TODO: Implement real verification logic
+ * Current implementation is a stub that assumes success based on task status.
+ * Future implementation should:
+ * - Run automated tests when criterion contains "test" or "spec"
+ * - Check file existence when criterion mentions "file" or "create"
+ * - Verify git commits when criterion mentions "commit" or "git"
+ * - Use LLM to evaluate open-ended criteria against task output
+ * - Support custom verification scripts per criterion type
+ *
+ * See: https://github.com/your-org/generic-corp/issues/XXX
  */
 export async function verifyTaskCompletion(params: {
   taskId: string;
@@ -362,7 +373,7 @@ export async function verifyTaskCompletion(params: {
 }> {
   const task = await db.task.findUnique({
     where: { id: params.taskId },
-    include: { agent: true },
+    include: { assignedTo: true },
   });
 
   if (!task) {
@@ -376,41 +387,30 @@ export async function verifyTaskCompletion(params: {
   const passedCriteria: string[] = [];
   const failedCriteria: string[] = [];
 
-  // Simple verification - check if task was marked as completed
-  // In a real implementation, this would run tests, check files, etc.
+  // STUB: Simple verification based on task completion status
+  // This should be replaced with actual verification logic per criterion type
   for (const criterion of params.acceptanceCriteria) {
     const criterionLower = criterion.toLowerCase();
 
-    // Check for common verification patterns
+    // Log which type of verification would be needed
+    let verificationType = "generic";
     if (criterionLower.includes("test") || criterionLower.includes("spec")) {
-      // Would run tests here
-      // For now, assume passed if task completed
-      if (task.status === "completed") {
-        passedCriteria.push(criterion);
-      } else {
-        failedCriteria.push(criterion);
-      }
+      verificationType = "test_execution";
     } else if (criterionLower.includes("file") || criterionLower.includes("create")) {
-      // Would check file existence here
-      if (task.status === "completed") {
-        passedCriteria.push(criterion);
-      } else {
-        failedCriteria.push(criterion);
-      }
+      verificationType = "file_existence";
     } else if (criterionLower.includes("commit") || criterionLower.includes("git")) {
-      // Would check git history here
-      if (task.status === "completed") {
-        passedCriteria.push(criterion);
-      } else {
-        failedCriteria.push(criterion);
-      }
+      verificationType = "git_verification";
+    }
+
+    console.log(
+      `[Verification] STUB: Would verify "${criterion}" using ${verificationType} strategy`
+    );
+
+    // STUB: Assume all criteria pass if task completed successfully
+    if (task.status === "completed") {
+      passedCriteria.push(criterion);
     } else {
-      // Default: assume passed if task completed
-      if (task.status === "completed") {
-        passedCriteria.push(criterion);
-      } else {
-        failedCriteria.push(criterion);
-      }
+      failedCriteria.push(criterion);
     }
   }
 

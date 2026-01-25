@@ -12,6 +12,12 @@ export interface CronJobDefinition {
   enabled?: boolean;
 }
 
+// Rate limiter configuration for BullMQ
+const RATE_LIMITER_CONFIG = {
+  max: 10,        // Maximum number of jobs processed
+  duration: 1000, // Per 1 second window
+};
+
 export interface CronJobStatus {
   name: string;
   pattern: string;
@@ -37,7 +43,7 @@ export class CronManager {
   constructor(redisConnection: Redis) {
     this._redis = redisConnection;
 
-    // Create the cron queue
+    // Create the cron queue with rate limiting
     this.queue = new Queue("crons", {
       connection: redisConnection,
       defaultJobOptions: {
@@ -46,7 +52,7 @@ export class CronManager {
       },
     });
 
-    // Create the worker
+    // Create the worker with rate limiting to prevent overwhelming resources
     this.worker = new Worker(
       "crons",
       async (job: Job) => {
@@ -55,6 +61,7 @@ export class CronManager {
       {
         connection: redisConnection,
         concurrency: 5, // Process up to 5 cron jobs concurrently
+        limiter: RATE_LIMITER_CONFIG, // Rate limit job processing
       }
     );
 

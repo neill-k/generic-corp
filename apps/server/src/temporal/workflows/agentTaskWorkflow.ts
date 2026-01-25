@@ -11,10 +11,10 @@ import {
 import type * as activities from "../activities/agentActivities.js";
 import type { TaskResult } from "@generic-corp/shared";
 
-// Proxy activities with timeouts
+// Proxy activities with activity-specific timeouts and retry policies
+// Short-running activities (DB operations, notifications)
 const {
   loadAgentConfig,
-  executeAgentTask,
   updateTaskStatus,
   updateAgentStatus,
   emitProgress,
@@ -22,14 +22,39 @@ const {
   emitTaskCompletion,
   logActivity,
   updateBudget,
-  verifyTaskCompletion,
   notifyLead,
 } = proxyActivities<typeof activities>({
-  startToCloseTimeout: "5 minutes",
+  startToCloseTimeout: "30 seconds",
+  heartbeatTimeout: "10 seconds",
   retry: {
     maximumAttempts: 3,
-    initialInterval: "1 second",
+    initialInterval: "500ms",
     backoffCoefficient: 2,
+    maximumInterval: "10 seconds",
+  },
+});
+
+// Long-running activity: executeAgentTask (may take several minutes for LLM calls)
+const { executeAgentTask } = proxyActivities<typeof activities>({
+  startToCloseTimeout: "10 minutes",
+  heartbeatTimeout: "2 minutes",
+  retry: {
+    maximumAttempts: 2, // Fewer retries for expensive LLM calls
+    initialInterval: "5 seconds",
+    backoffCoefficient: 2,
+    maximumInterval: "30 seconds",
+  },
+});
+
+// Medium-duration activity: verifyTaskCompletion (may run tests/checks)
+const { verifyTaskCompletion } = proxyActivities<typeof activities>({
+  startToCloseTimeout: "2 minutes",
+  heartbeatTimeout: "30 seconds",
+  retry: {
+    maximumAttempts: 2,
+    initialInterval: "2 seconds",
+    backoffCoefficient: 2,
+    maximumInterval: "20 seconds",
   },
 });
 
