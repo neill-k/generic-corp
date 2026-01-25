@@ -13,6 +13,8 @@ import * as shellHandlers from "./handlers/shell.js";
 export interface ToolContext {
   agentId: string;
   agentName: string;
+  /** Agent role - required for permission checks */
+  role: string;
   taskId?: string;
 }
 
@@ -139,19 +141,18 @@ export async function executeMcpTool(
  */
 export async function processToolUse(
   toolUse: { name: string; input: unknown },
-  context: ToolContext,
-  role?: string
+  context: ToolContext
 ): Promise<{
   tool_use_id: string;
   content: string;
   is_error?: boolean;
 }> {
-  // Check permission if role provided
-  if (role && !hasToolAccess(role, toolUse.name)) {
+  // Always check permission using role from context
+  if (!hasToolAccess(context.role, toolUse.name)) {
     return {
       tool_use_id: toolUse.name,
       content: JSON.stringify({
-        error: `Access denied: ${role} cannot use tool ${toolUse.name}`,
+        error: `Access denied: ${context.role} cannot use tool ${toolUse.name}`,
       }),
       is_error: true,
     };

@@ -14,11 +14,13 @@ export interface Agent {
   role: string;
   personalityPrompt: string;
   status: AgentStatus;
+  /** Human-readable capabilities description */
   capabilities: string[];
+  /** Tool access permissions - keys are tool names, values are access boolean */
   toolPermissions: Record<string, boolean>;
-  tools?: string[];
   avatarUrl?: string;
   stats?: AgentStats;
+  /** Optimistic locking version */
   version: number;
   createdAt: Date;
   updatedAt: Date;
