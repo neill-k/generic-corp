@@ -240,3 +240,126 @@ export async function updateBudget(params: {
 
   return { success: true, newBalance };
 }
+
+/**
+ * Activity: Verify task completion against acceptance criteria
+ */
+export async function verifyTaskCompletion(params: {
+  taskId: string;
+  acceptanceCriteria: string[];
+}): Promise<{
+  allPassed: boolean;
+  passedCriteria: string[];
+  failedCriteria: string[];
+}> {
+  const task = await db.task.findUnique({
+    where: { id: params.taskId },
+    include: { agent: true },
+  });
+
+  if (!task) {
+    return {
+      allPassed: false,
+      passedCriteria: [],
+      failedCriteria: params.acceptanceCriteria,
+    };
+  }
+
+  const passedCriteria: string[] = [];
+  const failedCriteria: string[] = [];
+
+  // Simple verification - check if task was marked as completed
+  // In a real implementation, this would run tests, check files, etc.
+  for (const criterion of params.acceptanceCriteria) {
+    const criterionLower = criterion.toLowerCase();
+
+    // Check for common verification patterns
+    if (criterionLower.includes("test") || criterionLower.includes("spec")) {
+      // Would run tests here
+      // For now, assume passed if task completed
+      if (task.status === "completed") {
+        passedCriteria.push(criterion);
+      } else {
+        failedCriteria.push(criterion);
+      }
+    } else if (criterionLower.includes("file") || criterionLower.includes("create")) {
+      // Would check file existence here
+      if (task.status === "completed") {
+        passedCriteria.push(criterion);
+      } else {
+        failedCriteria.push(criterion);
+      }
+    } else if (criterionLower.includes("commit") || criterionLower.includes("git")) {
+      // Would check git history here
+      if (task.status === "completed") {
+        passedCriteria.push(criterion);
+      } else {
+        failedCriteria.push(criterion);
+      }
+    } else {
+      // Default: assume passed if task completed
+      if (task.status === "completed") {
+        passedCriteria.push(criterion);
+      } else {
+        failedCriteria.push(criterion);
+      }
+    }
+  }
+
+  return {
+    allPassed: failedCriteria.length === 0,
+    passedCriteria,
+    failedCriteria,
+  };
+}
+
+/**
+ * Activity: Notify lead agent about task status
+ */
+export async function notifyLead(params: {
+  leadId: string;
+  agentId: string;
+  taskId: string;
+  message: string;
+}): Promise<{ success: boolean; messageId?: string }> {
+  // Get agent name for the message
+  const agent = await db.agent.findUnique({
+    where: { id: params.agentId },
+  });
+
+  const agentName = agent?.name || "Unknown Agent";
+
+  // Create a message to the lead
+  const message = await db.message.create({
+    data: {
+      fromAgentId: params.agentId,
+      toAgentId: params.leadId,
+      subject: `Task Update: ${agentName}`,
+      body: params.message,
+      type: "system",
+      status: "pending",
+      isExternalDraft: false,
+    },
+  });
+
+  // Emit event for real-time notification
+  EventBus.emit("message:new", {
+    toAgentId: params.leadId,
+    message,
+  });
+
+  // Log the notification
+  await db.activityLog.create({
+    data: {
+      agentId: params.agentId,
+      taskId: params.taskId,
+      eventType: "lead_notified",
+      eventData: {
+        leadId: params.leadId,
+        message: params.message,
+      },
+    },
+  });
+
+  return { success: true, messageId: message.id };
+}

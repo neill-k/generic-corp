@@ -2,6 +2,8 @@ import { Redis } from "ioredis";
 import { getCronManager, type CronJobDefinition } from "../services/CronManager.js";
 import { systemCronJobs } from "./system.js";
 import { workerCronJobs } from "./workers.js";
+import { ceoCronJobs } from "./ceo.js";
+import { leadsCronJobs } from "./leads.js";
 
 /**
  * Get all cron job definitions
@@ -10,6 +12,8 @@ export function getAllCronJobs(): CronJobDefinition[] {
   return [
     ...systemCronJobs,
     ...workerCronJobs,
+    ...ceoCronJobs,
+    ...leadsCronJobs,
   ];
 }
 

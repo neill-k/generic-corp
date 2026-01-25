@@ -1,4 +1,13 @@
-import { proxyActivities, defineQuery, setHandler } from "@temporalio/workflow";
+import {
+  proxyActivities,
+  defineQuery,
+  defineSignal,
+  setHandler,
+  condition,
+  sleep,
+  CancellationScope,
+  isCancellation,
+} from "@temporalio/workflow";
 import type * as activities from "../activities/agentActivities.js";
 import type { TaskResult } from "@generic-corp/shared";
 
@@ -13,6 +22,8 @@ const {
   emitTaskCompletion,
   logActivity,
   updateBudget,
+  verifyTaskCompletion,
+  notifyLead,
 } = proxyActivities<typeof activities>({
   startToCloseTimeout: "5 minutes",
   retry: {
@@ -27,7 +38,14 @@ export const getWorkflowStatus = defineQuery<{
   status: string;
   progress: number;
   currentStep: string;
+  isPaused: boolean;
+  turns: number;
 }>("getStatus");
+
+// Signals for workflow control
+export const cancelSignal = defineSignal("cancel");
+export const pauseSignal = defineSignal("pause");
+export const resumeSignal = defineSignal("resume");
 
 export interface AgentTaskWorkflowInput {
   taskId: string;
@@ -36,12 +54,17 @@ export interface AgentTaskWorkflowInput {
   description: string;
   priority: string;
   playerId: string;
+  acceptanceCriteria?: string[];
+  maxTurns?: number;
+  leadId?: string;
 }
 
 export interface AgentTaskWorkflowOutput {
   success: boolean;
   result?: TaskResult;
   error?: string;
+  turns: number;
+  verified: boolean;
 }
 
 /**
@@ -51,21 +74,46 @@ export interface AgentTaskWorkflowOutput {
 export async function agentTaskWorkflow(
   input: AgentTaskWorkflowInput
 ): Promise<AgentTaskWorkflowOutput> {
+  // Workflow state
   let currentStatus = "initializing";
   let currentProgress = 0;
   let currentStep = "Loading agent configuration";
+  let isPaused = false;
+  let isCancelled = false;
+  let turns = 0;
+  const maxTurns = input.maxTurns || 20;
 
   // Set up query handler
   setHandler(getWorkflowStatus, () => ({
     status: currentStatus,
     progress: currentProgress,
     currentStep,
+    isPaused,
+    turns,
   }));
+
+  // Set up signal handlers
+  setHandler(cancelSignal, () => {
+    isCancelled = true;
+    currentStatus = "cancelling";
+  });
+
+  setHandler(pauseSignal, () => {
+    isPaused = true;
+    currentStatus = "paused";
+  });
+
+  setHandler(resumeSignal, () => {
+    isPaused = false;
+    if (currentStatus === "paused") {
+      currentStatus = "in_progress";
+    }
+  });
 
   try {
     // Step 1: Load agent configuration
     currentStep = "Loading agent configuration";
-    currentProgress = 10;
+    currentProgress = 5;
 
     const agentConfig = await loadAgentConfig(input.agentId);
 
@@ -78,13 +126,13 @@ export async function agentTaskWorkflow(
 
     // Step 2: Update task status to in_progress
     currentStep = "Starting task execution";
-    currentProgress = 20;
+    currentProgress = 10;
     currentStatus = "in_progress";
 
     await updateTaskStatus({
       taskId: input.taskId,
       status: "in_progress",
-      progressPercent: 20,
+      progressPercent: 10,
     });
 
     // Step 3: Update agent status to working
@@ -96,98 +144,63 @@ export async function agentTaskWorkflow(
     await emitProgress({
       taskId: input.taskId,
       agentId: input.agentId,
-      progress: 20,
+      progress: 10,
       details: { step: "Task started" },
     });
 
-    // Step 4: Execute the agent task (this is the main work)
+    // Check for cancellation/pause before main work
+    if (isCancelled) {
+      throw new Error("Task cancelled by user");
+    }
+    await condition(() => !isPaused, "30 minutes");
+
+    // Step 4: Execute agent task in loop
     currentStep = "Executing agent task";
-    currentProgress = 40;
+    let result: TaskResult | undefined;
+    let lastOutput = "";
 
-    await emitProgress({
-      taskId: input.taskId,
-      agentId: input.agentId,
-      progress: 40,
-      details: { step: "Agent working on task" },
-    });
+    while (turns < maxTurns && !isCancelled) {
+      // Check for pause
+      if (isPaused) {
+        currentStep = "Paused - waiting for resume";
+        await condition(() => !isPaused || isCancelled, "30 minutes");
+        if (isCancelled) break;
+        currentStep = "Resuming execution";
+      }
 
-    const result = await executeAgentTask({
-      agentId: input.agentId,
-      agentName: agentConfig.agentName,
-      taskId: input.taskId,
-      title: input.title,
-      description: input.description,
-      priority: input.priority,
-    });
+      turns++;
+      currentProgress = 10 + Math.floor((turns / maxTurns) * 60);
 
-    // Step 5: Store the result
-    currentStep = "Storing results";
-    currentProgress = 80;
-
-    await storeTaskResult({
-      taskId: input.taskId,
-      result,
-    });
-
-    await emitProgress({
-      taskId: input.taskId,
-      agentId: input.agentId,
-      progress: 90,
-      details: { step: "Finalizing" },
-    });
-
-    // Step 6: Update budget if task succeeded
-    if (result.success && result.costUsd > 0) {
-      await updateBudget({
-        playerId: input.playerId,
-        costUsd: result.costUsd,
+      await emitProgress({
+        taskId: input.taskId,
+        agentId: input.agentId,
+        progress: currentProgress,
+        details: { step: `Turn ${turns}/${maxTurns}`, lastOutput },
       });
+
+      // Execute one turn of agent work
+      result = await executeAgentTask({
+        agentId: input.agentId,
+        agentName: agentConfig.agentName,
+        taskId: input.taskId,
+        title: input.title,
+        description: input.description,
+        priority: input.priority,
+      });
+
+      lastOutput = result.output;
+
+      // Check if task is complete or failed
+      if (result.success || result.error) {
+        break;
+      }
+
+      // Sleep between turns to avoid rate limits
+      await sleep("1 second");
     }
 
-    // Step 7: Set agent back to idle
-    await updateAgentStatus({
-      agentId: input.agentId,
-      status: "idle",
-    });
-
-    // Step 8: Emit completion event
-    currentStep = "Completed";
-    currentProgress = 100;
-    currentStatus = result.success ? "completed" : "failed";
-
-    await emitTaskCompletion({
-      taskId: input.taskId,
-      agentId: input.agentId,
-      success: result.success,
-      result: result.success ? result : undefined,
-      error: result.error,
-    });
-
-    await logActivity({
-      agentId: input.agentId,
-      taskId: input.taskId,
-      eventType: result.success ? "task_completed" : "task_failed",
-      eventData: {
-        success: result.success,
-        tokensUsed: result.tokensUsed,
-        costUsd: result.costUsd,
-        error: result.error,
-      },
-    });
-
-    return {
-      success: result.success,
-      result,
-      error: result.error,
-    };
-  } catch (error) {
-    currentStatus = "failed";
-    currentStep = "Error occurred";
-
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-
-    // Try to clean up on error
-    try {
+    // Check for cancellation
+    if (isCancelled) {
       await updateAgentStatus({
         agentId: input.agentId,
         status: "idle",
@@ -195,22 +208,158 @@ export async function agentTaskWorkflow(
 
       await updateTaskStatus({
         taskId: input.taskId,
-        status: "failed",
-        errorDetails: { error: errorMessage },
+        status: "cancelled",
       });
 
-      await emitTaskCompletion({
-        taskId: input.taskId,
-        agentId: input.agentId,
+      return {
         success: false,
-        error: errorMessage,
-      });
+        error: "Task cancelled",
+        turns,
+        verified: false,
+      };
+    }
 
-      await logActivity({
+    // Step 5: Verify task completion
+    currentStep = "Verifying completion";
+    currentProgress = 75;
+
+    let verified = false;
+    if (result?.success && input.acceptanceCriteria) {
+      const verification = await verifyTaskCompletion({
+        taskId: input.taskId,
+        acceptanceCriteria: input.acceptanceCriteria,
+      });
+      verified = verification.allPassed;
+
+      if (!verified) {
+        await logActivity({
+          agentId: input.agentId,
+          taskId: input.taskId,
+          eventType: "verification_failed",
+          eventData: { failedCriteria: verification.failedCriteria },
+        });
+      }
+    } else {
+      // No acceptance criteria, consider verified if successful
+      verified = result?.success || false;
+    }
+
+    // Step 6: Store the result
+    currentStep = "Storing results";
+    currentProgress = 85;
+
+    if (result) {
+      await storeTaskResult({
+        taskId: input.taskId,
+        result,
+      });
+    }
+
+    // Step 7: Update budget if task succeeded
+    if (result?.success && result.costUsd > 0) {
+      await updateBudget({
+        playerId: input.playerId,
+        costUsd: result.costUsd,
+      });
+    }
+
+    // Step 8: Notify lead if task failed
+    if (!result?.success && input.leadId) {
+      await notifyLead({
+        leadId: input.leadId,
         agentId: input.agentId,
         taskId: input.taskId,
-        eventType: "task_failed",
-        eventData: { error: errorMessage },
+        message: `Task "${input.title}" failed: ${result?.error || "Unknown error"}`,
+      });
+    }
+
+    // Step 9: Set agent back to idle
+    await updateAgentStatus({
+      agentId: input.agentId,
+      status: "idle",
+    });
+
+    // Step 10: Emit completion event
+    currentStep = "Completed";
+    currentProgress = 100;
+    currentStatus = result?.success ? "completed" : "failed";
+
+    await emitTaskCompletion({
+      taskId: input.taskId,
+      agentId: input.agentId,
+      success: result?.success || false,
+      result: result?.success ? result : undefined,
+      error: result?.error,
+    });
+
+    await logActivity({
+      agentId: input.agentId,
+      taskId: input.taskId,
+      eventType: result?.success ? "task_completed" : "task_failed",
+      eventData: {
+        success: result?.success,
+        tokensUsed: result?.tokensUsed,
+        costUsd: result?.costUsd,
+        error: result?.error,
+        turns,
+        verified,
+      },
+    });
+
+    return {
+      success: result?.success || false,
+      result,
+      error: result?.error,
+      turns,
+      verified,
+    };
+  } catch (error) {
+    currentStatus = "failed";
+    currentStep = "Error occurred";
+
+    const errorMessage = isCancellation(error)
+      ? "Task cancelled"
+      : error instanceof Error
+        ? error.message
+        : "Unknown error";
+
+    // Try to clean up on error
+    try {
+      await CancellationScope.nonCancellable(async () => {
+        await updateAgentStatus({
+          agentId: input.agentId,
+          status: "idle",
+        });
+
+        await updateTaskStatus({
+          taskId: input.taskId,
+          status: "failed",
+          errorDetails: { error: errorMessage },
+        });
+
+        // Notify lead on failure
+        if (input.leadId) {
+          await notifyLead({
+            leadId: input.leadId,
+            agentId: input.agentId,
+            taskId: input.taskId,
+            message: `Task "${input.title}" failed: ${errorMessage}`,
+          });
+        }
+
+        await emitTaskCompletion({
+          taskId: input.taskId,
+          agentId: input.agentId,
+          success: false,
+          error: errorMessage,
+        });
+
+        await logActivity({
+          agentId: input.agentId,
+          taskId: input.taskId,
+          eventType: "task_failed",
+          eventData: { error: errorMessage, turns },
+        });
       });
     } catch (cleanupError) {
       // Log cleanup error but don't throw
@@ -220,6 +369,8 @@ export async function agentTaskWorkflow(
     return {
       success: false,
       error: errorMessage,
+      turns,
+      verified: false,
     };
   }
 }
