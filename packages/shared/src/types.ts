@@ -1,6 +1,13 @@
 // Agent types
 export type AgentStatus = "idle" | "working" | "blocked" | "offline";
 
+export interface AgentStats {
+  tasksCompleted: number;
+  successRate: number;
+  tokensUsed: number;
+  avgResponseTime: number;
+}
+
 export interface Agent {
   id: string;
   name: string;
@@ -9,6 +16,9 @@ export interface Agent {
   status: AgentStatus;
   capabilities: string[];
   toolPermissions: Record<string, boolean>;
+  tools?: string[];
+  avatarUrl?: string;
+  stats?: AgentStats;
   version: number;
   createdAt: Date;
   updatedAt: Date;
@@ -92,6 +102,22 @@ export interface ActivityLog {
   ipAddress?: string;
   createdAt: Date;
 }
+
+// Activity event types for real-time feed
+export type ActivityEventType =
+  | "agent_status_changed"
+  | "task_started"
+  | "task_completed"
+  | "task_failed"
+  | "task_progress"
+  | "tool_called"
+  | "message_sent"
+  | "message_received"
+  | "draft_created"
+  | "draft_approved"
+  | "draft_rejected"
+  | "error"
+  | "system";
 
 // Agent session
 export interface AgentSession {
@@ -188,9 +214,11 @@ export interface DraftPendingEvent {
 
 export interface ActivityEvent {
   id: string;
-  agentId: string;
-  eventType: string;
-  eventData: Record<string, unknown>;
+  type: ActivityEventType;
+  agentId: string | null;
+  agentName: string | null;
+  message: string;
+  details?: Record<string, unknown>;
   timestamp: Date;
 }
 

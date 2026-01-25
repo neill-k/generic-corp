@@ -1,97 +1,160 @@
+import { useEffect, useRef } from "react";
 import { useGameStore } from "../store/gameStore";
+import type { ActivityEvent, ActivityEventType } from "@generic-corp/shared";
 
-export function ActivityFeed() {
+interface ActivityFeedProps {
+  maxEvents?: number;
+  autoScroll?: boolean;
+  filter?: ActivityEventType[];
+  onEventClick?: (event: ActivityEvent) => void;
+}
+
+export function ActivityFeed({
+  maxEvents = 50,
+  autoScroll = true,
+  filter,
+  onEventClick,
+}: ActivityFeedProps = {}) {
   const { activities, agents } = useGameStore();
+  const feedRef = useRef<HTMLDivElement>(null);
+  const isScrolledToBottom = useRef(true);
 
-  const getAgentName = (agentId: string) => {
-    return agents.find((a) => a.id === agentId)?.name || "Unknown";
-  };
+  // Filter events if filter provided
+  const filteredEvents = filter
+    ? activities.filter((e) => filter.includes(e.type))
+    : activities;
 
-  const formatTime = (timestamp: string | Date) => {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
-  };
+  // Limit to maxEvents
+  const displayEvents = filteredEvents.slice(0, maxEvents);
 
-  const getActionIcon = (action: string) => {
-    switch (action) {
-      case "task_started":
-        return "▶";
-      case "task_completed":
-        return "✓";
-      case "task_failed":
-        return "✗";
-      case "message_sent":
-        return "✉";
-      case "draft_created":
-        return "📝";
-      default:
-        return "•";
+  // Auto-scroll to top when new events arrive (events are prepended)
+  useEffect(() => {
+    if (autoScroll && isScrolledToBottom.current && feedRef.current) {
+      feedRef.current.scrollTop = 0;
+    }
+  }, [displayEvents.length, autoScroll]);
+
+  // Track if user is at the top
+  const handleScroll = () => {
+    if (feedRef.current) {
+      isScrolledToBottom.current = feedRef.current.scrollTop < 50;
     }
   };
 
-  const getActionColor = (action: string) => {
-    switch (action) {
-      case "task_started":
-        return "text-yellow-400";
-      case "task_completed":
-        return "text-green-400";
-      case "task_failed":
-        return "text-red-400";
-      case "message_sent":
-        return "text-blue-400";
-      case "draft_created":
-        return "text-purple-400";
-      default:
-        return "text-gray-400";
+  const getAgentName = (agentId: string | null, agentName: string | null) => {
+    if (agentName) return agentName;
+    if (agentId) {
+      return agents.find((a) => a.id === agentId)?.name || "Unknown";
     }
+    return null;
   };
 
   return (
-    <div className="h-48 overflow-y-auto p-4">
-      <div className="text-xs text-gray-500 uppercase tracking-wide mb-2">
-        Activity Feed
+    <div className="h-48 overflow-hidden flex flex-col p-4 border-t border-corp-accent">
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="text-xs text-gray-500 uppercase tracking-wide">
+          Activity Feed
+        </h2>
+        <span className="text-[10px] text-gray-600">
+          {displayEvents.length} events
+        </span>
       </div>
 
-      {activities.length === 0 ? (
-        <div className="text-center text-gray-600 text-sm py-8">
-          No activity yet
-        </div>
-      ) : (
-        <div className="space-y-1">
-          {activities.map((activity, index) => (
-            <div
-              key={activity.id || index}
-              className="flex items-start gap-2 text-xs py-1 border-b border-corp-accent/30 last:border-0"
-            >
-              <span className={getActionColor(activity.eventType)}>
-                {getActionIcon(activity.eventType)}
-              </span>
-              <div className="flex-1 min-w-0">
-                <span className="text-corp-highlight">
-                  {getAgentName(activity.agentId)}
-                </span>
-                <span className="text-gray-400 ml-1">
-                  {activity.eventType.replace(/_/g, " ")}
-                </span>
-                {activity.eventData && Object.keys(activity.eventData).length > 0 && (
-                  <span className="text-gray-500 block truncate">
-                    {typeof activity.eventData === "string"
-                      ? activity.eventData
-                      : JSON.stringify(activity.eventData)}
-                  </span>
-                )}
-              </div>
-              <span className="text-gray-600 whitespace-nowrap">
-                {formatTime(activity.timestamp)}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
+      <div
+        ref={feedRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto space-y-1 font-mono text-xs"
+      >
+        {displayEvents.length === 0 ? (
+          <p className="text-gray-500 italic text-center py-4">
+            No activity yet
+          </p>
+        ) : (
+          displayEvents.map((event, index) => (
+            <ActivityEventRow
+              key={event.id || index}
+              event={event}
+              agentName={getAgentName(event.agentId, event.agentName)}
+              onClick={onEventClick ? () => onEventClick(event) : undefined}
+            />
+          ))
+        )}
+      </div>
     </div>
   );
+}
+
+interface ActivityEventRowProps {
+  event: ActivityEvent;
+  agentName: string | null;
+  onClick?: () => void;
+}
+
+function ActivityEventRow({ event, agentName, onClick }: ActivityEventRowProps) {
+  const config = getEventConfig(event.type);
+
+  return (
+    <div
+      className={`flex items-start gap-2 py-1 border-b border-corp-accent/30 last:border-0 ${
+        onClick ? "hover:bg-corp-mid cursor-pointer" : ""
+      }`}
+      onClick={onClick}
+    >
+      {/* Timestamp */}
+      <span className="text-gray-600 shrink-0 text-[10px]">
+        {formatTime(event.timestamp)}
+      </span>
+
+      {/* Icon */}
+      <span className={`shrink-0 ${config.color}`}>{config.icon}</span>
+
+      {/* Agent name (if applicable) */}
+      {agentName && (
+        <span className="text-corp-highlight shrink-0">[{agentName}]</span>
+      )}
+
+      {/* Message */}
+      <span className={`text-gray-300 truncate ${config.textColor || ""}`}>
+        {event.message || event.type.replace(/_/g, " ")}
+      </span>
+    </div>
+  );
+}
+
+// Event type configuration
+
+interface EventConfig {
+  icon: string;
+  color: string;
+  textColor?: string;
+}
+
+function getEventConfig(type: ActivityEventType): EventConfig {
+  const configs: Record<ActivityEventType, EventConfig> = {
+    agent_status_changed: { icon: "●", color: "text-blue-400" },
+    task_started: { icon: "▶", color: "text-green-400" },
+    task_completed: { icon: "✓", color: "text-green-400" },
+    task_failed: { icon: "✗", color: "text-red-400", textColor: "text-red-300" },
+    task_progress: { icon: "◐", color: "text-yellow-400" },
+    tool_called: { icon: "⚙", color: "text-orange-400" },
+    message_sent: { icon: "→", color: "text-purple-400" },
+    message_received: { icon: "←", color: "text-purple-400" },
+    draft_created: { icon: "📝", color: "text-yellow-400" },
+    draft_approved: { icon: "✓", color: "text-green-400" },
+    draft_rejected: { icon: "✗", color: "text-red-400" },
+    error: { icon: "!", color: "text-red-500", textColor: "text-red-400" },
+    system: { icon: "ℹ", color: "text-gray-500" },
+  };
+
+  return configs[type] || { icon: "•", color: "text-gray-400" };
+}
+
+function formatTime(date: Date | string): string {
+  const d = new Date(date);
+  return d.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
 }

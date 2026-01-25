@@ -3,14 +3,19 @@ import { EventEmitter } from "events";
 // Typed event bus for internal server communication
 type EventMap = {
   "agent:status": { agentId: string; status: string; taskId?: string };
-  "task:queued": { agentId: string; task: any };
-  "task:progress": { taskId: string; progress: number; details?: Record<string, unknown> };
-  "task:completed": { taskId: string; result: any };
-  "task:failed": { taskId: string; error: string };
-  "message:new": { toAgentId: string; message: any };
-  "draft:pending": { draftId: string; fromAgent: string; content: any };
+  "task:queued": { agentId: string; task: { id: string } };
+  "task:progress": { taskId: string; agentId?: string; progress: number; details?: Record<string, unknown> };
+  "task:completed": { taskId: string; agentId?: string; result: unknown };
+  "task:failed": { taskId: string; agentId?: string; error: string };
+  "message:new": { toAgentId: string; message: unknown };
+  "draft:pending": { draftId: string; fromAgent: string; content: unknown };
   "draft:rejected": { draftId: string; reason?: string };
-  "activity:log": { agentId: string; eventType: string; eventData?: Record<string, unknown> };
+  "activity:log": { agentId: string; taskId?: string; eventType: string; eventData?: Record<string, unknown> };
+  // Cron events
+  "cron:completed": { jobName: string; runCount: number };
+  "cron:failed": { jobName: string; error: string };
+  // System events
+  "system:health": { database: boolean; timestamp: string };
 };
 
 class TypedEventEmitter {

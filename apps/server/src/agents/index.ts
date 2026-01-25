@@ -18,14 +18,14 @@ export async function initializeAgents() {
   });
 
   // Phase 1: Sable and DeVonte are fully implemented
-  const sableAgentRecord = agents.find((a) => a.name === "Sable Chen");
+  const sableAgentRecord = agents.find((a: { name: string }) => a.name === "Sable Chen");
   if (sableAgentRecord) {
     const sable = new SableAgent();
     sable.setAgentRecord(sableAgentRecord);
     agentRegistry.set("Sable Chen", sable);
   }
 
-  const devonteAgentRecord = agents.find((a) => a.name === "DeVonte Jackson");
+  const devonteAgentRecord = agents.find((a: { name: string }) => a.name === "DeVonte Jackson");
   if (devonteAgentRecord) {
     const devonte = new DeVonteAgent();
     devonte.setAgentRecord(devonteAgentRecord);
@@ -46,6 +46,9 @@ export async function initializeAgents() {
 export function getAgent(name: string): BaseAgent | undefined {
   return agentRegistry.get(name);
 }
+
+// Alias for getAgent (for Temporal activities compatibility)
+export const getAgentByName = getAgent;
 
 /**
  * Get all initialized agents

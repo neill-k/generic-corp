@@ -214,7 +214,7 @@ export const messagingCheckInboxTool = {
       return {
         success: true,
         count: messages.length,
-        messages: messages.map((m) => ({
+        messages: messages.map((m: { fromAgent?: { name: string }; subject: string; body: string; createdAt: Date }) => ({
           from: m.fromAgent?.name || "Unknown",
           subject: m.subject,
           body: m.body,
