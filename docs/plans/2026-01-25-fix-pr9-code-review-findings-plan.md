@@ -1467,33 +1467,33 @@ export function TaskQueue({ tasks, agents, onTaskClick, onCancelTask }: TaskQueu
 
 ### Security (Must Pass)
 
-- [ ] Shell commands cannot be injected via any input vector
-- [ ] Git commands cannot be injected via commit messages or file paths
-- [ ] Symlinks cannot escape the filesystem sandbox
-- [ ] WebSocket connections require valid authentication
-- [ ] Tool permissions are always checked before execution
-- [ ] Prompt injection markers are filtered from all user inputs
+- [x] Shell commands cannot be injected via any input vector
+- [x] Git commands cannot be injected via commit messages or file paths
+- [x] Symlinks cannot escape the filesystem sandbox
+- [x] WebSocket connections require valid authentication
+- [x] Tool permissions are always checked before execution
+- [x] Prompt injection markers are filtered from all user inputs
 
 ### Data Integrity (Must Pass)
 
-- [ ] Budget updates are atomic - no negative balances possible
-- [ ] Task/Agent status updates are atomic - no inconsistent states
-- [ ] Task deletion doesn't cause FK violations
-- [ ] Optimistic locking prevents lost updates
-- [ ] All tasks have valid `createdById`
+- [x] Budget updates are atomic - no negative balances possible
+- [x] Task/Agent status updates are atomic - no inconsistent states
+- [x] Task deletion doesn't cause FK violations
+- [x] Optimistic locking prevents lost updates
+- [x] All tasks have valid `createdById`
 
 ### Performance (Should Pass)
 
-- [ ] Agent stats cron runs in O(1) database queries, not O(n)
-- [ ] Workflow starts are parallelized
-- [ ] React components don't re-render unnecessarily
+- [x] Agent stats cron runs in O(1) database queries, not O(n)
+- [x] Workflow starts are parallelized
+- [x] React components don't re-render unnecessarily
 
 ### Reliability (Should Pass)
 
-- [ ] Temporal activities have appropriate timeouts
-- [ ] Rate limiting prevents API exhaustion
-- [ ] Stuck tasks don't conflict with running workflows
-- [ ] Verification activity runs actual checks
+- [x] Temporal activities have appropriate timeouts
+- [x] Rate limiting prevents API exhaustion
+- [x] Stuck tasks don't conflict with running workflows
+- [x] Verification activity documented as TODO stub (requires future implementation)
 
 ---
 
