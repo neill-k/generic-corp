@@ -230,7 +230,7 @@ export const workerCronJobs: CronJobDefinition[] = [
       const workingAgents = await db.agent.findMany({
         where: { status: "working" },
         include: {
-          tasks: {
+          assignedTasks: {
             where: { status: "in_progress" },
             take: 1,
           },
@@ -238,7 +238,7 @@ export const workerCronJobs: CronJobDefinition[] = [
       });
 
       for (const agent of workingAgents) {
-        if (agent.tasks.length === 0) {
+        if (agent.assignedTasks.length === 0) {
           // Agent is marked working but has no active tasks
           console.log(`[Workers] Agent ${agent.name} marked working but no active tasks, resetting to idle`);
 

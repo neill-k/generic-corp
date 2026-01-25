@@ -81,8 +81,10 @@ export async function executeAgentTask(params: {
   return result;
 }
 
+import type { TaskStatus } from "@prisma/client";
+
 // Valid task status transitions to prevent invalid state changes
-const VALID_STATUS_TRANSITIONS: Record<string, string[]> = {
+const VALID_STATUS_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
   pending: ["in_progress", "cancelled"],
   in_progress: ["completed", "failed", "blocked", "cancelled"],
   blocked: ["in_progress", "cancelled"],
@@ -97,15 +99,15 @@ const VALID_STATUS_TRANSITIONS: Record<string, string[]> = {
  */
 export async function updateTaskStatus(params: {
   taskId: string;
-  status: string;
-  expectedCurrentStatus?: string;
+  status: TaskStatus;
+  expectedCurrentStatus?: TaskStatus;
   progressPercent?: number;
   progressDetails?: Record<string, unknown>;
   errorDetails?: Record<string, unknown>;
   completedAt?: Date;
 }): Promise<{ success: boolean; message?: string }> {
   // Build the where clause - always include taskId and optionally check current status
-  const whereClause: { id: string; status?: { in: string[] }; deletedAt: null } = {
+  const whereClause: { id: string; status?: { in: TaskStatus[] }; deletedAt: null } = {
     id: params.taskId,
     deletedAt: null,
   };
@@ -129,8 +131,8 @@ export async function updateTaskStatus(params: {
       status: params.status,
       previousStatus: params.expectedCurrentStatus,
       progressPercent: params.progressPercent,
-      progressDetails: params.progressDetails ?? undefined,
-      errorDetails: params.errorDetails ?? undefined,
+      progressDetails: params.progressDetails ? JSON.parse(JSON.stringify(params.progressDetails)) : undefined,
+      errorDetails: params.errorDetails ? JSON.parse(JSON.stringify(params.errorDetails)) : undefined,
       completedAt: params.completedAt,
       startedAt: params.status === "in_progress" ? new Date() : undefined,
     },
@@ -291,8 +293,8 @@ export async function logActivity(params: {
     data: {
       agentId: params.agentId,
       taskId: params.taskId,
-      eventType: params.eventType,
-      eventData: params.eventData,
+      action: params.eventType,
+      details: JSON.parse(JSON.stringify(params.eventData)),
     },
   });
 
@@ -461,8 +463,8 @@ export async function notifyLead(params: {
     data: {
       agentId: params.agentId,
       taskId: params.taskId,
-      eventType: "lead_notified",
-      eventData: {
+      action: "lead_notified",
+      details: {
         leadId: params.leadId,
         message: params.message,
       },

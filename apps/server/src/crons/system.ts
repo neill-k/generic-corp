@@ -57,7 +57,7 @@ export const systemCronJobs: CronJobDefinition[] = [
 
       const deletedLogs = await db.activityLog.deleteMany({
         where: {
-          createdAt: { lt: sixtyDaysAgo },
+          timestamp: { lt: sixtyDaysAgo },
         },
       });
 

@@ -1,7 +1,6 @@
 import { db } from "../../db/index.js";
 import { EventBus } from "../../services/event-bus.js";
-
-type TaskPriority = "urgent" | "high" | "normal" | "low";
+import type { TaskStatus, TaskPriority, Prisma } from "@prisma/client";
 
 /**
  * Create a new task and assign it to an agent
@@ -80,7 +79,7 @@ export async function taskGet(params: {
   const task = await db.task.findUnique({
     where: { id: params.taskId },
     include: {
-      agent: {
+      assignedTo: {
         select: { name: true },
       },
     },
@@ -98,7 +97,7 @@ export async function taskGet(params: {
       status: task.status,
       priority: task.priority,
       progressPercent: task.progressPercent,
-      assignee: task.agent?.name || "Unassigned",
+      assignee: task.assignedTo?.name || "Unassigned",
       createdAt: task.createdAt,
     },
   };
@@ -129,11 +128,14 @@ export async function taskUpdateProgress(
   }
 
   // Update progress
+  const newProgressDetails = params.progressDetails
+    ? JSON.parse(JSON.stringify(params.progressDetails))
+    : task.progressDetails;
   await db.task.update({
     where: { id: params.taskId },
     data: {
       progressPercent: Math.min(100, Math.max(0, params.progressPercent)),
-      progressDetails: params.progressDetails || task.progressDetails,
+      progressDetails: newProgressDetails,
     },
   });
 
@@ -163,16 +165,16 @@ export async function taskList(params: {
     assignee: string;
   }>;
 }> {
-  const whereClause: Record<string, unknown> = {};
+  const whereClause: Prisma.TaskWhereInput = {};
 
   if (params.status) {
-    whereClause.status = params.status;
+    whereClause.status = params.status as TaskStatus;
   }
 
   const tasks = await db.task.findMany({
     where: whereClause,
     include: {
-      agent: {
+      assignedTo: {
         select: { name: true },
       },
     },
@@ -186,7 +188,7 @@ export async function taskList(params: {
       title: t.title,
       status: t.status,
       priority: t.priority,
-      assignee: t.agent?.name || "Unassigned",
+      assignee: t.assignedTo?.name || "Unassigned",
     })),
   };
 }

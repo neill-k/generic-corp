@@ -7,7 +7,6 @@ import { WS_EVENTS } from "@generic-corp/shared";
 
 // Simple token-based authentication for WebSocket connections
 // In production, this should use JWT with proper key management
-const WS_SECRET = process.env.WS_AUTH_SECRET || crypto.randomBytes(32).toString("hex");
 
 // Valid session tokens (in production, use Redis or database-backed sessions)
 const validTokens = new Map<string, { playerId: string; expiresAt: number }>();

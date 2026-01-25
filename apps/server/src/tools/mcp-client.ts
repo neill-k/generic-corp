@@ -168,5 +168,4 @@ export async function processToolUse(
   };
 }
 
-// Re-export types
-export type { ToolContext, ToolResult };
+// Types are already exported above via the interface declarations
