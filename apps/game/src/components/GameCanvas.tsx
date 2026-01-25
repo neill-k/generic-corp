@@ -90,15 +90,15 @@ class IndicatorPool {
     if (!available) return null;
 
     available.setVisible(true);
-    const exclamation = available.getByName("exclamation") as Phaser.GameObjects.Text;
-    const dots = available.getByName("dots") as Phaser.GameObjects.Text;
+    const exclamation = available.getByName("exclamation") as Phaser.GameObjects.Text | null;
+    const dots = available.getByName("dots") as Phaser.GameObjects.Text | null;
 
     if (type === "blocked") {
-      exclamation.setVisible(true);
-      dots.setVisible(false);
+      exclamation?.setVisible(true);
+      dots?.setVisible(false);
     } else {
-      exclamation.setVisible(false);
-      dots.setVisible(true);
+      exclamation?.setVisible(false);
+      dots?.setVisible(true);
     }
 
     return available;

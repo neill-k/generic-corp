@@ -1,9 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { exec } from "child_process";
-import { promisify } from "util";
 import { gitCommitTool } from "../../services/tools/index.js";
-
-const execAsync = promisify(exec);
 
 // Mock exec to avoid actual git commands
 vi.mock("child_process", () => ({
@@ -17,7 +14,7 @@ describe("Git Commit Tool", () => {
 
   it("escapes shell arguments to prevent command injection", async () => {
     const mockExec = exec as unknown as ReturnType<typeof vi.fn>;
-    mockExec.mockImplementation((cmd, callback) => {
+    mockExec.mockImplementation((_cmd, callback) => {
       // Simulate successful execution
       callback?.(null, { stdout: "", stderr: "" });
       return {} as any;
@@ -34,7 +31,7 @@ describe("Git Commit Tool", () => {
       taskId: "test-task",
     };
 
-    const result = await gitCommitTool.execute(maliciousInput, context);
+    await gitCommitTool.execute(maliciousInput, context);
 
     // Verify exec was called with properly escaped arguments
     const calls = mockExec.mock.calls;
@@ -59,7 +56,7 @@ describe("Git Commit Tool", () => {
 
   it("handles special characters in commit message safely", async () => {
     const mockExec = exec as unknown as ReturnType<typeof vi.fn>;
-    mockExec.mockImplementation((cmd, callback) => {
+    mockExec.mockImplementation((_cmd, callback) => {
       callback?.(null, { stdout: "", stderr: "" });
       return {} as any;
     });

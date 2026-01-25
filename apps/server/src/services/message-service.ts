@@ -1,5 +1,6 @@
 import { db } from "../db/index.js";
 import { EventBus } from "./event-bus.js";
+import { signalNewMessage } from "../temporal/index.js";
 import type { MessageType, MessageStatus } from "@generic-corp/shared";
 
 export interface CreateMessageParams {
@@ -44,6 +45,18 @@ export class MessageService {
       toAgentId: params.toAgentId,
       message,
     });
+
+    // Signal the recipient's Temporal workflow about the new message
+    try {
+      await signalNewMessage(params.toAgentId, {
+        messageId: message.id,
+        fromAgentName: message.fromAgent?.name || "Unknown",
+        subject: message.subject,
+      });
+    } catch (error) {
+      // Temporal might not be running - that's ok, periodic check will pick it up
+      console.debug("[MessageService] Could not signal Temporal workflow:", error);
+    }
 
     return message;
   }

@@ -48,7 +48,7 @@ async function start() {
     // Initialize agent implementations
     await initializeAgents();
 
-    // Initialize BullMQ queues
+    // Initialize task orchestration (Temporal or fallback)
     await initializeQueues(io);
 
     const port = process.env.PORT || 3000;

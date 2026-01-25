@@ -11,6 +11,9 @@ type EventMap = {
   "draft:pending": { draftId: string; fromAgent: string; content: any };
   "draft:rejected": { draftId: string; reason?: string };
   "activity:log": { agentId: string; eventType: string; eventData?: Record<string, unknown> };
+  "cron:started": { name: string };
+  "cron:completed": { name: string; durationMs: number };
+  "cron:failed": { name: string; error: string; durationMs: number };
 };
 
 class TypedEventEmitter {

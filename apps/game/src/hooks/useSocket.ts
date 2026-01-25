@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback } from "react";
 import { io, Socket } from "socket.io-client";
 import { WS_EVENTS } from "@generic-corp/shared";
 import type { TaskPriority } from "@generic-corp/shared";
@@ -6,8 +6,10 @@ import { useGameStore } from "../store/gameStore";
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:3000";
 
+// Module-level singleton so all components share the same socket
+let socket: Socket | null = null;
+
 export function useSocket() {
-  const socketRef = useRef<Socket | null>(null);
   const {
     agents,
     setConnected,
@@ -26,10 +28,10 @@ export function useSocket() {
   } = useGameStore();
 
   const connect = useCallback(() => {
-    if (socketRef.current?.connected) return;
+    if (socket?.connected) return;
 
-    const socket = io(SOCKET_URL, {
-      transports: ["websocket", "polling"],
+    socket = io(SOCKET_URL, {
+      transports: ["polling", "websocket"],
     });
 
     socket.on("connect", () => {
@@ -131,8 +133,6 @@ export function useSocket() {
     socket.on(WS_EVENTS.HEARTBEAT, () => {
       // Just keep-alive, no action needed
     });
-
-    socketRef.current = socket;
   }, [
     setConnected,
     setAgents,
@@ -150,8 +150,8 @@ export function useSocket() {
   ]);
 
   const disconnect = useCallback(() => {
-    socketRef.current?.disconnect();
-    socketRef.current = null;
+    socket?.disconnect();
+    socket = null;
   }, []);
 
   const assignTask = useCallback(
@@ -162,12 +162,12 @@ export function useSocket() {
       priority: TaskPriority = "normal"
     ): Promise<{ success: boolean; taskId?: string; error?: string }> => {
       return new Promise((resolve) => {
-        if (!socketRef.current) {
+        if (!socket) {
           resolve({ success: false, error: "Not connected" });
           return;
         }
 
-        socketRef.current.emit(
+        socket.emit(
           WS_EVENTS.TASK_ASSIGN,
           { agentId, title, description, priority },
           (response: { success: boolean; taskId?: string; error?: string }) => {
@@ -200,12 +200,12 @@ export function useSocket() {
   const approveDraft = useCallback(
     (draftId: string): Promise<{ success: boolean; error?: string }> => {
       return new Promise((resolve) => {
-        if (!socketRef.current) {
+        if (!socket) {
           resolve({ success: false, error: "Not connected" });
           return;
         }
 
-        socketRef.current.emit(WS_EVENTS.DRAFT_APPROVE, { draftId }, (response: { success: boolean; error?: string }) => {
+        socket.emit(WS_EVENTS.DRAFT_APPROVE, { draftId }, (response: { success: boolean; error?: string }) => {
           if (response.success) {
             removePendingDraft(draftId);
           }
@@ -222,12 +222,12 @@ export function useSocket() {
       reason?: string
     ): Promise<{ success: boolean; error?: string }> => {
       return new Promise((resolve) => {
-        if (!socketRef.current) {
+        if (!socket) {
           resolve({ success: false, error: "Not connected" });
           return;
         }
 
-        socketRef.current.emit(
+        socket.emit(
           WS_EVENTS.DRAFT_REJECT,
           { draftId, reason },
           (response: { success: boolean; error?: string }) => {
@@ -249,12 +249,12 @@ export function useSocket() {
       body: string
     ): Promise<{ success: boolean; messageId?: string; error?: string }> => {
       return new Promise((resolve) => {
-        if (!socketRef.current) {
+        if (!socket) {
           resolve({ success: false, error: "Not connected" });
           return;
         }
 
-        socketRef.current.emit(
+        socket.emit(
           WS_EVENTS.MESSAGE_SEND,
           { toAgentId, subject, body },
           (response: { success: boolean; messageId?: string; error?: string }) => {
@@ -291,6 +291,6 @@ export function useSocket() {
     approveDraft,
     rejectDraft,
     sendMessage,
-    socket: socketRef.current,
+    socket: socket,
   };
 }

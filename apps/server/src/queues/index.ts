@@ -1,221 +1,178 @@
-import { Queue, Worker, Job } from "bullmq";
 import type { Server as SocketIOServer } from "socket.io";
 import { db } from "../db/index.js";
 import { EventBus } from "../services/event-bus.js";
-import { QUEUE_NAMES } from "@generic-corp/shared";
-
-const TASK_QUEUE_NAME = QUEUE_NAMES.AGENT_TASKS;
 import { getAgent } from "../agents/index.js";
-import { executeWithProvider } from "../providers/index.js";
+import {
+  getTemporalClient,
+  startAgentTaskWorkflow,
+  initializeAgentLifecycles,
+  shutdownTemporalClient,
+} from "../temporal/index.js";
 
-// Redis connection config
-const connection = {
-  host: process.env.REDIS_HOST || "localhost",
-  port: parseInt(process.env.REDIS_PORT || "6379"),
-};
-
-// Task queue for agent work
-let taskQueue: Queue;
-let taskWorker: Worker;
+let temporalEnabled = false;
 
 export async function initializeQueues(_io: SocketIOServer) {
-  console.log("[Queues] Initializing BullMQ queues...");
+  console.log("[Queues] Initializing task orchestration...");
 
-  // Create task queue
-  taskQueue = new Queue(TASK_QUEUE_NAME, { connection });
+  // Try to connect to Temporal
+  try {
+    await getTemporalClient();
+    temporalEnabled = true;
+    console.log("[Queues] Temporal connected - using durable workflows");
 
-  // Create worker to process tasks
-  taskWorker = new Worker(
-    TASK_QUEUE_NAME,
-    async (job: Job) => {
-      const { taskId, agentId } = job.data;
+    // Initialize long-running agent lifecycle workflows
+    await initializeAgentLifecycles();
+  } catch (error) {
+    console.warn("[Queues] Temporal not available, falling back to direct execution:", error);
+    temporalEnabled = false;
+  }
 
-      console.log(`[Worker] Processing task ${taskId} for agent ${agentId}`);
-
-      try {
-        // Update task status
-        await db.task.update({
-          where: { id: taskId },
-          data: {
-            status: "in_progress",
-            previousStatus: "pending",
-            startedAt: new Date(),
-          },
-        });
-
-        // Update agent status
-        await db.agent.update({
-          where: { id: agentId },
-          data: {
-            status: "working",
-            currentTaskId: taskId,
-          },
-        });
-
-        // Emit status updates
-        EventBus.emit("agent:status", {
-          agentId,
-          status: "working",
-          taskId,
-        });
-
-        EventBus.emit("task:progress", {
-          taskId,
-          progress: 0,
-          details: { message: "Task started" },
-        });
-
-        // Get task details
-        const task = await db.task.findUnique({
-          where: { id: taskId },
-          include: { assignedTo: true, providerAccount: true },
-        });
-
-        if (!task) {
-          throw new Error(`Task ${taskId} not found`);
-        }
-
-        let result;
-
-        if (task.providerAccountId && task.provider) {
-          console.log(`[Worker] Executing task ${taskId} via provider ${task.provider}`);
-          const providerResult = await executeWithProvider(task.providerAccountId, {
-            prompt: task.description || task.title,
-          });
-          result = {
-            success: true,
-            output: providerResult.output,
-            provider: task.provider,
-            tokensUsed: providerResult.tokensUsed,
-          };
-        } else {
-          const agent = getAgent(task.assignedTo.name);
-
-          if (agent) {
-            // Ensure agent has the full record for tool permissions
-            if (!agent.hasAgentRecord()) {
-              agent.setAgentRecord(task.assignedTo);
-            }
-
-            result = await agent.executeTask({
-              taskId,
-              agentId,
-              title: task.title,
-              description: task.description,
-              priority: task.priority,
-            });
-          } else {
-            console.log(`[Worker] Agent ${task.assignedTo.name} not implemented, using simulation`);
-            await simulateTaskExecution(taskId, agentId);
-            result = { success: true, output: "Task completed (simulated)" };
-          }
-        }
-
-        // Update task with result
-        await db.task.update({
-          where: { id: taskId },
-          data: {
-            status: result.success ? "completed" : "failed",
-            previousStatus: "in_progress",
-            completedAt: new Date(),
-            result: JSON.parse(JSON.stringify(result)),
-          },
-        });
-
-        // Reset agent status
-        await db.agent.update({
-          where: { id: agentId },
-          data: {
-            status: "idle",
-            currentTaskId: null,
-          },
-        });
-
-        // Emit completion
-        EventBus.emit(result.success ? "task:completed" : "task:failed", {
-          taskId,
-          result,
-          error: result.error,
-        });
-
-        EventBus.emit("agent:status", {
-          agentId,
-          status: "idle",
-        });
-
-        return { success: result.success, taskId };
-      } catch (error) {
-        console.error(`[Worker] Task ${taskId} failed:`, error);
-
-        // Update task as failed
-        await db.task.update({
-          where: { id: taskId },
-          data: {
-            status: "failed",
-            previousStatus: "in_progress",
-            completedAt: new Date(),
-            result: { error: error instanceof Error ? error.message : "Unknown error" },
-          },
-        });
-
-        // Reset agent status
-        await db.agent.update({
-          where: { id: agentId },
-          data: {
-            status: "idle",
-            currentTaskId: null,
-          },
-        });
-
-        EventBus.emit("task:failed", {
-          taskId,
-          error: error instanceof Error ? error.message : "Unknown error",
-        });
-
-        throw error;
-      }
-    },
-    { connection, concurrency: 5 }
-  );
-
-  // Handle worker events
-  taskWorker.on("completed", (job) => {
-    console.log(`[Worker] Job ${job.id} completed`);
-  });
-
-  taskWorker.on("failed", (job, error) => {
-    console.error(`[Worker] Job ${job?.id} failed:`, error.message);
-  });
-
-  // Listen for task:queued events and add to queue
+  // Listen for task:queued events
   EventBus.on("task:queued", async (data) => {
     const { agentId, task } = data;
 
-    await taskQueue.add(
-      "process-task",
-      { taskId: task.id, agentId },
-      {
-        attempts: 3,
-        backoff: {
-          type: "exponential",
-          delay: 1000,
-        },
-      }
-    );
+    // Get task details
+    const fullTask = await db.task.findUnique({
+      where: { id: task.id },
+      include: { assignedTo: true },
+    });
 
-    console.log(`[Queues] Task ${task.id} queued for agent ${agentId}`);
+    if (!fullTask) {
+      console.error(`[Queues] Task ${task.id} not found`);
+      return;
+    }
+
+    if (temporalEnabled) {
+      // Route to Temporal workflow
+      try {
+        const workflowId = await startAgentTaskWorkflow({
+          taskId: fullTask.id,
+          agentId,
+          agentName: fullTask.assignedTo.name,
+          title: fullTask.title,
+          description: fullTask.description || "",
+          priority: fullTask.priority,
+        });
+        console.log(`[Queues] Task ${task.id} started as Temporal workflow: ${workflowId}`);
+      } catch (error) {
+        console.error(`[Queues] Failed to start Temporal workflow for task ${task.id}:`, error);
+        // Fall back to direct execution
+        await executeTaskDirectly(fullTask, agentId);
+      }
+    } else {
+      // Direct execution fallback
+      await executeTaskDirectly(fullTask, agentId);
+    }
   });
 
-  console.log("[Queues] BullMQ queues initialized");
+  console.log("[Queues] Task orchestration initialized");
 }
 
-// Temporary simulation function - will be replaced with actual agent execution
-// NOTE: This function only emits progress updates. The worker handles final task status update.
+/**
+ * Execute a task directly without Temporal (fallback mode)
+ */
+async function executeTaskDirectly(task: any, agentId: string) {
+  const taskId = task.id;
+  console.log(`[Queues] Executing task ${taskId} directly for agent ${agentId}`);
+
+  try {
+    // Update task status
+    await db.task.update({
+      where: { id: taskId },
+      data: {
+        status: "in_progress",
+        previousStatus: "pending",
+        startedAt: new Date(),
+      },
+    });
+
+    // Update agent status
+    await db.agent.update({
+      where: { id: agentId },
+      data: {
+        status: "working",
+        currentTaskId: taskId,
+      },
+    });
+
+    EventBus.emit("agent:status", { agentId, status: "working", taskId });
+    EventBus.emit("task:progress", { taskId, progress: 0, details: { message: "Task started" } });
+
+    const agent = getAgent(task.assignedTo.name);
+    let result;
+
+    if (agent) {
+      if (!agent.hasAgentRecord()) {
+        agent.setAgentRecord(task.assignedTo);
+      }
+
+      result = await agent.executeTask({
+        taskId,
+        agentId,
+        title: task.title,
+        description: task.description,
+        priority: task.priority,
+      });
+    } else {
+      console.log(`[Queues] Agent ${task.assignedTo.name} not implemented, using simulation`);
+      await simulateTaskExecution(taskId, agentId);
+      result = { success: true, output: "Task completed (simulated)" };
+    }
+
+    // Update task with result
+    await db.task.update({
+      where: { id: taskId },
+      data: {
+        status: result.success ? "completed" : "failed",
+        previousStatus: "in_progress",
+        completedAt: new Date(),
+        result: JSON.parse(JSON.stringify(result)),
+      },
+    });
+
+    // Reset agent status
+    await db.agent.update({
+      where: { id: agentId },
+      data: { status: "idle", currentTaskId: null },
+    });
+
+    EventBus.emit(result.success ? "task:completed" : "task:failed", {
+      taskId,
+      result,
+      error: result.error,
+    });
+    EventBus.emit("agent:status", { agentId, status: "idle" });
+  } catch (error) {
+    console.error(`[Queues] Task ${taskId} failed:`, error);
+
+    await db.task.update({
+      where: { id: taskId },
+      data: {
+        status: "failed",
+        previousStatus: "in_progress",
+        completedAt: new Date(),
+        result: { error: error instanceof Error ? error.message : "Unknown error" },
+      },
+    });
+
+    await db.agent.update({
+      where: { id: agentId },
+      data: { status: "idle", currentTaskId: null },
+    });
+
+    EventBus.emit("task:failed", {
+      taskId,
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+}
+
+/**
+ * Simulation function for agents not yet implemented
+ */
 async function simulateTaskExecution(taskId: string, agentId: string) {
-  // Simulate progress updates
   for (let progress = 25; progress <= 100; progress += 25) {
     await new Promise((resolve) => setTimeout(resolve, 1000));
-
     EventBus.emit("task:progress", {
       taskId,
       progress,
@@ -223,11 +180,6 @@ async function simulateTaskExecution(taskId: string, agentId: string) {
     });
   }
 
-  // NOTE: Do NOT update task status or emit completion here.
-  // The worker will handle final status update and completion event.
-  // This prevents double-completion issues.
-
-  // Log activity (using DB schema format, not event format)
   await db.activityLog.create({
     data: {
       agentId,
@@ -238,16 +190,14 @@ async function simulateTaskExecution(taskId: string, agentId: string) {
   });
 }
 
-// Graceful shutdown
+/**
+ * Graceful shutdown
+ */
 export async function shutdownQueues() {
   console.log("[Queues] Shutting down...");
 
-  if (taskWorker) {
-    await taskWorker.close();
-  }
-
-  if (taskQueue) {
-    await taskQueue.close();
+  if (temporalEnabled) {
+    await shutdownTemporalClient();
   }
 
   console.log("[Queues] Shutdown complete");

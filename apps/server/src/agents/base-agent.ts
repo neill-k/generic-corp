@@ -1,10 +1,9 @@
-import { query } from "@anthropic-ai/claude-agent-sdk";
+import { query, createSdkMcpServer, tool } from "@anthropic-ai/claude-agent-sdk";
+import { z } from "zod";
 import { db } from "../db/index.js";
 import { EventBus } from "../services/event-bus.js";
 import { sanitizePromptInput } from "../services/security.js";
-import { getToolsForAgent } from "../services/tools/index.js";
-import { executeTool } from "../services/tool-executor.js";
-import { getToolDescriptions } from "../services/tool-executor.js";
+import { MessageService } from "../services/message-service.js";
 import type { TaskResult } from "@generic-corp/shared";
 import type { Agent } from "@generic-corp/shared";
 
@@ -30,6 +29,146 @@ export abstract class BaseAgent {
 
   constructor(config: AgentConfig) {
     this.config = config;
+  }
+
+  /**
+   * Create custom MCP server with game-specific tools
+   */
+  protected createGameToolsServer(agentId: string, _agentName: string, taskId: string) {
+    return createSdkMcpServer({
+      name: "game-tools",
+      version: "1.0.0",
+      tools: [
+        tool(
+          "send_message",
+          "Send a message to another team member at Generic Corp",
+          {
+            to: z.string().describe("Recipient name (e.g., 'Sable Chen', 'Marcus Bell')"),
+            subject: z.string().describe("Brief subject line"),
+            body: z.string().describe("Message content"),
+          },
+          async (args) => {
+            try {
+              const recipient = await db.agent.findFirst({
+                where: {
+                  name: { contains: args.to, mode: "insensitive" },
+                  deletedAt: null,
+                },
+              });
+
+              if (!recipient) {
+                return {
+                  content: [{ type: "text", text: `Error: Agent "${args.to}" not found. Available team members: Marcus Bell, Sable Chen, DeVonte Jackson, Yuki Tanaka, Graham Sutton` }],
+                };
+              }
+
+              const message = await MessageService.send({
+                fromAgentId: agentId,
+                toAgentId: recipient.id,
+                subject: args.subject,
+                body: args.body,
+                type: "direct",
+              });
+
+              EventBus.emit("activity:log", {
+                agentId,
+                eventType: "message_sent",
+                eventData: { to: recipient.name, subject: args.subject, messageId: message.id },
+              });
+
+              return {
+                content: [{ type: "text", text: `✓ Message sent to ${recipient.name} (ID: ${message.id})` }],
+              };
+            } catch (error) {
+              return {
+                content: [{ type: "text", text: `Error sending message: ${error instanceof Error ? error.message : "Unknown error"}` }],
+              };
+            }
+          }
+        ),
+
+        tool(
+          "check_inbox",
+          "Check your inbox for unread messages from team members",
+          {},
+          async () => {
+            try {
+              const messages = await MessageService.getUnread(agentId);
+
+              if (messages.length === 0) {
+                return {
+                  content: [{ type: "text", text: "📭 No unread messages" }],
+                };
+              }
+
+              // Mark messages as read
+              for (const msg of messages) {
+                await MessageService.markAsRead(msg.id, agentId);
+              }
+
+              const formatted = messages.map(
+                (m) => `From: ${m.fromAgent?.name || "Unknown"}\nSubject: ${m.subject}\n${m.body}\n---`
+              ).join("\n");
+
+              return {
+                content: [{ type: "text", text: `📬 ${messages.length} message(s):\n\n${formatted}` }],
+              };
+            } catch (error) {
+              return {
+                content: [{ type: "text", text: `Error checking inbox: ${error instanceof Error ? error.message : "Unknown error"}` }],
+              };
+            }
+          }
+        ),
+
+        tool(
+          "draft_external_email",
+          "Draft an email to be sent externally. IMPORTANT: This creates a draft that requires CEO approval before sending.",
+          {
+            recipient: z.string().email().describe("External email address"),
+            subject: z.string().describe("Email subject"),
+            body: z.string().describe("Email body"),
+          },
+          async (args) => {
+            try {
+              const draft = await MessageService.createDraft({
+                fromAgentId: agentId,
+                externalRecipient: args.recipient,
+                subject: args.subject,
+                body: args.body,
+              });
+
+              return {
+                content: [{ type: "text", text: `📝 Draft created (ID: ${draft.id}). Sent to CEO for approval. The email will NOT be sent until approved.` }],
+              };
+            } catch (error) {
+              return {
+                content: [{ type: "text", text: `Error creating draft: ${error instanceof Error ? error.message : "Unknown error"}` }],
+              };
+            }
+          }
+        ),
+
+        tool(
+          "report_progress",
+          "Report progress on the current task to the system",
+          {
+            percent: z.number().min(0).max(100).describe("Progress percentage (0-100)"),
+            message: z.string().describe("Status message"),
+          },
+          async (args) => {
+            EventBus.emit("task:progress", {
+              taskId,
+              progress: args.percent,
+              details: { message: args.message },
+            });
+            return {
+              content: [{ type: "text", text: `Progress reported: ${args.percent}% - ${args.message}` }],
+            };
+          }
+        ),
+      ],
+    });
   }
 
   /**
@@ -100,44 +239,48 @@ export abstract class BaseAgent {
       console.log(`[${this.config.name}] Starting task: ${context.title}`);
       console.log(`[${this.config.name}] Prompt length: ${prompt.length} chars`);
 
-      // Claude Agent SDK auto-detects credentials from ~/.claude/.credentials.json
-      // No need to set ANTHROPIC_API_KEY manually
+      // Create custom MCP server with game-specific tools
+      const gameToolsServer = this.createGameToolsServer(
+        context.agentId,
+        this.config.name,
+        context.taskId
+      );
+
+      // Create async generator for streaming input (required for MCP servers)
+      // Use the Claude Agent SDK with:
+      // - bypassPermissions: Agents can work autonomously without prompts
+      // - Native tools: Read, Write, Edit, Bash, Glob, Grep
+      // - Custom MCP tools: send_message, check_inbox, draft_external_email, report_progress
       const response = query({
         prompt,
         options: {
           model: "claude-sonnet-4-5",
-          permissionMode: "default",
+          permissionMode: "bypassPermissions",
+          mcpServers: {
+            "game-tools": gameToolsServer,
+          },
+          maxTurns: 10, // Allow multiple tool use turns
         },
       });
 
-      // Process response and handle tool calls
+      // Process streaming response
       for await (const message of response) {
         if (message.type === "assistant") {
           const blocks = message.message.content;
           for (const block of blocks) {
             if (block.type === "text") {
               output += block.text;
+            }
+            if (block.type === "tool_use") {
+              toolsUsed.push(block.name);
+              console.log(`[${this.config.name}] Using tool: ${block.name}`);
 
-              // Check for tool calls in the output
-              const toolCall = this.extractToolCall(block.text);
-              if (toolCall) {
-                const toolContext = {
-                  agentId: context.agentId,
-                  agentName: this.config.name,
-                  taskId: context.taskId,
-                };
-
-                const toolResult = await executeTool(toolCall, toolContext);
-                toolsUsed.push(toolCall.name);
-
-                // Add tool result to output
-                output += `\n\n[Tool ${toolCall.name} executed: ${toolResult.success ? "success" : "failed"}]\n`;
-                if (toolResult.error) {
-                  output += `Error: ${toolResult.error}\n`;
-                } else {
-                  output += `Result: ${JSON.stringify(toolResult.result, null, 2)}\n`;
-                }
-              }
+              // Emit progress for tool use
+              EventBus.emit("task:progress", {
+                taskId: context.taskId,
+                progress: Math.min(80, toolsUsed.length * 15),
+                details: { message: `Using ${block.name}`, tool: block.name },
+              });
             }
           }
         }
@@ -147,21 +290,9 @@ export abstract class BaseAgent {
             throw new Error(message.errors.join("\n"));
           }
 
-          // Final result might contain tool calls too
-          const finalOutput = message.result || output;
-          const toolCall = this.extractToolCall(finalOutput);
-          if (toolCall) {
-            const toolContext = {
-              agentId: context.agentId,
-              agentName: this.config.name,
-              taskId: context.taskId,
-            };
-
-            const toolResult = await executeTool(toolCall, toolContext);
-            toolsUsed.push(toolCall.name);
-            output += `\n\n[Tool ${toolCall.name} executed: ${toolResult.success ? "success" : "failed"}]\n`;
-          } else {
-            output = finalOutput;
+          // Use final result
+          if (message.result) {
+            output = message.result;
           }
 
           tokensUsed.input = message.usage.input_tokens;
@@ -169,6 +300,9 @@ export abstract class BaseAgent {
           break;
         }
       }
+
+      console.log(`[${this.config.name}] Task complete. Tools used: ${toolsUsed.join(", ") || "none"}`);
+      console.log(`[${this.config.name}] Tokens: ${tokensUsed.input} input, ${tokensUsed.output} output`);
 
       if (tokensUsed.input <= 0 || tokensUsed.output <= 0) {
         throw new Error("Agent execution did not report token usage");
@@ -230,18 +364,22 @@ export abstract class BaseAgent {
     // Sanitize input
     const sanitizedDescription = sanitizePromptInput(context.description);
 
-    // Get available tools for this agent
-    const availableTools = this.agent
-      ? getToolsForAgent(this.agent)
-      : [];
-    const toolDescriptions =
-      availableTools.length > 0 ? getToolDescriptions(availableTools) : "";
-
     return `${this.config.personalityPrompt}
 
 ---
 
-You have been assigned the following task:
+## Your Team at Generic Corp
+
+You work with these colleagues (use send_message to contact them):
+- **Marcus Bell** - CEO, coordinates team efforts
+- **Sable Chen** - Principal Engineer, architecture & code review expert
+- **DeVonte Jackson** - Full-Stack Developer, rapid prototyper
+- **Yuki Tanaka** - SRE, infrastructure & reliability
+- **Graham Sutton** - Data Engineer, analytics & pipelines
+
+---
+
+## Current Task
 
 **Title:** ${context.title}
 
@@ -252,41 +390,14 @@ ${sanitizedDescription}
 
 ---
 
-${toolDescriptions ? `## Available Tools
+## Instructions
 
-You have access to the following tools. Use them when appropriate to complete your task:
+1. Complete the task using your available tools (file operations, bash, messaging)
+2. Use send_message to coordinate with teammates when needed
+3. Use report_progress to update the CEO on your status
+4. Use check_inbox to see if anyone has sent you relevant info
 
-${toolDescriptions}
-
-To use a tool, include a JSON code block in your response with the tool name and input parameters.` : ""}
-
-Please complete this task to the best of your ability.`;
-  }
-
-  /**
-   * Extract tool call from agent output
-   */
-  protected extractToolCall(text: string): { name: string; input: Record<string, unknown> } | null {
-    // Look for JSON code blocks with tool calls
-    const jsonBlockRegex = /```json\s*\{[^}]*"tool"[^}]*\}\s*```/s;
-    const match = text.match(jsonBlockRegex);
-
-    if (match) {
-      try {
-        const jsonStr = match[0].replace(/```json\s*|\s*```/g, "");
-        const parsed = JSON.parse(jsonStr);
-        if (parsed.tool && parsed.input) {
-          return {
-            name: parsed.tool,
-            input: parsed.input,
-          };
-        }
-      } catch (e) {
-        // Invalid JSON, ignore
-      }
-    }
-
-    return null;
+Complete this task to the best of your ability.`;
   }
 
   protected estimateCost(tokens: { input: number; output: number }): number {

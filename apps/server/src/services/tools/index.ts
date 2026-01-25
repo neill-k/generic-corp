@@ -231,6 +231,147 @@ export const messagingCheckInboxTool = {
 };
 
 /**
+ * Bash command tool
+ */
+export const bashTool = {
+  name: "bash",
+  description: "Execute a bash command. Use for running scripts, checking system state, or executing build commands.",
+  inputSchema: z.object({
+    command: z.string().describe("The bash command to execute"),
+    cwd: z.string().optional().describe("Working directory (optional)"),
+  }),
+  execute: async (
+    input: { command: string; cwd?: string },
+    _context: ToolContext
+  ) => {
+    // Security: Block dangerous commands
+    const dangerousPatterns = [
+      /rm\s+-rf\s+[\/~]/i,
+      /mkfs/i,
+      /dd\s+if=/i,
+      /:(){ :|:& };:/,
+      />\s*\/dev\/sd/i,
+      /chmod\s+-R\s+777\s+\//i,
+    ];
+
+    for (const pattern of dangerousPatterns) {
+      if (pattern.test(input.command)) {
+        return {
+          success: false,
+          error: "Command blocked for security reasons",
+        };
+      }
+    }
+
+    try {
+      const { stdout, stderr } = await execAsync(input.command, {
+        cwd: input.cwd || process.cwd(),
+        timeout: 30000, // 30 second timeout
+        maxBuffer: 1024 * 1024, // 1MB max output
+      });
+
+      return {
+        success: true,
+        stdout: stdout.slice(0, 10000), // Limit output size
+        stderr: stderr.slice(0, 2000),
+        message: `Command executed: ${input.command}`,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || "Command execution failed",
+        stderr: error.stderr?.slice(0, 2000) || "",
+      };
+    }
+  },
+};
+
+/**
+ * Glob file search tool
+ */
+export const globTool = {
+  name: "glob",
+  description: "Search for files matching a glob pattern (e.g., '**/*.ts', 'src/**/*.tsx')",
+  inputSchema: z.object({
+    pattern: z.string().describe("Glob pattern to match files"),
+    cwd: z.string().optional().describe("Directory to search in (optional)"),
+  }),
+  execute: async (
+    input: { pattern: string; cwd?: string },
+    _context: ToolContext
+  ) => {
+    try {
+      const { stdout } = await execAsync(
+        `find . -type f -name "${input.pattern.replace(/\*\*/g, "*")}" | head -50`,
+        { cwd: input.cwd || process.cwd() }
+      );
+
+      const files = stdout.trim().split("\n").filter(Boolean);
+      return {
+        success: true,
+        files,
+        count: files.length,
+        message: `Found ${files.length} files matching ${input.pattern}`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Search failed",
+      };
+    }
+  },
+};
+
+/**
+ * Grep search tool
+ */
+export const grepTool = {
+  name: "grep",
+  description: "Search for text patterns in files",
+  inputSchema: z.object({
+    pattern: z.string().describe("Search pattern (regex supported)"),
+    path: z.string().optional().describe("File or directory to search in (default: current directory)"),
+    filePattern: z.string().optional().describe("File glob pattern to filter (e.g., '*.ts')"),
+  }),
+  execute: async (
+    input: { pattern: string; path?: string; filePattern?: string },
+    _context: ToolContext
+  ) => {
+    try {
+      const searchPath = input.path || ".";
+      const includeFlag = input.filePattern ? `--include="${input.filePattern}"` : "";
+
+      const { stdout } = await execAsync(
+        `grep -rn ${includeFlag} "${input.pattern}" ${searchPath} | head -30`,
+        { cwd: process.cwd() }
+      );
+
+      const matches = stdout.trim().split("\n").filter(Boolean);
+      return {
+        success: true,
+        matches,
+        count: matches.length,
+        message: `Found ${matches.length} matches for "${input.pattern}"`,
+      };
+    } catch (error: any) {
+      // grep returns exit code 1 when no matches found
+      if (error.code === 1) {
+        return {
+          success: true,
+          matches: [],
+          count: 0,
+          message: "No matches found",
+        };
+      }
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Search failed",
+      };
+    }
+  },
+};
+
+/**
  * External draft tool (requires approval)
  */
 export const externalDraftTool = {
@@ -275,6 +416,9 @@ export const externalDraftTool = {
 export const getAllTools = () => [
   filesystemReadTool,
   filesystemWriteTool,
+  bashTool,
+  globTool,
+  grepTool,
   gitCommitTool,
   messagingSendTool,
   messagingCheckInboxTool,
@@ -290,11 +434,24 @@ export function getToolsForAgent(agent: Agent) {
 
   // Check tool permissions
   for (const tool of allTools) {
-    // Filesystem tools
-    if (
-      (tool.name === "filesystem_read" || tool.name === "filesystem_write") &&
-      agent.toolPermissions["Read"]
-    ) {
+    // Filesystem read
+    if (tool.name === "filesystem_read" && agent.toolPermissions["Read"]) {
+      allowed.push(tool);
+    }
+    // Filesystem write
+    else if (tool.name === "filesystem_write" && agent.toolPermissions["Write"]) {
+      allowed.push(tool);
+    }
+    // Bash command execution
+    else if (tool.name === "bash" && agent.toolPermissions["Bash"]) {
+      allowed.push(tool);
+    }
+    // Glob file search
+    else if (tool.name === "glob" && agent.toolPermissions["Glob"]) {
+      allowed.push(tool);
+    }
+    // Grep text search
+    else if (tool.name === "grep" && agent.toolPermissions["Grep"]) {
       allowed.push(tool);
     }
     // Git tools
@@ -308,13 +465,9 @@ export function getToolsForAgent(agent: Agent) {
     ) {
       allowed.push(tool);
     }
-    // External draft (only specific agents)
-    else if (
-      tool.name === "external_draft" &&
-      (agent.name.toLowerCase().includes("frankie") ||
-        agent.name.toLowerCase().includes("kenji") ||
-        agent.name.toLowerCase().includes("helen"))
-    ) {
+    // External draft (agents with external communication capability)
+    else if (tool.name === "external_draft") {
+      // All agents can draft external messages, but they require CEO approval
       allowed.push(tool);
     }
   }
