@@ -1,441 +1,753 @@
 # Agent-Native Architecture Guidelines
 
-> How to build autonomous multi-agent systems that ship quality work reliably.
-> Synthesized from Every.to (Dan Shipper) and Steve Yegge's Gas Town.
+> How to build a fully autonomous software development company.
+> Synthesized from Every.to (Dan Shipper), Steve Yegge's Gas Town, and Temporal.io patterns.
 
 ---
 
 ## Core Philosophy
 
-**Dan Shipper's key insight**: "Most new software will just be Claude Code in a trench coat—new features are just buttons that activate prompts to an underlying general agent."
+**Dan Shipper**: "Most new software will just be Claude Code in a trench coat."
 
-**Steve Yegge's key insight**: "AI agents are ephemeral. Work context should be permanent."
+**Steve Yegge**: "AI agents are ephemeral. Work context should be permanent."
 
-**The goal**: Fully autonomous agents that ship quality code without babysitting.
+**Temporal.io**: "The longer running your agents are, the more valuable Durable Execution becomes."
 
----
-
-## Part 1: Org Structure (How Agents Work Together)
-
-### The Gas Town Model
-
-Gas Town uses a three-tier hierarchy that actually works:
-
-```
-Mayor (Orchestrator)
-  └── Polecats (Specialists)
-        └── Convoys (Workers)
-```
-
-**Why this works**:
-- **Mayor** holds context about the overall goal - doesn't do work, routes work
-- **Polecats** are domain experts - they understand their area deeply
-- **Convoys** do the actual work - focused, disposable, parallelizable
-
-### Applied to GENERIC CORP
-
-Current plan has 10 agents with flat-ish structure. Here's how to make it work:
-
-```
-Marcus (CEO/Orchestrator)
-├── Technical Lead: Sable
-│   ├── DeVonte (Full-Stack)
-│   ├── Miranda (Software Engineer)
-│   └── Yuki (SRE)
-├── Data Lead: Graham
-│   └── (can spawn analysis workers)
-├── Business Lead: Walter
-│   ├── Frankie (Sales)
-│   └── Kenji (Marketing)
-└── Operations: Helen (EA)
-```
-
-**Key principles**:
-
-1. **Marcus routes, doesn't execute**
-   - Receives task → determines domain → delegates to lead
-   - Tracks progress across workstreams
-   - Resolves cross-team conflicts
-   - Never writes code or sends emails
-
-2. **Leads own their domain**
-   - Sable decides HOW to implement technical work
-   - Graham decides HOW to structure data pipelines
-   - Walter decides HOW to approach business problems
-   - They can reject or reshape tasks from Marcus
-
-3. **Workers are disposable and parallelizable**
-   - DeVonte, Miranda, Yuki can work in parallel
-   - If one fails, others continue
-   - Work products merge through the lead
-
-### Communication Patterns
-
-**What Gas Town got right**:
-```
-Task flow:    Marcus → Sable → DeVonte
-Status flow:  DeVonte → Sable → Marcus
-Artifacts:    DeVonte → Git → (anyone can read)
-```
-
-**Anti-patterns to avoid**:
-- ❌ Marcus directly assigning to DeVonte (bypasses Sable's context)
-- ❌ DeVonte messaging Frankie directly (cross-domain confusion)
-- ❌ All agents in one chat (cognitive overload)
-
-**Implementation**:
-```typescript
-interface TaskRouting {
-  // Marcus routes to leads only
-  ceoCanAssignTo: ['sable', 'graham', 'walter', 'helen'];
-
-  // Leads route to their teams
-  techLeadCanAssignTo: ['devonte', 'miranda', 'yuki'];
-  dataLeadCanAssignTo: ['analytics_worker_*'];  // Can spawn workers
-  bizLeadCanAssignTo: ['frankie', 'kenji'];
-
-  // Workers cannot assign tasks
-  workerCanAssignTo: [];
-}
-```
-
-### Parallel Execution
-
-**Gas Town lesson**: "Four agents working simultaneously on Bats tests" - this is the whole point.
-
-**How to enable it**:
-```typescript
-// When Sable receives a feature request, she can parallelize:
-const subtasks = await sable.decompose(task);
-// [
-//   { assignee: 'devonte', work: 'implement API endpoint' },
-//   { assignee: 'miranda', work: 'write unit tests' },
-//   { assignee: 'yuki', work: 'set up monitoring' },
-// ]
-
-// All three execute simultaneously
-await Promise.all(subtasks.map(t => executeTask(t)));
-
-// Sable merges the results
-await sable.integrate(subtasks);
-```
-
-**Key insight**: The lead (Sable) holds the integration context. Workers don't need to coordinate with each other - they just deliver their piece.
+**The goal**: A fully autonomous company that ships software, markets it, sells it, and grows - with humans as strategic oversight, not operational bottleneck.
 
 ---
 
-## Part 2: Reliability (Systems That Don't Break)
+## Part 1: TDD is Mandatory
 
-### The Gas Town Failure
+### Why TDD for Agents
 
-**What happened**: "Gas Town operated in an overly aggressive mode, merging code despite failing integration tests."
+Agents lie. Not maliciously - they just confidently report completion when things aren't actually done. Gas Town merged PRs with failing tests because it trusted agent self-reports.
 
-**The problem wasn't autonomy** - it was lack of verification.
+**TDD solves this**:
+- Tests define "done" objectively
+- Agents can't claim completion if tests fail
+- Verification is automated, not trust-based
+- Humans review test coverage, not every line of code
 
-### Verification, Not Approval
+### The TDD Workflow
 
-The difference:
-- **Approval**: Human says "yes" before action (blocks autonomy)
-- **Verification**: System confirms action succeeded (enables autonomy)
+```
+1. Human/Lead defines acceptance criteria
+2. Agent writes failing tests FIRST
+3. Tests are committed and run (must fail)
+4. Agent implements until tests pass
+5. Agent refactors (tests must stay green)
+6. PR created only when all tests pass
+```
 
-**Implementation**:
+### Implementation
+
 ```typescript
-// WRONG: Block on human
-async function completeTask(task: Task) {
-  await waitForHumanApproval(task);  // ❌ Kills autonomy
-  await markComplete(task);
+interface TaskDefinition {
+  id: string;
+  description: string;
+  acceptanceCriteria: string[];  // Human-readable
+  testFile?: string;             // If tests already exist
 }
 
-// RIGHT: Verify automatically
-async function completeTask(task: Task) {
-  const checks = await runVerifications(task);
-  // - Does the code compile?
-  // - Do tests pass?
-  // - Is the PR created?
-  // - Does the commit exist?
+async function executeTaskWithTDD(task: TaskDefinition, agent: Agent) {
+  // Step 1: Write tests first
+  const testResult = await agent.execute({
+    instruction: `
+      Write failing tests for this task. The tests should verify:
+      ${task.acceptanceCriteria.map(c => `- ${c}`).join('\n')}
 
-  if (checks.allPassed) {
-    await markComplete(task);
-  } else {
-    await markFailed(task, checks.failures);
-    await notifyLead(task.lead, checks.failures);  // Lead decides retry
+      Commit the tests. They MUST fail initially (no implementation yet).
+    `,
+  });
+
+  // Step 2: Verify tests fail
+  const initialRun = await runTests(testResult.testFile);
+  if (initialRun.passed) {
+    throw new Error('Tests must fail before implementation - tests are not testing anything');
   }
+
+  // Step 3: Implement until green
+  const implResult = await agent.execute({
+    instruction: `
+      Implement the feature to make all tests pass.
+      Run tests after each change. Continue until all tests pass.
+      Do not modify the tests - only the implementation.
+    `,
+  });
+
+  // Step 4: Verify tests pass
+  const finalRun = await runTests(testResult.testFile);
+  if (!finalRun.passed) {
+    // Self-correct
+    return executeTaskWithTDD(task, agent);  // Retry
+  }
+
+  // Step 5: Refactor (optional)
+  await agent.execute({
+    instruction: `
+      Review the implementation for code quality.
+      Refactor if needed, but tests must stay green.
+    `,
+  });
+
+  return { success: true, testFile: testResult.testFile };
 }
 ```
 
-### Circuit Breakers (Not Safety Theater)
+### Quality Gates Enforce TDD
 
-**The real problem**: An agent in a bad state will burn money and create garbage.
-
-**Simple solution**:
 ```typescript
-class AgentCircuitBreaker {
-  private failures = 0;
-  private readonly threshold = 3;
-  private readonly cooldown = 5 * 60 * 1000; // 5 minutes
+const tddGates: QualityGate[] = [
+  {
+    name: 'tests_exist',
+    check: async (pr) => {
+      const testFiles = pr.files.filter(f => f.path.includes('.test.') || f.path.includes('.spec.'));
+      return testFiles.length > 0;
+    },
+    blocking: true,
+    message: 'PR must include tests',
+  },
+  {
+    name: 'tests_pass',
+    check: async (pr) => {
+      const result = await runCommand('pnpm test');
+      return result.exitCode === 0;
+    },
+    blocking: true,
+  },
+  {
+    name: 'coverage_minimum',
+    check: async (pr) => {
+      const coverage = await getCoverage(pr.changedFiles);
+      return coverage.lines >= 80;
+    },
+    blocking: true,
+    message: 'New code must have 80%+ test coverage',
+  },
+];
+```
 
-  async execute<T>(fn: () => Promise<T>): Promise<T> {
-    if (this.isOpen()) {
-      throw new Error('Agent circuit open - too many recent failures');
+---
+
+## Part 2: Why Temporal Over BullMQ
+
+### The Case for Temporal
+
+The original plan chose BullMQ for simplicity. But for a **fully autonomous company**, Temporal is the right choice:
+
+| Requirement | BullMQ | Temporal |
+|-------------|--------|----------|
+| Agent runs for hours/days | ❌ Job timeouts | ✅ Unlimited duration |
+| Agent crashes mid-task | ⚠️ Manual retry | ✅ Automatic resume from exact state |
+| Complex multi-step workflows | ⚠️ Chain jobs manually | ✅ Native workflow support |
+| Dynamic branching (agent decides next step) | ❌ Predetermined | ✅ Fully dynamic |
+| Debug what agent did | ⚠️ Parse logs | ✅ Event History shows everything |
+| Coordinate multiple agents | ⚠️ Build it yourself | ✅ Child workflows, signals |
+
+### Temporal's Killer Feature: Durable Execution
+
+From [Temporal's AI blog](https://temporal.io/blog/durable-execution-meets-ai-why-temporal-is-the-perfect-foundation-for-ai):
+
+> "The separation between deterministic Workflows and non-deterministic Activities is exactly what makes Temporal perfect for AI agents."
+
+**How it works**:
+```
+Workflow (Deterministic)     Activity (Non-deterministic)
+├── Orchestration logic      ├── LLM calls
+├── Control flow             ├── Tool execution
+├── State management         ├── External API calls
+└── Decision routing         └── File I/O
+```
+
+If an agent crashes after completing 5 of 10 steps, Temporal replays the Event History and resumes at step 6 - without re-executing steps 1-5.
+
+### Temporal Agent Pattern
+
+```typescript
+// Workflow: Deterministic orchestration
+async function agentWorkflow(task: Task): Promise<TaskResult> {
+  const history: ConversationHistory = [];
+
+  while (!await isGoalAchieved(history)) {
+    // Activity: Non-deterministic LLM call
+    const nextAction = await executeActivity(
+      decideNextAction,
+      { task, history, availableTools: getTools() },
+      { startToCloseTimeout: '30s' }
+    );
+
+    // Activity: Non-deterministic tool execution
+    const result = await executeActivity(
+      executeTool,
+      { tool: nextAction.tool, params: nextAction.params },
+      { startToCloseTimeout: '5m', retry: { maximumAttempts: 3 } }
+    );
+
+    history.push({ action: nextAction, result });
+
+    // This state is now durable - survives crashes
+  }
+
+  return { success: true, history };
+}
+```
+
+### Migration Path
+
+```yaml
+# docker-compose.yml additions
+services:
+  temporal:
+    image: temporalio/auto-setup:1.24
+    ports:
+      - "7233:7233"  # gRPC
+      - "8233:8233"  # Web UI
+    environment:
+      - DB=postgresql
+      - DB_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=temporal
+      - POSTGRES_SEEDS=postgres
+
+  temporal-admin-tools:
+    image: temporalio/admin-tools:1.24
+    depends_on:
+      - temporal
+
+  temporal-ui:
+    image: temporalio/ui:2.26
+    ports:
+      - "8080:8080"
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+```
+
+### What to Keep from BullMQ
+
+BullMQ is still useful for:
+- Simple scheduled jobs (daily reports, cleanup)
+- High-volume, low-complexity tasks
+- Rate-limited API calls
+
+Use both:
+```
+Temporal: Agent workflows, multi-step tasks, long-running processes
+BullMQ: Scheduled crons, notification queues, batch jobs
+```
+
+---
+
+## Part 3: The Full Autonomous Company
+
+### Expanded Org Structure
+
+GENERIC CORP isn't just engineering - it's a complete software company:
+
+```
+Marcus Bell (CEO)
+│
+├── ENGINEERING
+│   └── Sable Chen (VP Engineering)
+│       ├── DeVonte Jackson (Senior Full-Stack)
+│       ├── Miranda Okonkwo (Software Engineer)
+│       └── Yuki Tanaka (SRE/DevOps)
+│
+├── DATA
+│   └── Graham Sutton (VP Data)
+│       └── [Spawns analysis workers as needed]
+│
+├── PRODUCT
+│   └── Nina Patel (VP Product) [NEW]
+│       ├── Design Agent [NEW]
+│       └── UX Research Agent [NEW]
+│
+├── MARKETING
+│   └── Kenji Ross (VP Marketing)
+│       ├── Content Agent [NEW]
+│       ├── Social Media Agent [NEW]
+│       └── SEO Agent [NEW]
+│
+├── SALES
+│   └── Frankie Deluca (VP Sales)
+│       ├── SDR Agent [NEW]
+│       └── Account Exec Agent [NEW]
+│
+├── FINANCE
+│   └── Walter Huang (CFO)
+│       └── Accounting Agent [NEW]
+│
+└── OPERATIONS
+    └── Helen Marsh (Chief of Staff)
+        ├── HR Agent [NEW]
+        └── Legal Agent [NEW]
+```
+
+### New Agent Definitions
+
+```typescript
+const newAgents: AgentConfig[] = [
+  // PRODUCT
+  {
+    id: 'nina',
+    name: 'Nina Patel',
+    role: 'VP Product',
+    department: 'product',
+    tier: 'lead',
+    reportsTo: 'marcus',
+    capabilities: [
+      'product_roadmap',
+      'feature_prioritization',
+      'user_research_synthesis',
+      'competitive_analysis',
+    ],
+    tools: ['notion', 'linear', 'figma_read', 'analytics'],
+  },
+  {
+    id: 'design_agent',
+    name: 'Design Agent',
+    role: 'Product Designer',
+    department: 'product',
+    tier: 'worker',
+    reportsTo: 'nina',
+    capabilities: ['ui_design', 'design_system', 'prototyping'],
+    tools: ['figma', 'storybook'],
+  },
+
+  // MARKETING
+  {
+    id: 'content_agent',
+    name: 'Content Agent',
+    role: 'Content Writer',
+    department: 'marketing',
+    tier: 'worker',
+    reportsTo: 'kenji',
+    capabilities: ['blog_posts', 'documentation', 'case_studies'],
+    tools: ['filesystem', 'notion', 'cms'],
+  },
+  {
+    id: 'social_agent',
+    name: 'Social Media Agent',
+    role: 'Social Media Manager',
+    department: 'marketing',
+    tier: 'worker',
+    reportsTo: 'kenji',
+    capabilities: ['social_posts', 'engagement', 'trend_analysis'],
+    tools: ['twitter_draft', 'linkedin_draft', 'analytics'],
+    requiresApproval: ['post_to_social'],  // Drafts only
+  },
+  {
+    id: 'seo_agent',
+    name: 'SEO Agent',
+    role: 'SEO Specialist',
+    department: 'marketing',
+    tier: 'worker',
+    reportsTo: 'kenji',
+    capabilities: ['keyword_research', 'content_optimization', 'backlink_analysis'],
+    tools: ['ahrefs', 'search_console', 'filesystem'],
+  },
+
+  // SALES
+  {
+    id: 'sdr_agent',
+    name: 'SDR Agent',
+    role: 'Sales Development Rep',
+    department: 'sales',
+    tier: 'worker',
+    reportsTo: 'frankie',
+    capabilities: ['lead_research', 'outreach_drafting', 'qualification'],
+    tools: ['crm', 'email_draft', 'linkedin_read'],
+    requiresApproval: ['send_outreach'],
+  },
+  {
+    id: 'ae_agent',
+    name: 'Account Executive Agent',
+    role: 'Account Executive',
+    department: 'sales',
+    tier: 'worker',
+    reportsTo: 'frankie',
+    capabilities: ['proposal_drafting', 'demo_prep', 'negotiation_support'],
+    tools: ['crm', 'document_generation', 'calendar'],
+  },
+
+  // FINANCE
+  {
+    id: 'accounting_agent',
+    name: 'Accounting Agent',
+    role: 'Accountant',
+    department: 'finance',
+    tier: 'worker',
+    reportsTo: 'walter',
+    capabilities: ['expense_tracking', 'invoice_processing', 'reporting'],
+    tools: ['quickbooks', 'spreadsheets', 'email_read'],
+  },
+
+  // OPERATIONS
+  {
+    id: 'hr_agent',
+    name: 'HR Agent',
+    role: 'HR Coordinator',
+    department: 'operations',
+    tier: 'worker',
+    reportsTo: 'helen',
+    capabilities: ['policy_drafting', 'onboarding_docs', 'faq_maintenance'],
+    tools: ['notion', 'document_generation'],
+  },
+  {
+    id: 'legal_agent',
+    name: 'Legal Agent',
+    role: 'Legal Coordinator',
+    department: 'operations',
+    tier: 'worker',
+    reportsTo: 'helen',
+    capabilities: ['contract_review', 'compliance_checking', 'terms_drafting'],
+    tools: ['document_read', 'document_generation'],
+    requiresApproval: ['sign_contract', 'send_legal_doc'],
+  },
+];
+```
+
+### Cross-Department Workflows
+
+Real companies have workflows that span departments. Temporal makes this natural:
+
+```typescript
+// Example: Launch a new feature
+async function featureLaunchWorkflow(feature: Feature) {
+  // PRODUCT: Define requirements
+  const prd = await executeActivity(nina.createPRD, { feature });
+
+  // ENGINEERING: Build it (parallel with design)
+  const [implementation, designs] = await Promise.all([
+    executeChildWorkflow(engineeringBuildWorkflow, { prd }),
+    executeActivity(designAgent.createDesigns, { prd }),
+  ]);
+
+  // ENGINEERING: Integrate designs and deploy
+  await executeActivity(sable.integrateAndDeploy, { implementation, designs });
+
+  // MARKETING: Prepare launch materials (parallel)
+  const [blogPost, socialPosts, productUpdate] = await Promise.all([
+    executeActivity(contentAgent.writeBlogPost, { feature }),
+    executeActivity(socialAgent.draftSocialPosts, { feature }),
+    executeActivity(kenji.prepareProductUpdate, { feature }),
+  ]);
+
+  // Wait for human approval on external content
+  await waitForApproval('marketing_content', { blogPost, socialPosts });
+
+  // MARKETING: Publish
+  await executeActivity(kenji.publishContent, { blogPost, socialPosts });
+
+  // SALES: Update pitch materials
+  await executeActivity(frankie.updatePitchDeck, { feature });
+
+  return { launched: true, feature };
+}
+```
+
+### Department Autonomy
+
+Each department operates autonomously with its lead making decisions:
+
+```typescript
+interface DepartmentConfig {
+  lead: string;
+  autonomy: {
+    // What the department can do without escalating to CEO
+    canApprove: string[];
+    // What requires CEO approval
+    mustEscalate: string[];
+    // Budget authority
+    budgetLimit: number;
+  };
+}
+
+const departments: Record<string, DepartmentConfig> = {
+  engineering: {
+    lead: 'sable',
+    autonomy: {
+      canApprove: [
+        'technical_architecture',
+        'code_review',
+        'dependency_updates',
+        'refactoring',
+      ],
+      mustEscalate: [
+        'major_rewrite',
+        'new_infrastructure',
+        'security_incident',
+      ],
+      budgetLimit: 5000,  // Monthly spend on tools/infra
+    },
+  },
+  marketing: {
+    lead: 'kenji',
+    autonomy: {
+      canApprove: [
+        'content_strategy',
+        'social_calendar',
+        'seo_optimizations',
+      ],
+      mustEscalate: [
+        'brand_change',
+        'major_campaign',
+        'press_release',
+      ],
+      budgetLimit: 10000,
+    },
+  },
+  // ... etc
+};
+```
+
+---
+
+## Part 4: Reliability for Autonomous Operations
+
+### Circuit Breakers Per Department
+
+```typescript
+class DepartmentCircuitBreaker {
+  private agentBreakers: Map<string, CircuitBreaker> = new Map();
+  private departmentBreaker: CircuitBreaker;
+
+  constructor(private department: string) {
+    this.departmentBreaker = new CircuitBreaker({
+      threshold: 5,      // 5 agent failures
+      cooldown: 15 * 60, // 15 min department cooldown
+    });
+  }
+
+  async executeAgentTask(agentId: string, task: Task) {
+    // Check department-level breaker
+    if (this.departmentBreaker.isOpen()) {
+      await this.escalateToCEO(this.department, 'department_circuit_open');
+      throw new DepartmentDownError(this.department);
+    }
+
+    // Check agent-level breaker
+    const agentBreaker = this.getOrCreateBreaker(agentId);
+    if (agentBreaker.isOpen()) {
+      // Try reassigning to another agent in department
+      const backup = await this.findBackupAgent(agentId);
+      if (backup) {
+        return this.executeAgentTask(backup, task);
+      }
+      throw new AgentUnavailableError(agentId);
     }
 
     try {
-      const result = await fn();
-      this.failures = 0;  // Reset on success
+      const result = await this.execute(agentId, task);
+      agentBreaker.recordSuccess();
       return result;
     } catch (error) {
-      this.failures++;
-      if (this.failures >= this.threshold) {
-        this.trip();
-        // Alert the lead, not a human committee
-        await this.alertLead();
-      }
+      agentBreaker.recordFailure();
+      this.departmentBreaker.recordFailure();
       throw error;
     }
   }
 }
 ```
 
-**What this prevents**:
-- Agent loops burning $100/hour
-- Garbage commits piling up
-- Cascading failures across agents
+### Persistent Work Records with Temporal
 
-**What this doesn't do**:
-- Require human approval for every action
-- Block work that's succeeding
-- Add bureaucratic overhead
-
-### State Persistence
-
-**Gas Town principle**: Work survives agent death.
-
-**Implementation**:
-```typescript
-// Every agent action creates a persistent record
-interface WorkRecord {
-  id: string;
-  taskId: string;
-  agentId: string;
-  action: string;
-  input: unknown;
-  output: unknown;
-  artifacts: string[];  // Git commits, file paths, PR URLs
-  timestamp: Date;
-}
-
-// If agent dies mid-task, another can pick up
-async function resumeTask(taskId: string) {
-  const records = await getWorkRecords(taskId);
-  const lastCheckpoint = findLastSuccessfulCheckpoint(records);
-  const agent = await spawnAgent(taskId);
-  await agent.resumeFrom(lastCheckpoint);
-}
-```
-
-### Error Recovery Hierarchy
-
-When things go wrong:
-
-```
-1. Agent retries (automatic, up to 3x)
-   └── Still failing?
-2. Lead reassigns to different worker
-   └── Still failing?
-3. Lead escalates to Marcus with context
-   └── Still failing?
-4. Marcus alerts human with full context
-```
-
-**Key point**: Humans get involved when the SYSTEM can't figure it out, not as a gate on every action.
-
----
-
-## Part 3: Code Quality (Output That's Actually Good)
-
-### The Every.to Approach
-
-**Dan Shipper**: "All of the code is AI-written, but humans review."
-
-The pattern:
-1. Agent writes code
-2. Agent writes tests
-3. Agent runs tests
-4. If tests pass → PR created
-5. Human reviews PR (async, non-blocking)
-
-### Quality Gates (Automated)
+Temporal's Event History replaces manual work records:
 
 ```typescript
-interface QualityGate {
-  name: string;
-  check: (artifacts: Artifact[]) => Promise<QualityResult>;
-  blocking: boolean;  // If true, must pass before merge
-}
+// Query any workflow's history
+const history = await client.workflowService.getWorkflowExecutionHistory({
+  namespace: 'default',
+  execution: { workflowId: taskId },
+});
 
-const standardGates: QualityGate[] = [
-  {
-    name: 'typescript_compiles',
-    check: async (artifacts) => {
-      const result = await runCommand('pnpm typecheck');
-      return { passed: result.exitCode === 0, output: result.output };
-    },
-    blocking: true,
-  },
-  {
-    name: 'tests_pass',
-    check: async (artifacts) => {
-      const result = await runCommand('pnpm test');
-      return { passed: result.exitCode === 0, output: result.output };
-    },
-    blocking: true,
-  },
-  {
-    name: 'lint_clean',
-    check: async (artifacts) => {
-      const result = await runCommand('pnpm lint');
-      return { passed: result.exitCode === 0, output: result.output };
-    },
-    blocking: true,
-  },
-  {
-    name: 'no_console_logs',
-    check: async (artifacts) => {
-      const result = await grepFiles('console.log', artifacts.filter(a => a.type === 'code'));
-      return { passed: result.matches.length === 0, output: result.matches };
-    },
-    blocking: false,  // Warning only
-  },
-];
-```
-
-### Code Review by Agents
-
-**Radical idea from Every.to**: Agents can review each other's code.
-
-```typescript
-// DeVonte writes code, Miranda reviews
-async function peerReview(pr: PullRequest) {
-  const author = pr.author;  // 'devonte'
-  const reviewer = selectReviewer(author);  // 'miranda' (different agent)
-
-  const review = await reviewer.reviewCode({
-    diff: pr.diff,
-    context: pr.description,
-    guidelines: [
-      'Check for obvious bugs',
-      'Verify error handling',
-      'Look for security issues',
-      'Ensure tests cover main paths',
-    ],
-  });
-
-  if (review.approved) {
-    await pr.addLabel('agent-approved');
-    // Human can still review, but it's not blocking
-  } else {
-    await pr.requestChanges(review.comments);
-    // Back to author to fix
+// Every activity result is recorded
+for (const event of history.events) {
+  if (event.eventType === 'ActivityTaskCompleted') {
+    console.log({
+      activity: event.activityTaskCompletedEventAttributes.activityType,
+      result: event.activityTaskCompletedEventAttributes.result,
+      timestamp: event.eventTime,
+    });
   }
 }
 ```
 
-### Prompt Engineering for Quality
+### Self-Healing Workflows
 
-**Every.to insight**: The prompt IS the product.
+```typescript
+async function selfHealingAgentWorkflow(task: Task) {
+  const maxRetries = 3;
+  let attempt = 0;
 
-**Agent system prompts should include**:
+  while (attempt < maxRetries) {
+    try {
+      return await executeAgentTask(task);
+    } catch (error) {
+      attempt++;
+
+      if (isRecoverable(error)) {
+        // Wait and retry with exponential backoff
+        await sleep(Math.pow(2, attempt) * 1000);
+
+        // Provide error context for self-correction
+        task.context = {
+          ...task.context,
+          previousError: error.message,
+          attemptNumber: attempt,
+          instruction: 'Previous attempt failed. Analyze the error and try a different approach.',
+        };
+      } else {
+        // Unrecoverable - escalate to lead
+        await escalateToLead(task, error);
+        throw error;
+      }
+    }
+  }
+
+  // Max retries exceeded - escalate to CEO
+  await escalateToCEO(task, 'max_retries_exceeded');
+  throw new MaxRetriesError(task.id);
+}
+```
+
+---
+
+## Part 5: Code Quality at Scale
+
+### TDD + Peer Review Pipeline
+
+```
+Task Received
+    │
+    ▼
+Agent Writes Failing Tests
+    │
+    ▼
+Verify Tests Fail (automated)
+    │
+    ▼
+Agent Implements
+    │
+    ▼
+Verify Tests Pass (automated)
+    │
+    ▼
+Agent Refactors
+    │
+    ▼
+Quality Gates (typecheck, lint, coverage)
+    │
+    ▼
+Peer Agent Reviews
+    │
+    ▼
+PR Created (human can review async)
+    │
+    ▼
+Merge (if gates pass + peer approved)
+```
+
+### Agent Prompts Include TDD
+
 ```typescript
 const sableSystemPrompt = `
-You are Sable Chen, Principal Engineer at Generic Corp.
+You are Sable Chen, VP Engineering at Generic Corp.
 
-CODE QUALITY STANDARDS:
+## TDD IS MANDATORY
+
+For every coding task:
+1. Write tests FIRST that define success criteria
+2. Commit tests - they MUST fail initially
+3. Implement until tests pass
+4. Refactor while keeping tests green
+5. Never modify tests to make them pass - fix the implementation
+
+If you receive a task without clear acceptance criteria, ask for clarification
+before writing any code.
+
+## Code Quality Standards
+
 - TypeScript strict mode, no 'any' types
-- All functions have error handling
+- All functions under 50 lines
 - All public APIs have JSDoc comments
+- Error handling for all external calls
 - No magic numbers - use named constants
-- Prefer composition over inheritance
-- Keep functions under 50 lines
-- One concept per file
 
-TESTING STANDARDS:
-- Every feature has unit tests
-- Critical paths have integration tests
-- Test the behavior, not the implementation
-- Use descriptive test names: "should X when Y"
+## Before Submitting
 
-BEFORE SUBMITTING:
-- Run typecheck, lint, and tests locally
-- Write a clear PR description explaining WHY
-- Link to the task/issue being addressed
+- All tests pass: pnpm test
+- Type check passes: pnpm typecheck
+- Lint passes: pnpm lint
+- Coverage >= 80% on new code
 `;
 ```
 
-### Self-Correction Loop
-
-**Gas Town lesson**: Agents misreport status. Build in verification.
+### Cross-Agent Review Matrix
 
 ```typescript
-async function executeWithVerification(task: Task) {
-  // Agent does the work
-  const result = await agent.execute(task);
+const reviewMatrix: Record<string, string[]> = {
+  // Engineering reviews each other
+  devonte: ['miranda', 'yuki'],
+  miranda: ['devonte', 'yuki'],
+  yuki: ['devonte', 'miranda'],
 
-  // Don't trust the agent's self-report
-  if (result.claimedComplete) {
-    const verification = await verifyCompletion(task, result);
+  // Leads can review anyone in their department
+  sable: ['devonte', 'miranda', 'yuki'],
 
-    if (!verification.passed) {
-      // Agent said it was done, but it's not
-      await agent.correct({
-        originalTask: task,
-        claimedResult: result,
-        actualState: verification.actualState,
-        instruction: 'Your previous attempt did not fully complete. Here is what is actually in the system. Please fix.',
-      });
-    }
-  }
+  // Content reviews
+  content_agent: ['seo_agent', 'kenji'],
+  seo_agent: ['content_agent', 'kenji'],
+
+  // Sales reviews
+  sdr_agent: ['ae_agent', 'frankie'],
+  ae_agent: ['sdr_agent', 'frankie'],
+};
+
+function selectReviewer(author: string): string {
+  const candidates = reviewMatrix[author] || [];
+  // Pick the least busy reviewer
+  return candidates.sort((a, b) => getActiveReviews(a) - getActiveReviews(b))[0];
 }
 ```
 
 ---
 
-## Summary: What Actually Matters
+## Summary
 
-### Org Structure
-- **Hierarchical routing**: Marcus → Leads → Workers
-- **Domain ownership**: Leads decide HOW, not just WHAT
-- **Parallel execution**: Workers don't coordinate, leads integrate
+### TDD is Mandatory
+- Tests define "done" - not agent self-reports
+- Write failing tests first, then implement
+- Quality gates enforce coverage minimums
+
+### Temporal Over BullMQ
+- Durable execution for long-running agent workflows
+- Automatic resume from crashes
+- Event History for debugging and auditing
+- Native support for dynamic, multi-step workflows
+
+### Full Autonomous Company
+- Engineering, Product, Marketing, Sales, Finance, Operations
+- Each department has a lead with autonomy
+- Cross-department workflows for complex operations
+- Humans provide strategic oversight, not operational approval
 
 ### Reliability
-- **Verification, not approval**: Automated checks, not human gates
-- **Circuit breakers**: Stop runaway agents, don't block good ones
-- **Persistent state**: Work survives agent death
-- **Escalation hierarchy**: Agents → Leads → Marcus → Human (last resort)
+- Circuit breakers per agent AND per department
+- Escalation: Agent → Lead → CEO → Human
+- Self-healing workflows with contextual retry
 
 ### Code Quality
-- **Automated gates**: Compile, test, lint must pass
-- **Agent peer review**: Different agent reviews before merge
-- **Strong prompts**: Quality standards baked into agent identity
-- **Self-correction**: Don't trust self-reports, verify externally
-
----
-
-## What I Removed (And Why)
-
-The previous version had a lot of compliance theater:
-- ❌ Multi-level authorization (Level 0-4) - blocks autonomy
-- ❌ HIPAA/SOX/FAA compliance modules - premature optimization
-- ❌ Human-in-the-loop guarantees - defeats the purpose
-- ❌ Cryptographic audit trails - overkill for most uses
-- ❌ Committee approvals - bureaucracy
-
-**When you actually need compliance**: Build it as a separate layer on top. Don't bake it into the core. A healthcare deployment can add HIPAA logging without changing how agents work together.
+- TDD + automated quality gates + peer review
+- Strong prompts with quality standards baked in
+- Review matrix ensures different agent reviews code
 
 ---
 
 ## Sources
 
+- [Temporal: Durable Execution meets AI](https://temporal.io/blog/durable-execution-meets-ai-why-temporal-is-the-perfect-foundation-for-ai)
+- [Temporal: Dynamic AI Agents](https://temporal.io/blog/of-course-you-can-build-dynamic-ai-agents-with-temporal)
+- [Temporal: Orchestrating Ambient Agents](https://temporal.io/blog/orchestrating-ambient-agents-with-temporal)
 - [Every.to: Agent-native Architectures](https://every.to/chain-of-thought/agent-native-architectures-how-to-build-apps-after-the-end-of-code)
-- [Every.to: The AI-native startup](https://www.lennysnewsletter.com/p/inside-every-dan-shipper)
 - [Gas Town: DoltHub Analysis](https://www.dolthub.com/blog/2026-01-15-a-day-in-gas-town/)
-- [Gas Town GitHub](https://github.com/steveyegge/gastown)

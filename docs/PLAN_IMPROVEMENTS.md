@@ -1,145 +1,380 @@
 # Plan Improvements
 
-> Concrete changes to make GENERIC CORP fully autonomous with reliable output.
+> Concrete changes to make GENERIC CORP a fully autonomous software development company.
 
 ---
 
 ## Current Plan Strengths
 
 Your plan already gets a lot right:
-- ✅ BullMQ for task orchestration (simpler than Temporal)
-- ✅ WebSocket for real-time updates
-- ✅ PostgreSQL + Redis for persistence
-- ✅ Role-based tool access
+- ✅ Clear narrative and motivation
 - ✅ Agent personalities with distinct capabilities
+- ✅ Visual representation of agent state
+- ✅ MCP tools with role-based access
+- ✅ Draft approval for external communications
 
 ---
 
-## Gap 1: Flat Org Structure
+## Change 1: TDD is Mandatory
 
-**Current**: All 10 agents report to Marcus, who does everything.
+**Current**: No TDD requirement. Agents self-report completion.
 
-**Problem**: Marcus becomes a bottleneck. No parallel execution. No domain expertise.
+**Problem**: Gas Town merged PRs with failing tests. Agents confidently claim "done" when they're not.
 
-**Fix**: Three-tier hierarchy.
+**Fix**: Tests define "done" - not agent self-reports.
 
-```
-Marcus (Orchestrator)
-├── Sable (Tech Lead) → DeVonte, Miranda, Yuki
-├── Graham (Data Lead) → spawns workers
-├── Walter (Biz Lead) → Frankie, Kenji
-└── Helen (Operations)
-```
+### Implementation
 
-**Changes needed**:
-
-1. **Update agent config** (`apps/server/src/config/agents.ts`):
+1. **Update task schema** (`packages/shared/src/types.ts`):
 ```typescript
-export const agentHierarchy = {
+interface Task {
+  id: string;
+  description: string;
+  acceptanceCriteria: string[];  // Required for all tasks
+  testFile?: string;              // Populated after test-writing phase
+  status: 'pending' | 'tests_written' | 'implementing' | 'testing' | 'review' | 'complete';
+}
+```
+
+2. **Add TDD workflow** (`apps/server/src/workflows/tdd-workflow.ts`):
+```typescript
+async function tddWorkflow(task: Task) {
+  // Phase 1: Write failing tests
+  await agent.writeTests(task.acceptanceCriteria);
+  const initialRun = await runTests();
+  if (initialRun.passed) {
+    throw new Error('Tests must fail initially');
+  }
+
+  // Phase 2: Implement until green
+  await agent.implement();
+  const finalRun = await runTests();
+  if (!finalRun.passed) {
+    return tddWorkflow(task);  // Retry
+  }
+
+  // Phase 3: Refactor
+  await agent.refactor();
+  await runTests();  // Must stay green
+}
+```
+
+3. **Add quality gates** that block PRs without tests or with coverage < 80%.
+
+---
+
+## Change 2: Temporal Instead of BullMQ
+
+**Current**: BullMQ for all orchestration.
+
+**Problem**: For a fully autonomous company with long-running workflows:
+- Agents may work for hours/days on complex tasks
+- Crashes lose context (BullMQ doesn't have durable execution)
+- Multi-step workflows require manual chaining
+- No native support for dynamic branching
+
+**Fix**: Temporal for agent workflows, BullMQ for simple scheduled jobs.
+
+### Why Temporal
+
+| Feature | BullMQ | Temporal |
+|---------|--------|----------|
+| Agent runs for days | ❌ Timeouts | ✅ Unlimited |
+| Crash recovery | ⚠️ Retry from start | ✅ Resume from exact state |
+| Multi-step workflows | ⚠️ Manual | ✅ Native |
+| Dynamic branching | ❌ No | ✅ Yes |
+| Debug history | ⚠️ Logs | ✅ Event History |
+
+### Migration Steps
+
+1. **Add Temporal to docker-compose.yml**:
+```yaml
+services:
+  temporal:
+    image: temporalio/auto-setup:1.24
+    ports:
+      - "7233:7233"
+    environment:
+      - DB=postgresql
+      - POSTGRES_SEEDS=postgres
+
+  temporal-ui:
+    image: temporalio/ui:2.26
+    ports:
+      - "8080:8080"
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+```
+
+2. **Install SDK**:
+```bash
+pnpm add @temporalio/client @temporalio/worker @temporalio/workflow @temporalio/activity
+```
+
+3. **Create workflow structure**:
+```
+apps/server/src/
+├── workflows/           # Deterministic orchestration
+│   ├── agent-task.ts
+│   ├── tdd-workflow.ts
+│   └── feature-launch.ts
+├── activities/          # Non-deterministic execution
+│   ├── llm-calls.ts
+│   ├── tool-execution.ts
+│   └── git-operations.ts
+└── workers/             # Temporal workers
+    └── main.ts
+```
+
+4. **Migrate agent execution**:
+```typescript
+// Before (BullMQ)
+await taskQueue.add('execute', { taskId, agentId });
+
+// After (Temporal)
+await client.workflow.start(agentTaskWorkflow, {
+  workflowId: `task-${taskId}`,
+  taskQueue: 'agents',
+  args: [{ taskId, agentId }],
+});
+```
+
+5. **Keep BullMQ for simple jobs**:
+```typescript
+// Still use BullMQ for:
+// - Daily report generation
+// - Cleanup jobs
+// - Rate-limited API calls
+// - Notification queues
+```
+
+---
+
+## Change 3: Full Company Structure
+
+**Current**: 10 agents, mostly engineering-focused.
+
+**Problem**: A software company needs more than engineers.
+
+**Fix**: Expand to full company with all departments.
+
+### New Org Chart
+
+```
+Marcus Bell (CEO)
+│
+├── ENGINEERING
+│   └── Sable Chen (VP Engineering)
+│       ├── DeVonte Jackson (Senior Full-Stack)
+│       ├── Miranda Okonkwo (Software Engineer)
+│       └── Yuki Tanaka (SRE/DevOps)
+│
+├── DATA
+│   └── Graham Sutton (VP Data)
+│       └── [Spawns workers]
+│
+├── PRODUCT [NEW DEPARTMENT]
+│   └── Nina Patel (VP Product)
+│       ├── Design Agent
+│       └── UX Research Agent
+│
+├── MARKETING [EXPANDED]
+│   └── Kenji Ross (VP Marketing)
+│       ├── Content Agent
+│       ├── Social Media Agent
+│       └── SEO Agent
+│
+├── SALES [EXPANDED]
+│   └── Frankie Deluca (VP Sales)
+│       ├── SDR Agent
+│       └── Account Exec Agent
+│
+├── FINANCE [EXPANDED]
+│   └── Walter Huang (CFO)
+│       └── Accounting Agent
+│
+└── OPERATIONS [EXPANDED]
+    └── Helen Marsh (Chief of Staff)
+        ├── HR Agent
+        └── Legal Agent
+```
+
+### New Agent Definitions to Add
+
+Add to `apps/server/prisma/seed.ts`:
+
+```typescript
+const newAgents = [
+  // PRODUCT
+  { id: 'nina', name: 'Nina Patel', role: 'VP Product', department: 'product' },
+  { id: 'design_agent', name: 'Design Agent', role: 'Designer', department: 'product' },
+  { id: 'ux_agent', name: 'UX Research Agent', role: 'UX Researcher', department: 'product' },
+
+  // MARKETING
+  { id: 'content_agent', name: 'Content Agent', role: 'Content Writer', department: 'marketing' },
+  { id: 'social_agent', name: 'Social Media Agent', role: 'Social Media Manager', department: 'marketing' },
+  { id: 'seo_agent', name: 'SEO Agent', role: 'SEO Specialist', department: 'marketing' },
+
+  // SALES
+  { id: 'sdr_agent', name: 'SDR Agent', role: 'Sales Development Rep', department: 'sales' },
+  { id: 'ae_agent', name: 'Account Exec Agent', role: 'Account Executive', department: 'sales' },
+
+  // FINANCE
+  { id: 'accounting_agent', name: 'Accounting Agent', role: 'Accountant', department: 'finance' },
+
+  // OPERATIONS
+  { id: 'hr_agent', name: 'HR Agent', role: 'HR Coordinator', department: 'operations' },
+  { id: 'legal_agent', name: 'Legal Agent', role: 'Legal Coordinator', department: 'operations' },
+];
+```
+
+### Department Schema
+
+Add to Prisma schema:
+
+```prisma
+model Department {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  leadId      String
+  budgetLimit Int      @default(0)
+
+  lead        Agent    @relation("DepartmentLead", fields: [leadId], references: [id])
+  agents      Agent[]  @relation("DepartmentMembers")
+
+  // Autonomy config
+  canApprove  String[] // Actions department can self-approve
+  mustEscalate String[] // Actions requiring CEO approval
+}
+
+model Agent {
+  // ... existing fields ...
+  departmentId String?
+  reportsToId  String?
+  tier         String   @default("worker") // 'ceo' | 'lead' | 'worker'
+
+  department   Department? @relation("DepartmentMembers", fields: [departmentId], references: [id])
+  reportsTo    Agent?      @relation("ReportsTo", fields: [reportsToId], references: [id])
+  directReports Agent[]    @relation("ReportsTo")
+}
+```
+
+---
+
+## Change 4: Hierarchical Task Routing
+
+**Current**: Marcus assigns to anyone.
+
+**Problem**: CEO becomes bottleneck. No domain expertise in routing.
+
+**Fix**: Three-tier hierarchy with leads owning their domains.
+
+### Routing Rules
+
+```typescript
+const routingRules = {
+  // CEO routes to department leads only
   marcus: {
-    role: 'orchestrator',
-    canAssignTo: ['sable', 'graham', 'walter', 'helen'],
-    cannotExecute: true,  // Marcus routes, doesn't do work
+    canAssignTo: ['sable', 'graham', 'nina', 'kenji', 'frankie', 'walter', 'helen'],
+    cannotExecute: true,  // Routes, doesn't do work
   },
-  sable: {
-    role: 'lead',
-    domain: 'technical',
-    canAssignTo: ['devonte', 'miranda', 'yuki'],
-    reportsTo: 'marcus',
-  },
-  devonte: {
-    role: 'worker',
-    domain: 'technical',
-    canAssignTo: [],  // Workers don't delegate
-    reportsTo: 'sable',
-  },
+
+  // Leads route within their department
+  sable: { canAssignTo: ['devonte', 'miranda', 'yuki'] },
+  kenji: { canAssignTo: ['content_agent', 'social_agent', 'seo_agent'] },
+  frankie: { canAssignTo: ['sdr_agent', 'ae_agent'] },
+  // ... etc
+
+  // Workers execute, don't delegate
+  devonte: { canAssignTo: [] },
+  miranda: { canAssignTo: [] },
   // ... etc
 };
 ```
 
-2. **Update task routing** (`apps/server/src/services/task-service.ts`):
+### Task Flow
+
+```
+External Request
+      │
+      ▼
+Marcus (CEO) - classifies domain
+      │
+      ▼
+Department Lead - decides HOW to execute
+      │
+      ▼
+Workers (parallel) - do the work
+      │
+      ▼
+Lead - integrates results
+      │
+      ▼
+Marcus - reports completion
+```
+
+---
+
+## Change 5: Cross-Department Workflows
+
+**Current**: No multi-department coordination.
+
+**Problem**: Real companies have workflows that span departments (e.g., feature launch needs engineering + marketing + sales).
+
+**Fix**: Temporal child workflows for cross-department operations.
+
+### Example: Feature Launch
+
 ```typescript
-async function routeTask(task: Task) {
-  // Marcus determines domain
-  const domain = await marcus.classifyTask(task);
+async function featureLaunchWorkflow(feature: Feature) {
+  // PRODUCT defines requirements
+  const prd = await executeActivity(nina.createPRD, { feature });
 
-  // Route to appropriate lead
-  const lead = getLeadForDomain(domain);
-  await assignTask(task, lead);
+  // ENGINEERING + DESIGN work in parallel
+  const [code, designs] = await Promise.all([
+    executeChildWorkflow(engineeringBuildWorkflow, { prd }),
+    executeActivity(designAgent.createDesigns, { prd }),
+  ]);
 
-  // Lead decides how to execute (may parallelize)
+  // ENGINEERING deploys
+  await executeActivity(sable.deploy, { code, designs });
+
+  // MARKETING prepares launch (parallel)
+  const [blog, social] = await Promise.all([
+    executeActivity(contentAgent.writeBlog, { feature }),
+    executeActivity(socialAgent.draftPosts, { feature }),
+  ]);
+
+  // Human approves external content
+  await waitForSignal('content_approved');
+
+  // MARKETING publishes
+  await executeActivity(kenji.publish, { blog, social });
+
+  // SALES updates materials
+  await executeActivity(frankie.updatePitch, { feature });
 }
 ```
 
 ---
 
-## Gap 2: No Automated Verification
+## Change 6: Circuit Breakers
 
-**Current**: Task marked complete when agent says so.
+**Current**: No protection against runaway agents.
 
-**Problem**: Gas Town showed agents misreport completion. Code merged with failing tests.
+**Problem**: A failing agent can burn money indefinitely.
 
-**Fix**: Verification layer that checks actual state.
+**Fix**: Circuit breakers at agent and department level.
 
-**Changes needed**:
-
-1. **Add verification service** (`apps/server/src/services/verification-service.ts`):
-```typescript
-interface Verification {
-  type: 'git_commit_exists' | 'tests_pass' | 'pr_created' | 'build_succeeds';
-  check: () => Promise<boolean>;
-}
-
-async function verifyTaskCompletion(task: Task, claimed: TaskResult): Promise<boolean> {
-  const verifications = getVerificationsForTask(task);
-
-  for (const v of verifications) {
-    const passed = await v.check();
-    if (!passed) {
-      await logVerificationFailure(task, v);
-      return false;
-    }
-  }
-
-  return true;
-}
-```
-
-2. **Integrate into task completion** (`apps/server/src/agents/base-agent.ts`):
-```typescript
-async completeTask(task: Task, result: TaskResult) {
-  // Don't trust self-report
-  const verified = await verifyTaskCompletion(task, result);
-
-  if (!verified) {
-    // Self-correct
-    await this.retryWithContext(task, result, 'Verification failed');
-    return;
-  }
-
-  await markTaskComplete(task);
-}
-```
-
----
-
-## Gap 3: No Circuit Breakers
-
-**Current**: Agent can fail infinitely, burning money.
-
-**Problem**: Gas Town spent $100/hour when things went wrong.
-
-**Fix**: Simple circuit breaker per agent.
-
-**Changes needed**:
-
-1. **Add circuit breaker** (`apps/server/src/agents/circuit-breaker.ts`):
 ```typescript
 class CircuitBreaker {
   private failures = 0;
   private openedAt: Date | null = null;
-  private readonly threshold = 3;
-  private readonly cooldown = 5 * 60 * 1000;
+
+  constructor(
+    private threshold: number = 3,
+    private cooldown: number = 5 * 60 * 1000
+  ) {}
 
   isOpen(): boolean {
     if (!this.openedAt) return false;
@@ -157,221 +392,8 @@ class CircuitBreaker {
     }
   }
 
-  recordSuccess(): void {
-    this.failures = 0;
-  }
-
-  reset(): void {
-    this.failures = 0;
-    this.openedAt = null;
-  }
-}
-```
-
-2. **Wrap agent execution**:
-```typescript
-async executeTask(task: Task) {
-  if (this.circuitBreaker.isOpen()) {
-    await this.escalateToLead(task, 'Circuit breaker open');
-    return;
-  }
-
-  try {
-    const result = await this.doExecute(task);
-    this.circuitBreaker.recordSuccess();
-    return result;
-  } catch (error) {
-    this.circuitBreaker.recordFailure();
-    throw error;
-  }
-}
-```
-
----
-
-## Gap 4: No Agent Peer Review
-
-**Current**: Code goes straight to PR, human reviews.
-
-**Problem**: Humans become bottleneck. Quality varies.
-
-**Fix**: Agent reviews agent code before PR.
-
-**Changes needed**:
-
-1. **Add review step to workflow**:
-```typescript
-async function submitWork(agent: Agent, work: WorkResult) {
-  // Create draft PR
-  const pr = await createDraftPR(work);
-
-  // Get a different agent to review
-  const reviewer = selectReviewer(agent);  // Different agent, same domain
-  const review = await reviewer.reviewCode(pr);
-
-  if (review.approved) {
-    await pr.markReady();
-    await pr.addLabel('agent-approved');
-  } else {
-    // Send back to author with comments
-    await agent.handleReviewFeedback(pr, review);
-  }
-}
-```
-
-2. **Add review capability to agents** (in system prompt):
-```
-When reviewing code, check for:
-- Does it compile? Run typecheck.
-- Do tests pass? Run test suite.
-- Are there obvious bugs? Look for null checks, error handling.
-- Does it match the task requirements?
-- Is it reasonably clean? No obvious code smells.
-
-If any of these fail, request changes with specific feedback.
-```
-
----
-
-## Gap 5: No Persistent Work Records
-
-**Current**: Agent execution is ephemeral. If agent dies, context lost.
-
-**Problem**: Can't resume failed tasks. Can't audit what happened.
-
-**Fix**: Log every action to database.
-
-**Changes needed**:
-
-1. **Add work_records table**:
-```prisma
-model WorkRecord {
-  id        String   @id @default(cuid())
-  taskId    String
-  agentId   String
-  action    String
-  input     Json
-  output    Json?
-  artifacts String[] // Git SHAs, file paths, PR URLs
-  status    String   // 'started' | 'completed' | 'failed'
-  error     String?
-  createdAt DateTime @default(now())
-
-  task  Task  @relation(fields: [taskId], references: [id])
-  agent Agent @relation(fields: [agentId], references: [id])
-
-  @@index([taskId])
-  @@index([agentId])
-}
-```
-
-2. **Log actions in base agent**:
-```typescript
-async executeAction(action: string, input: unknown) {
-  const record = await db.workRecord.create({
-    data: { taskId: this.currentTask.id, agentId: this.id, action, input, status: 'started' }
-  });
-
-  try {
-    const output = await this.doAction(action, input);
-    await db.workRecord.update({
-      where: { id: record.id },
-      data: { output, status: 'completed' }
-    });
-    return output;
-  } catch (error) {
-    await db.workRecord.update({
-      where: { id: record.id },
-      data: { error: error.message, status: 'failed' }
-    });
-    throw error;
-  }
-}
-```
-
-3. **Enable task resumption**:
-```typescript
-async resumeTask(taskId: string) {
-  const records = await db.workRecord.findMany({
-    where: { taskId },
-    orderBy: { createdAt: 'asc' }
-  });
-
-  const lastCompleted = records.filter(r => r.status === 'completed').at(-1);
-
-  // Give agent context about what was already done
-  await agent.continueFrom({
-    task: await getTask(taskId),
-    completedActions: records.filter(r => r.status === 'completed'),
-    lastFailure: records.find(r => r.status === 'failed'),
-  });
-}
-```
-
----
-
-## Gap 6: Weak Quality Gates
-
-**Current**: No automated checks before merge.
-
-**Problem**: Bad code gets through. Manual review catches it too late.
-
-**Fix**: Automated quality gates that block merge.
-
-**Changes needed**:
-
-1. **Add quality gate runner** (`apps/server/src/services/quality-gates.ts`):
-```typescript
-const gates: QualityGate[] = [
-  {
-    name: 'typecheck',
-    run: () => exec('pnpm typecheck'),
-    blocking: true,
-  },
-  {
-    name: 'lint',
-    run: () => exec('pnpm lint'),
-    blocking: true,
-  },
-  {
-    name: 'test',
-    run: () => exec('pnpm test'),
-    blocking: true,
-  },
-  {
-    name: 'build',
-    run: () => exec('pnpm build'),
-    blocking: true,
-  },
-];
-
-async function runQualityGates(pr: PullRequest): Promise<GateResult[]> {
-  const results = await Promise.all(gates.map(async (gate) => {
-    const result = await gate.run();
-    return {
-      name: gate.name,
-      passed: result.exitCode === 0,
-      output: result.output,
-      blocking: gate.blocking,
-    };
-  }));
-
-  return results;
-}
-```
-
-2. **Block PR merge on failures**:
-```typescript
-async function canMerge(pr: PullRequest): Promise<boolean> {
-  const gateResults = await runQualityGates(pr);
-  const blockingFailures = gateResults.filter(r => r.blocking && !r.passed);
-
-  if (blockingFailures.length > 0) {
-    await pr.addComment(`Quality gates failed:\n${blockingFailures.map(f => `- ${f.name}`).join('\n')}`);
-    return false;
-  }
-
-  return true;
+  recordSuccess(): void { this.failures = 0; }
+  reset(): void { this.failures = 0; this.openedAt = null; }
 }
 ```
 
@@ -379,21 +401,93 @@ async function canMerge(pr: PullRequest): Promise<boolean> {
 
 ## Implementation Order
 
-1. **Org structure** - Changes how tasks flow, do first
-2. **Circuit breakers** - Prevents runaway costs, quick win
-3. **Work records** - Enables everything else
-4. **Verification** - Catches bad completions
-5. **Quality gates** - Blocks bad code
-6. **Peer review** - Final quality layer
+### Phase 1: Foundation (Week 1-2)
+1. Add TDD workflow and quality gates
+2. Set up Temporal infrastructure
+3. Create first Temporal workflow (simple agent task)
+
+### Phase 2: Migration (Week 3-4)
+1. Migrate agent execution from BullMQ to Temporal
+2. Add circuit breakers
+3. Update task schema with new statuses
+
+### Phase 3: Expansion (Week 5-6)
+1. Add new departments and agents
+2. Implement hierarchical routing
+3. Add department autonomy config
+
+### Phase 4: Workflows (Week 7-8)
+1. Build cross-department workflows
+2. Add peer review system
+3. Polish and test
 
 ---
 
-## What NOT to Add
+## Architecture Diagram (Updated)
 
-- ❌ Human approval gates (blocks autonomy)
-- ❌ Compliance modules (add later if needed)
-- ❌ Multi-sig approvals (bureaucracy)
-- ❌ Cryptographic audit trails (overkill)
-- ❌ Graceful degradation modes (premature)
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         GENERIC CORP (Autonomous)                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌────────────────────────────────────────────────────────────────────────┐ │
+│  │                      PRESENTATION LAYER                                 │ │
+│  │   React Dashboard + Phaser Isometric View                              │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
+│                                    │                                         │
+│                              WebSocket                                       │
+│                                    │                                         │
+│  ┌────────────────────────────────────────────────────────────────────────┐ │
+│  │                     ORCHESTRATION LAYER                                 │ │
+│  │  ┌─────────────────────────────┐  ┌─────────────────────────────────┐  │ │
+│  │  │         Temporal            │  │           BullMQ                │  │ │
+│  │  │  - Agent workflows          │  │  - Scheduled crons              │  │ │
+│  │  │  - Multi-step tasks         │  │  - Notification queues          │  │ │
+│  │  │  - Cross-dept coordination  │  │  - Rate-limited jobs            │  │ │
+│  │  │  - Durable execution        │  │  - Batch processing             │  │ │
+│  │  │  - Event history            │  │                                 │  │ │
+│  │  └─────────────────────────────┘  └─────────────────────────────────┘  │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
+│                                    │                                         │
+│  ┌────────────────────────────────────────────────────────────────────────┐ │
+│  │                      DEPARTMENT LAYER                                   │ │
+│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐     │ │
+│  │  │   ENG    │ │ PRODUCT  │ │MARKETING │ │  SALES   │ │   OPS    │     │ │
+│  │  │  Sable   │ │   Nina   │ │  Kenji   │ │ Frankie  │ │  Helen   │     │ │
+│  │  │  └─3     │ │  └─2     │ │  └─3     │ │  └─2     │ │  └─2     │     │ │
+│  │  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘     │ │
+│  │                              Marcus (CEO)                               │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
+│                                    │                                         │
+│  ┌────────────────────────────────────────────────────────────────────────┐ │
+│  │                         AGENT LAYER                                     │ │
+│  │   Claude Agent SDK + TDD Workflow + Peer Review                        │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
+│                                    │                                         │
+│  ┌────────────────────────────────────────────────────────────────────────┐ │
+│  │                          TOOL LAYER                                     │ │
+│  │   MCP Server (role-scoped) + External Integrations                     │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
+│                                    │                                         │
+│  ┌────────────────────────────────────────────────────────────────────────┐ │
+│  │                          DATA LAYER                                     │ │
+│  │   PostgreSQL (state, history) + Redis (cache, simple queues)           │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
 
-Keep the system simple. Agents should be able to ship code end-to-end without human intervention. Humans review PRs async, not as a blocking gate.
+---
+
+## What NOT to Change
+
+- ✅ Keep MCP for tools (works well)
+- ✅ Keep draft approval for external comms
+- ✅ Keep Phaser for visualization
+- ✅ Keep PostgreSQL + Redis for data
+- ✅ Keep WebSocket for real-time
+
+The core architecture is sound. These changes add:
+- TDD for quality
+- Temporal for durability
+- Full company for autonomy
+- Hierarchy for scalability
