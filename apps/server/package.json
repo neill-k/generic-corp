@@ -12,13 +12,13 @@
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit",
     "test": "vitest --run",
+    "test:coverage": "vitest --run --coverage",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.1.0",
     "@generic-corp/shared": "workspace:*",
     "@prisma/client": "^6.0.0",
     "@temporalio/activity": "^1.14.1",

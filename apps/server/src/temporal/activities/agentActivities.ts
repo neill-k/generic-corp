@@ -33,7 +33,7 @@ export interface UnreadMessage {
 }
 
 /**
- * Execute an agent task using Claude Agent SDK
+ * Execute an agent task using the configured agent runtime
  */
 export async function executeAgentTask(input: TaskInput): Promise<TaskResult> {
   console.log(`[Activity] Executing task ${input.taskId} for ${input.agentName}`);

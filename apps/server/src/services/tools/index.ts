@@ -10,7 +10,7 @@ import type { Agent } from "@generic-corp/shared";
 const execAsync = promisify(exec);
 
 /**
- * Tool definitions for Claude Agent SDK
+ * Tool definitions for the agent tool executor
  * These tools can be used by agents to interact with the system
  */
 

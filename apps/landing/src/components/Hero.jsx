@@ -12,7 +12,7 @@ function Hero() {
           <p>Managing multiple AI agents is complex. Debugging failures is painful. Scaling to production is risky. Until now.</p>
         </div>
         <div style={{marginBottom: '30px', fontSize: '16px', opacity: 0.9}}>
-          <p>✨ Built on Claude Agent SDK by ex-Google/Stripe engineers</p>
+          <p>✨ Built on a configurable CLI-based agent runtime by ex-Google/Stripe engineers</p>
         </div>
         <div className="cta-group">
           <a href="#waitlist" className="btn btn-primary">Start Free Trial</a>

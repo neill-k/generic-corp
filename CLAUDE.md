@@ -49,7 +49,7 @@ This is a pnpm monorepo with three packages:
 
 ### Key Server Components
 
-- `src/agents/` - AI agent implementations. `BaseAgent` handles Claude Agent SDK integration; specific agents (e.g., `SableAgent`) extend it with personality prompts
+- `src/agents/` - AI agent implementations. `BaseAgent` handles agent runtime integration via CLI runner; specific agents (e.g., `SableAgent`) extend it with personality prompts
 - `src/api/` - REST endpoints
 - `src/websocket/` - Socket.io handlers for real-time updates
 - `src/queues/` - BullMQ task processing
@@ -104,6 +104,10 @@ This is a pnpm monorepo with three packages:
 - Log with component prefix: `console.error("[API] ...", error)`
 - Use `error instanceof Error ? error.message : "Unknown error"` pattern
 
-## Claude Agent SDK
+## Agent Runtime (CLI)
 
-The server uses `@anthropic-ai/claude-agent-sdk`. Credentials are auto-detected from `~/.claude/.credentials.json`; no `ANTHROPIC_API_KEY` env var needed. See `apps/server/src/agents/base-agent.ts` for the integration pattern.
+The server executes agents via a CLI runner (`apps/server/src/workers/cli/`). By default the generic adapter runs in "echo" mode (returns the prompt). You can override the command/args/script with:
+
+- `GENERIC_CORP_AGENT_CLI_COMMAND` (default: `bash`)
+- `GENERIC_CORP_AGENT_CLI_ARGS` (default: `-lc`)
+- `GENERIC_CORP_AGENT_CLI_SCRIPT` (default: `printf '%s' "$AGENT_PROMPT"`)

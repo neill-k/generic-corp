@@ -17,7 +17,7 @@
 ### The Product (Hidden Gem)
 We've unknowingly built a **$50M+ product**:
 - Visual orchestration for multi-agent AI systems
-- Production-grade infrastructure (BullMQ, Redis, Postgres, Claude Agent SDK)
+- Production-grade infrastructure (BullMQ, Redis, Postgres, configurable CLI-based agent runtime)
 - Isometric game interface that makes complexity intuitive
 - Battle-tested by our own team
 
@@ -199,7 +199,7 @@ We've unknowingly built a **$50M+ product**:
 ### Our Unique Advantages
 1. **Visual-First**: Only platform with isometric game interface
 2. **Production-Ready**: Not a toy - real infrastructure
-3. **Claude Agent SDK**: Best-in-class AI integration
+3. **CLI-Based Agent Runtime**: Configurable agent execution (bring your own provider)
 4. **Developer Experience**: Simple API, great docs, fast deploy
 
 ### Positioning Statement

@@ -1318,84 +1318,43 @@ For now, create colored rectangles:
 
 # Phase 3: Agent SDK Integration
 
-## Task 3.3.1: Install Claude Agent SDK
+## Task 3.3.1: Configure CLI-Based Agent Runtime
 
 ### Objective
-Install and configure the Claude Agent SDK for real AI agent execution.
+Configure a CLI-based agent runtime for real agent execution.
 
 ### Prerequisites
 - Phase 1 and 2 complete
-- Anthropic API key
+- CLI runtime command available on PATH (or configured via env)
 
 ### Files to Create/Modify
 ```
-apps/server/package.json                      # Add dependency
-apps/server/.env                              # API key
-apps/server/src/config/agent-sdk.ts           # SDK configuration
+apps/server/.env                              # CLI runtime configuration
 ```
 
 ### Steps
 
-**Step 1: Install the SDK**
-
-```bash
-cd apps/server
-pnpm add @anthropic-ai/claude-code
-```
-
-**Step 2: Configure environment**
+**Step 1: Configure environment**
 
 Update `apps/server/.env`:
 
 ```env
-# Anthropic API
-ANTHROPIC_API_KEY=sk-ant-...
+# Agent Runtime (CLI)
+GENERIC_CORP_AGENT_CLI_COMMAND=bash
+GENERIC_CORP_AGENT_CLI_ARGS=-lc
 
-# Agent SDK Configuration
-AGENT_MODEL=claude-sonnet-4-20250514
-AGENT_MAX_TOKENS=8192
-AGENT_TIMEOUT_MS=120000
+# Provide script that reads prompt from AGENT_PROMPT env var
+GENERIC_CORP_AGENT_CLI_SCRIPT=echo "$AGENT_PROMPT"
 ```
 
-**Step 3: Create SDK configuration**
+**Step 2: Validate runtime**
 
-Create `apps/server/src/config/agent-sdk.ts`:
-
-```typescript
-import Anthropic from '@anthropic-ai/sdk';
-
-// Singleton Anthropic client
-let client: Anthropic | null = null;
-
-export function getAnthropicClient(): Anthropic {
-  if (!client) {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      throw new Error('ANTHROPIC_API_KEY environment variable is required');
-    }
-    client = new Anthropic({ apiKey });
-  }
-  return client;
-}
-
-export const agentConfig = {
-  model: process.env.AGENT_MODEL || 'claude-sonnet-4-20250514',
-  maxTokens: parseInt(process.env.AGENT_MAX_TOKENS || '8192', 10),
-  timeoutMs: parseInt(process.env.AGENT_TIMEOUT_MS || '120000', 10),
-};
-
-export function validateConfig(): void {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    console.warn('WARNING: ANTHROPIC_API_KEY not set. Agent execution will fail.');
-  }
-}
-```
+- Ensure your chosen CLI command works in your environment.
+- For local smoke testing, the defaults above simply echo the prompt back.
 
 ### Acceptance Criteria
-- [ ] SDK installed without errors
-- [ ] API key loaded from environment
-- [ ] Configuration validated on startup
-- [ ] Client singleton prevents multiple instances
+- [ ] CLI command and args configured
+- [ ] Runtime produces output for a given prompt
 
 ### Estimated Time
 1 hour
@@ -1405,7 +1364,7 @@ export function validateConfig(): void {
 ## Task 3.3.2: Create AgentRunner Wrapper Class
 
 ### Objective
-Create a wrapper class that manages Claude Agent SDK sessions, handles tool calls, and tracks token usage.
+Create a wrapper class that manages agent sessions, handles tool calls, and tracks execution details.
 
 ### Prerequisites
 - Task 3.3.1 complete

@@ -36,9 +36,9 @@ async function fetchJson(url: string, init?: RequestInit) {
   return { res, body };
 }
 
-const anthropicApiKey = process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY_REAL;
+const runE2e = process.env.RUN_E2E === "1";
 
-describe.skipIf(!anthropicApiKey)("E2E: REST task execution (real Claude Agent SDK)", () => {
+describe.skipIf(!runE2e)("E2E: REST task execution (CLI runtime)", () => {
   let serverProc: ChildProcess | null = null;
   let baseUrl = "";
 
@@ -53,7 +53,6 @@ describe.skipIf(!anthropicApiKey)("E2E: REST task execution (real Claude Agent S
         ...process.env,
         NODE_ENV: "test",
         PORT: String(port),
-        ANTHROPIC_API_KEY: anthropicApiKey,
       },
     });
 
@@ -79,7 +78,7 @@ describe.skipIf(!anthropicApiKey)("E2E: REST task execution (real Claude Agent S
     });
   });
 
-  it("creates a task, executes it, and persists non-zero tokensUsed", async () => {
+  it("creates a task and persists a result", async () => {
     const title = `E2E: 2+2 ${Date.now()}`;
 
     const create = await fetchJson(`${baseUrl}/api/tasks`, {
@@ -118,9 +117,8 @@ describe.skipIf(!anthropicApiKey)("E2E: REST task execution (real Claude Agent S
       if (status === "completed") {
         expect(getTask.body.result).toBeTruthy();
         expect(getTask.body.result.success).toBe(true);
-        expect(getTask.body.result.tokensUsed).toBeTruthy();
-        expect(getTask.body.result.tokensUsed.input).toBeGreaterThan(0);
-        expect(getTask.body.result.tokensUsed.output).toBeGreaterThan(0);
+        expect(getTask.body.result.output).toBeTypeOf("string");
+        expect(getTask.body.result.output.length).toBeGreaterThan(0);
         return;
       }
 

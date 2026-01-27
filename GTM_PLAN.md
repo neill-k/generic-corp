@@ -263,7 +263,7 @@ Alternatives:
 
 1. **Visual First**: See your agents working in real-time (isometric game view)
 2. **Production Ready**: Built-in queues, monitoring, reliability (not a toy)
-3. **Claude Powered**: Built on Claude Agent SDK (best-in-class AI)
+3. **Provider-Agnostic**: Configurable CLI-based agent runtime (bring your own model/provider)
 4. **Developer Friendly**: Simple API, great docs, example use cases
 5. **Self-Hostable**: Open-source core, deploy anywhere
 

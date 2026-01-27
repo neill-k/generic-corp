@@ -116,7 +116,7 @@ export default function Home() {
                 </div>
                 <div className="flex items-start">
                   <span className="text-green-500 text-2xl mr-3">✓</span>
-                  <p>Built on Claude Agent SDK - best-in-class AI capabilities</p>
+                  <p>Configurable CLI-based agent runtime - bring your own model provider</p>
                 </div>
                 <div className="flex items-start">
                   <span className="text-green-500 text-2xl mr-3">✓</span>
@@ -235,8 +235,8 @@ export default function Home() {
               <p className="text-gray-600">Watch your agents work in real-time with our unique game-like interface</p>
             </div>
             <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-xl font-semibold mb-2">Claude Agent SDK</h3>
-              <p className="text-gray-600">Built on Anthropic's powerful agent framework for best-in-class AI</p>
+              <h3 className="text-xl font-semibold mb-2">CLI-Based Agent Runtime</h3>
+              <p className="text-gray-600">Run agents via a configurable CLI adapter for flexible, provider-agnostic execution</p>
             </div>
             <div className="bg-white p-6 rounded-lg shadow">
               <h3 className="text-xl font-semibold mb-2">Production Infrastructure</h3>
@@ -438,7 +438,7 @@ export default function Home() {
             <div>
               <h3 className="text-white font-bold text-lg mb-4">Generic Corp</h3>
               <p className="text-sm">
-                Visual multi-agent orchestration platform built on Claude Agent SDK.
+                Visual multi-agent orchestration platform with a configurable CLI-based agent runtime.
               </p>
             </div>
             <div>
@@ -470,7 +470,7 @@ export default function Home() {
             </div>
           </div>
           <div className="border-t border-gray-800 mt-8 pt-8 text-sm text-center">
-            <p>&copy; 2026 Generic Corp. Built with Claude Agent SDK.</p>
+            <p>&copy; 2026 Generic Corp. Built with a configurable CLI-based agent runtime.</p>
           </div>
         </div>
       </footer>

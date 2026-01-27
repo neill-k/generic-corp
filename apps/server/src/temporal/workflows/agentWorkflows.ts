@@ -74,15 +74,15 @@ export interface AgentTaskWorkflowInput {
   priority: string;
 }
 
-/**
- * Execute a single agent task
- *
- * This workflow:
- * 1. Updates task/agent status to working
- * 2. Executes the task via Claude Agent SDK
- * 3. Updates status on completion
- * 4. Handles cancellation signals
- */
+ /**
+  * Execute a single agent task
+  *
+  * This workflow:
+  * 1. Updates task/agent status to working
+  * 2. Executes the task via the agent runtime
+  * 3. Updates status on completion
+  * 4. Handles cancellation signals
+  */
 export async function agentTaskWorkflow(input: AgentTaskWorkflowInput): Promise<{
   success: boolean;
   output?: string;

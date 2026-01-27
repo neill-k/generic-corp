@@ -16,8 +16,8 @@ This guide covers how to test all Phase 1 features, from basic setup to end-to-e
    # Copy example env file
    cp apps/server/.env.example apps/server/.env
    
-   # Note: Claude Agent SDK auto-detects credentials from ~/.claude/.credentials.json
-   # No need to set ANTHROPIC_API_KEY manually - it will break if you do!
+   # Agent execution runs via a configurable CLI runner.
+   # By default it runs in "echo" mode (returns the prompt).
    ```
 
 3. **Start Infrastructure**
@@ -368,9 +368,9 @@ GET <queue-key>
 ### Common Issues
 
 1. **Agent execution fails**
-   - Verify credentials exist at `~/.claude/.credentials.json`
-   - The SDK auto-detects credentials - don't set ANTHROPIC_API_KEY manually
-   - Check server logs for authentication errors
+   - Verify your configured CLI tool is installed and on PATH
+   - If your CLI tool requires credentials, verify they are configured for that tool
+   - Check server logs for command/exit-code errors
 
 2. **WebSocket not connecting**
    - Verify CORS settings in server

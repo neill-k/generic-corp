@@ -42,14 +42,17 @@ There is no repo-root `typecheck` script, but each package exposes `typecheck`.
 - Typecheck shared: `pnpm --filter @generic-corp/shared run typecheck`
 
 ### Tests
-At the moment there are **no test scripts and no test files** checked into this repo.
-- Root `pnpm test` runs `pnpm -r run test` and will be a no-op unless packages add a `test` script.
+Server has **44 Vitest tests** (unit + e2e) in `apps/server/src/test/`.
 
-**If/when tests are added**, preferred patterns for running a single test:
-- Vitest (single file): `pnpm --filter <pkg> vitest path/to/test.spec.ts`
-- Vitest (single test name): `pnpm --filter <pkg> vitest -t "test name"`
-- Jest (single file): `pnpm --filter <pkg> jest path/to/test.test.ts`
-- Jest (single test name): `pnpm --filter <pkg> jest -t "test name"`
+**Run all tests:**
+- All workspaces: `pnpm test`
+- Server only: `pnpm --filter @generic-corp/server run test`
+- With coverage: `pnpm --filter @generic-corp/server run test:coverage`
+
+**Run specific tests:**
+- Single file: `pnpm --filter @generic-corp/server vitest run src/test/unit/base-agent.test.ts`
+- Single test by name: `pnpm --filter @generic-corp/server vitest run -t "should execute task"`
+- Watch mode: `pnpm --filter @generic-corp/server vitest`
 
 ### Docker / DB
 - Start Postgres + Redis: `pnpm docker:up`

@@ -11,7 +11,7 @@
 
 **The Opportunity**: We have built world-class multi-agent orchestration infrastructure that nobody is using. We will transform it into a revenue-generating SaaS platform for AI developers.
 
-**The Product**: A visual multi-agent orchestration platform that makes managing teams of AI agents as intuitive as a game. Built on Claude Agent SDK, BullMQ, and production-grade infrastructure.
+**The Product**: A visual multi-agent orchestration platform that makes managing teams of AI agents as intuitive as a game. Built on a configurable CLI-based agent runtime, BullMQ, and production-grade infrastructure.
 
 **Revenue Target**: $10K MRR within 6 weeks, $50K MRR within 6 months
 
@@ -23,7 +23,7 @@
 
 ### Assets
 - ✅ Production-ready multi-agent orchestration platform
-- ✅ Claude Agent SDK integration
+- ✅ Configurable CLI-based agent runtime
 - ✅ Isometric visual interface (unique differentiator)
 - ✅ BullMQ + Redis + Postgres infrastructure
 - ✅ WebSocket real-time updates
@@ -40,7 +40,7 @@
 - **Growing market**: AI agent development is exploding (AutoGPT, LangGraph, CrewAI)
 - **Pain point exists**: Managing multiple AI agents is chaotic and complex
 - **Competition**: Mostly CLI/code-based tools, few visual interfaces
-- **Our differentiator**: Visual orchestration + production infrastructure + Claude Agent SDK
+- **Our differentiator**: Visual orchestration + production infrastructure + configurable CLI-based agent runtime
 
 ---
 
@@ -281,7 +281,7 @@
 We're the only platform that combines:
 1. **Visual Orchestration**: See your agents working in real-time (isometric view)
 2. **Production Infrastructure**: Built-in queues, monitoring, reliability (BullMQ, Redis, Postgres)
-3. **Claude Agent SDK**: Best-in-class AI agent capabilities
+3. **CLI-Based Agent Runtime**: Configurable agent execution (bring your own provider)
 4. **Developer Experience**: Simple API, example use cases, great docs
 
 ### Positioning Against Competitors
@@ -329,7 +329,7 @@ We're the only platform that combines:
 
 **Subheadline**: Build, deploy, and manage multi-agent AI systems with a platform that makes complexity intuitive. From prototype to production in minutes.
 
-**Social Proof**: "Built on Claude Agent SDK by ex-Google/Stripe engineers"
+**Social Proof**: "Configurable CLI-based agent runtime by ex-Google/Stripe engineers"
 
 **CTA Primary**: Start Free Trial
 **CTA Secondary**: View Live Demo

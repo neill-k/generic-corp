@@ -36,7 +36,7 @@
 
 ## Overview
 
-GENERIC CORP is an isometric management simulation (Animal Crossing meets Game Dev Tycoon) where each character represents a **real AI agent** powered by the Claude Agent SDK. Players act as Marcus Bell, the new CEO tasked with turning around a company with world-class talent but zero revenue. Unlike traditional games, the agents perform actual work - writing code, analyzing data, drafting communications - through MCP tools connected to real systems.
+GENERIC CORP is an isometric management simulation (Animal Crossing meets Game Dev Tycoon) where each character represents a **real AI agent** powered by a configurable CLI-based agent runtime. Players act as Marcus Bell, the new CEO tasked with turning around a company with world-class talent but zero revenue. Unlike traditional games, the agents perform actual work - writing code, analyzing data, drafting communications - through MCP tools connected to real systems.
 
 The game serves as a visual interface for orchestrating multiple AI agents that communicate via internal messaging, operate autonomously through scheduled crons/hooks, and collaborate on real-world tasks.
 
@@ -102,7 +102,7 @@ GENERIC CORP provides a visual metaphor (an office with employees) for these abs
 │  ┌─────────────────────────────────────────────────────────────────────┐   │
 │  │                         AGENT LAYER                                  │   │
 │  │  ┌─────────────────────────────────────────────────────────────────┐│   │
-│  │  │                    Claude Agent SDK                             ││   │
+│  │  │                    CLI-based agent runtime                      ││   │
 │  │  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐  ││   │
 │  │  │  │ Marcus  │ │ Sable   │ │DeVonte  │ │  Yuki   │ │  Gray   │  ││   │
 │  │  │  │  (CEO)  │ │  (Eng)  │ │ (Full)  │ │ (SRE)   │ │ (Data)  │  ││   │
@@ -163,7 +163,7 @@ GENERIC CORP provides a visual metaphor (an office with employees) for these abs
 |-------|------------|---------|
 | Game Engine | Phaser 3.87+ | Isometric rendering, animations, input |
 | UI Framework | React 18 + TailwindCSS + Zustand | Dashboard panels, overlays, decoupled state |
-| Agent Runtime | Claude Agent SDK (TypeScript) | AI agent execution, tools, sessions |
+| Agent Runtime | CLI-based runtime (TypeScript) | AI agent execution, tools, sessions |
 | Orchestration | BullMQ 5.x | Job queues, crons (repeatable jobs), priorities, retries, dead letter |
 | Real-time | Socket.io (WebSocket) | Unified bidirectional communication |
 | Database | PostgreSQL 16 | Persistent state, history, audit, soft deletes |
@@ -1275,11 +1275,11 @@ export function createAgentTaskQueue(agentId: string) {
 
 ```typescript
 // packages/mcp-tools/src/internal-messaging.ts
-import { createSdkMcpServer, tool } from "@anthropic-ai/claude-agent-sdk";
+// (Example only) Wire this to your chosen MCP server + runtime.
 import { MessageService } from "../../apps/server/src/services/message-service";
 
 export function createInternalMessagingServer(agentId: string) {
-  return createSdkMcpServer({
+  return createMcpServer({
     name: "internal-messaging",
     version: "1.0.0",
     tools: [
@@ -2115,7 +2115,7 @@ export async function handleAgentError(
 
 - [ ] **Agent Visualization**: Each agent appears in the isometric office with animations reflecting their current state (idle, working, blocked, offline)
 - [ ] **Task Assignment**: Player can select an agent and assign a free-text task via the UI
-- [ ] **Task Execution**: Assigned tasks are processed by the Claude Agent SDK with real tool usage
+- [ ] **Task Execution**: Assigned tasks are processed by the configured CLI-based agent runtime with real tool usage
 - [ ] **Progress Visibility**: Player can see task progress percentage, status, and activity log
 - [ ] **Inter-Agent Messaging**: Agents can send messages to each other; messages appear in UI and agent inboxes
 - [ ] **Player Messaging**: Player (as Marcus) can send direct messages to any agent
@@ -2169,7 +2169,7 @@ export async function handleAgentError(
 
 | Package | Version | Purpose |
 |---------|---------|---------|
-| `@anthropic-ai/agent` | latest | Claude Agent SDK |
+| `agent runtime CLI` | n/a | Configurable CLI-based execution |
 | `bullmq` | 5.x | Job queues, cron scheduling |
 | `socket.io` | 4.x | WebSocket server |
 | `socket.io-client` | 4.x | WebSocket client |
@@ -2183,7 +2183,7 @@ export async function handleAgentError(
 
 ### External Services
 
-- **Anthropic API**: Claude Agent SDK requires API key
+- **Model provider**: If your chosen agent CLI calls a hosted model, configure its credentials separately (do not commit keys)
 - **GitHub API** (optional): For git operations
 - **Cloud Provider** (production): For hosted services
 
@@ -2248,7 +2248,7 @@ export async function handleAgentError(
 - BullMQ queue patterns
 
 ### External References
-- [Claude Agent SDK Documentation](https://docs.anthropic.com/en/docs/agents)
+- Agent runtime documentation (TBD for chosen CLI)
 - [Phaser 3 Isometric Tilemap Guide](https://docs.phaser.io)
 - [BullMQ Documentation](https://docs.bullmq.io)
 - [Socket.io Documentation](https://socket.io/docs/v4/)

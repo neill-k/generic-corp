@@ -72,8 +72,8 @@ pnpm db:migrate   # Run migrations
 
 Copy `apps/server/.env.example` to `apps/server/.env` and configure as needed.
 
-**Note:** The Claude Agent SDK automatically detects credentials from `~/.claude/.credentials.json`. 
-No need to set `ANTHROPIC_API_KEY` in `.env` - the SDK handles authentication automatically.
+**Note:** Agent execution is performed via a configurable CLI runner (see `apps/server/src/workers/cli/`).
+By default it runs in "echo" mode (returns the prompt). To use a real CLI tool, set `GENERIC_CORP_AGENT_CLI_SCRIPT`.
 
 ### Testing
 
@@ -93,7 +93,7 @@ curl http://localhost:3000/api/agents
 
 - **Frontend**: Phaser 3 for isometric rendering, React for UI, Zustand for state, Socket.io for real-time
 - **Backend**: Express server, BullMQ for job queue, Prisma ORM, PostgreSQL + Redis
-- **AI Agents**: Claude Agent SDK for agent execution, personality-driven responses
+- **AI Agents**: CLI-based agent runtime (configurable adapters), personality-driven responses
 
 ## Phase 1 Features
 

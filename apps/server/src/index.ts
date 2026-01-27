@@ -10,31 +10,37 @@ import { seedAgents } from "./db/seed.js";
 import { initializeAgents } from "./agents/index.js";
 import { initEncryption } from "./services/encryption.js";
 
-const app = express();
-const httpServer = createServer(app);
+export function createHttpServer() {
+  const app = express();
+  const httpServer = createServer(app);
 
-// Middleware
-app.use(helmet());
-app.use(cors({
-  origin: process.env.CLIENT_URL || "http://localhost:5173",
-  credentials: true,
-}));
-app.use(express.json());
+  // Middleware
+  app.use(helmet());
+  app.use(cors({
+    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    credentials: true,
+  }));
+  app.use(express.json());
 
-// Health check
-app.get("/health", (_req, res) => {
-  res.json({ status: "ok", timestamp: Date.now() });
-});
+  // Health check
+  app.get("/health", (_req, res) => {
+    res.json({ status: "ok", timestamp: Date.now() });
+  });
 
-// Setup API routes
-setupRoutes(app);
+  // Setup API routes
+  setupRoutes(app);
 
-// Setup WebSocket
-const io = setupWebSocket(httpServer);
+  // Setup WebSocket
+  const io = setupWebSocket(httpServer);
+
+  return { app, httpServer, io };
+}
 
 // Initialize queues and start server
-async function start() {
+export async function start() {
   try {
+    const { httpServer, io } = createHttpServer();
+
     try {
       initEncryption();
       console.log("[Server] Encryption initialized");
@@ -62,4 +68,7 @@ async function start() {
   }
 }
 
-start();
+// Start server if run directly
+if (import.meta.url === `file://${process.argv[1]}`) {
+  start();
+}

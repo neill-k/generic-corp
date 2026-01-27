@@ -2,18 +2,18 @@
 
 **Project**: Generic Corp (pnpm workspace monorepo)
 
-**Goal**: Complete Phase 1 by delivering a **REST-driven, end-to-end (E2E) agent task execution integration test** that uses the **real Claude Agent SDK**, proving:
+**Goal**: Complete Phase 1 by delivering a **REST-driven, end-to-end (E2E) agent task execution integration test** that uses the **configured CLI agent runtime**, proving:
 - a task can be created via REST
 - task execution can be triggered via REST
 - BullMQ worker processes the job
-- agent execution calls the real SDK (not simulation)
-- persisted `task.result.tokensUsed` shows **input > 0** and **output > 0**
+- agent execution runs via the configured CLI runtime (not simulation)
+- persisted `task.result.output` is non-empty
 
 This plan is written under the constraints:
 - **TDD mandatory**: write the failing E2E test first, then implement minimal code to make it pass.
 - **Services running**: Docker Postgres + Redis are running externally during tests.
 - **REST APIs**: test uses REST endpoints (not WebSocket) to create and execute tasks.
-- **Real SDK**: execution uses `@anthropic-ai/claude-agent-sdk` and requires `ANTHROPIC_API_KEY`.
+- **CLI runtime**: execution runs through the CLI runner. External credentials depend on the chosen CLI tool.
 
 ---
 
@@ -56,16 +56,15 @@ Phase 1 is complete when:
 1) A new REST endpoint exists:
 - `POST /api/tasks/:id/execute` enqueues the task by emitting `EventBus.emit("task:queued", { agentId: <uuid>, task })`.
 
-2) Agent SDK integration exists (real calls):
-- When the worker executes `agent.executeTask(...)`, it calls **Claude Agent SDK** and returns a `TaskResult` where:
+2) Agent runtime integration exists (CLI calls):
+- When the worker executes `agent.executeTask(...)`, it calls the configured CLI runtime and returns a `TaskResult` where:
   - `success === true`
-  - `tokensUsed.input > 0`
-  - `tokensUsed.output > 0`
+  - `output` is a non-empty string
 
 3) A server E2E test exists and passes:
 - Test uses REST APIs to create + execute a task
 - Test polls task status until completion
-- Test asserts tokensUsed input/output > 0
+- Test asserts output is non-empty
 
 4) Docs updated:
 - `README.md` Phase 1 checklist item “Full agent task execution test” is checked.
@@ -86,7 +85,7 @@ Phase 1 is complete when:
 
 ### Pass/Fail (binary)
 - Test passes only if:
-  - `result.tokensUsed.input > 0` AND `result.tokensUsed.output > 0`
+  - `result.output` is a non-empty string
   - `status === "completed"`
   - `result.success === true`
 
@@ -95,7 +94,7 @@ Phase 1 is complete when:
 ## Test Plan (MANDATORY)
 
 ### Objective
-Verify end-to-end execution: REST → DB → queue job → worker → real Claude Agent SDK → DB result.
+Verify end-to-end execution: REST → DB → queue job → worker → CLI agent runtime → DB result.
 
 ### Prerequisites
 - Docker services running:
@@ -104,7 +103,7 @@ Verify end-to-end execution: REST → DB → queue job → worker → real Claud
 - Server env configured:
   - `DATABASE_URL`
   - `REDIS_HOST`, `REDIS_PORT`
-  - `ANTHROPIC_API_KEY`
+  - (optional) `GENERIC_CORP_AGENT_CLI_COMMAND`, `GENERIC_CORP_AGENT_CLI_ARGS`, `GENERIC_CORP_AGENT_CLI_SCRIPT`
 
 ### Test Cases
 
@@ -116,8 +115,7 @@ Verify end-to-end execution: REST → DB → queue job → worker → real Claud
   - GET `/api/tasks/:id` eventually returns:
     - `status === "completed"`
     - `result.success === true`
-    - `result.tokensUsed.input > 0`
-    - `result.tokensUsed.output > 0`
+    - `result.output` is a non-empty string
 - How to verify:
   - Poll endpoint with timeout (e.g. 120s)
 
@@ -171,15 +169,14 @@ ALL test cases pass.
 - Final task:
   - status = completed
   - result.success = true
-  - result.tokensUsed.input > 0
-  - result.tokensUsed.output > 0
+  - result.output is non-empty
 
 **Timeouts**
 - Per-test timeout: 120s
 
 **Skip behavior**
-- If `ANTHROPIC_API_KEY` missing, skip (not fail):
-  - `describe.skipIf(!process.env.ANTHROPIC_API_KEY)(...)`
+- Skip by default unless explicitly enabled:
+  - `describe.skipIf(process.env.RUN_E2E !== "1")(...)`
 
 **Evidence**
 - First run shows red (expected failing reason is stable / explanatory).
@@ -206,30 +203,23 @@ ALL test cases pass.
 
 ---
 
-### Step 4 — Integrate real Claude Agent SDK into BaseAgent
+### Step 4 — Integrate CLI agent runtime into BaseAgent
 
-**Goal**: agent execution calls the real SDK and returns tokensUsed input/output > 0.
+**Goal**: agent execution runs via the CLI runner and produces a non-empty output.
 
 **Location**
 - `apps/server/src/agents/base-agent.ts`
 
-**SDK**
-- Package: `@anthropic-ai/claude-agent-sdk`
-- Auth: `ANTHROPIC_API_KEY`
+**Runtime**
+- Use `CliRunner` + `GenericCliAdapter`
+- Configure via env vars (optional): `GENERIC_CORP_AGENT_CLI_COMMAND`, `GENERIC_CORP_AGENT_CLI_ARGS`, `GENERIC_CORP_AGENT_CLI_SCRIPT`
 
 **Execution approach (minimal Phase 1)**
-- Use `query(...)` with:
-  - `systemPrompt`: agent personality prompt
-  - `prompt`: content from `buildPrompt(context)`
-  - `options.model`: choose a stable, fast model
-  - `allowedTools`: `[]` (to avoid tools)
-  - `permissionMode`: `bypassPermissions`
-  - `maxTurns`: small bounded number (e.g. 5–10)
-  - optional: `maxBudgetUsd` to cap spend
+- Build the prompt from `buildPrompt(context)`
+- Execute it via `CliRunner.run(...)`
 
-**Token accounting**
-- Map SDK usage fields to `tokensUsed.input` and `tokensUsed.output`.
-- Ensure both are > 0 in normal operation.
+**Result accounting**
+- Persist `result.output`
 
 **Persistence**
 - Keep existing session creation in DB.
@@ -255,14 +245,13 @@ ALL test cases pass.
 ### Step 6 — Update docs (Phase 1 closeout)
 
 - Update `README.md`: check “Full agent task execution test”.
-- Update `STATUS.md`: mark Claude SDK integration as complete (if true after Step 4).
+- Update `STATUS.md`: mark CLI runtime integration as complete (if true after Step 4).
 
 ---
 
 ## Rollout / Risk Notes
 
-- This is a **live external API test**; it should be skipped automatically if `ANTHROPIC_API_KEY` is not present.
-- If token breakdown is not available as input/output separately, the implementation must find a credible source of both counts; otherwise the test requirement (both >0) cannot be satisfied.
+- This may invoke an external CLI tool; keep it skipped by default.
 
 ---
 
@@ -294,5 +283,5 @@ ALL test cases pass.
 ## Exit Criteria
 
 Phase 1 is declared complete only when:
-- The E2E test passes with **real Claude Agent SDK** and **tokensUsed input/output > 0**.
+- The E2E test passes with the configured CLI runtime.
 - README checkbox updated.

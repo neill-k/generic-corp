@@ -47,7 +47,7 @@ Contact: Marcus Bell, CEO
 **AgentHQ** provides:
 - 🎮 **Visual Interface** - See your agents working in real-time (isometric view)
 - ⚙️ **Production Infrastructure** - Built-in queues, monitoring, reliability
-- 🤖 **Claude-Powered** - Built on Claude Agent SDK (best-in-class AI)
+- 🤖 **Provider-Agnostic** - Configurable CLI-based agent runtime (bring your own model/provider)
 - 🚀 **Developer-Friendly** - Simple API, great docs, 30-min to first deploy
 - 🔒 **Self-Hostable** - Open-source core, deploy anywhere
 
@@ -161,7 +161,7 @@ deployment = AgentHQ.deploy(workflow)
 
 **Our Advantage**:
 - Only visual orchestration platform
-- Only one with Claude Agent SDK integration
+- Only one with a configurable CLI-based agent runtime
 - Only one with production infrastructure built-in
 
 **Market Position**: "The Vercel of multi-agent AI" (developer-friendly, production-ready)
@@ -265,7 +265,7 @@ deployment = AgentHQ.deploy(workflow)
 - Node.js + Express
 - BullMQ (task orchestration)
 - PostgreSQL + Redis
-- Claude Agent SDK
+- CLI-based agent runtime
 
 **Infrastructure**:
 - Docker + Kubernetes

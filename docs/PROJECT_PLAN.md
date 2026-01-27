@@ -58,7 +58,7 @@ The isometric game interface provides visibility into agent activity, but the co
 │                  │ ENG │ │DATA │ │PROD │ │ MKT │ │SALES│ │ FIN │ │ OPS │   │
 │                  └─────┘ └─────┘ └─────┘ └─────┘ └─────┘ └─────┘ └─────┘   │
 │                              │                                               │
-│  AGENTS:         Claude Agent SDK + TDD Workflow + Peer Review               │
+│  AGENTS:         CLI-based agent runtime + TDD Workflow + Peer Review        │
 │                              │                                               │
 │  TOOLS:          MCP Server (role-scoped) + External Integrations            │
 │                              │                                               │
@@ -144,7 +144,7 @@ The isometric game interface provides visibility into agent activity, but the co
 - [ ] 3.2.4 Implement test-pass verification
 - [ ] 3.2.5 Add quality gates (typecheck, lint, test, coverage)
 
-#### 3.3 Claude Agent SDK
+#### 3.3 Agent Runtime (CLI)
 - [ ] 3.3.1 Install @anthropic-ai/agent-sdk
 - [ ] 3.3.2 Create AgentRunner wrapper class
 - [ ] 3.3.3 Implement conversation session management
@@ -656,7 +656,7 @@ Every coding task follows this workflow:
 |-------|------------|
 | Game Engine | Phaser 3.87+ |
 | UI Framework | React 18 + TailwindCSS + Zustand |
-| Agent Runtime | Claude Agent SDK |
+| Agent Runtime | CLI-based runtime |
 | Workflow Orchestration | Temporal.io |
 | Job Scheduling | BullMQ (crons only) |
 | Real-time | Socket.io (WebSocket) |

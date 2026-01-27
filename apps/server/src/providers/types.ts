@@ -1,5 +1,8 @@
 import type { ProviderKind, ProviderAccount } from "@prisma/client";
 
+export const TOKEN_USAGE_KEYS = ["input", "output", "total"] as const;
+export type TokenUsageKey = (typeof TOKEN_USAGE_KEYS)[number];
+
 export interface ProviderExecuteOptions {
   prompt: string;
   systemPrompt?: string;

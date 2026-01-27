@@ -1,488 +1,154 @@
-# Generic Corp: Remaining Implementation Tasks
+# Generic Corp: Implementation Status
 
-> Gap analysis comparing PROJECT_PLAN_DETAILED.md against current codebase state
-
-**Date**: January 2026
-
----
-
-## Critical Decision Required
-
-> **Architecture Conflict Detected**: The PROJECT_PLAN_DETAILED.md requires Temporal for durable workflows, but the more recent Game Design Document (January 2026) explicitly states Temporal is "over-engineering" and BullMQ handles all needs.
->
-> **Before proceeding**: Clarify whether to:
-> - **Option A**: Implement Temporal as specified (adds pause/resume/cancel semantics, durability)
-> - **Option B**: Stay with BullMQ (simpler, already working, aligns with design doc)
->
-> This decision affects the entire Phase 4 scope below.
+> **Last Updated**: January 27, 2026
 
 ---
 
 ## Executive Summary
 
-The Generic Corp project has **strong foundations** with core infrastructure in place. Based on analysis of the codebase against PROJECT_PLAN_DETAILED.md:
+The Generic Corp project is **significantly more complete** than previously documented. The codebase has evolved substantially since the original plans were written.
 
-| Phase | Status | Completion |
-|-------|--------|------------|
-| Phase 1: Scaffold | Complete | 100% |
-| Phase 2: Core Game Interface | Mostly Complete | ~85% |
-| Phase 3: Agent SDK Integration | Mostly Complete | ~80% |
-| Phase 4: Temporal Migration | Not Started | 0% |
-| Phase 6: Autonomous Operations | Partial | ~20% |
-
-**Key finding**: The project has diverged from the plan in beneficial ways (using Claude Agent SDK directly rather than a custom AgentRunner wrapper), but lacks the Temporal workflow infrastructure and autonomous cron operations described in the plan.
-
----
-
-## Phase 2: Core Game Interface
-
-### Implemented
-
-| Task | Component | Status | Notes |
-|------|-----------|--------|-------|
-| 2.1.1 | AgentPanel | **Partial** | Dashboard.tsx contains agent panel functionality but not as standalone component |
-| 2.1.2 | TaskQueue | **Implemented** | Integrated into Dashboard.tsx |
-| 2.1.3 | ActivityFeed | **Implemented** | `apps/game/src/components/ActivityFeed.tsx` exists |
-| 2.2.1 | Office Tilemap | **Implemented** | `GameCanvas.tsx` has full isometric office with procedural generation |
-
-### Remaining Tasks
-
-#### Task 2.1.1: Extract AgentPanel as Standalone Component
-
-**Current State**: Agent panel functionality is embedded in `Dashboard.tsx`
-
-**Remaining Work**:
-- [ ] Extract `AgentPanel.tsx` as separate component matching plan spec
-- [ ] Add AgentAvatar, StatusBadge, TaskCard, StatCard sub-components
-- [ ] Add `formatNumber` and `formatTimeAgo` utilities
-- [ ] Export from `components/index.ts`
-
-**Files to Create**:
-```
-apps/game/src/components/AgentPanel.tsx
-```
-
-**Estimated Effort**: Small (2-3 hours)
+| Phase | Original Status | Actual Status |
+|-------|-----------------|---------------|
+| Phase 1: Foundation | ✅ Complete | ✅ Complete |
+| Phase 2: Core Game Interface | 🔄 In Progress | ✅ **Complete** |
+| Phase 3: Agent SDK Integration | ⏳ Pending | ✅ **Complete** |
+| Phase 4: Temporal Migration | ⏳ Pending | ✅ **Complete** |
+| Phase 5: Full Company Expansion | ⏳ Pending | 🔄 Partial (10/22 agents) |
+| Phase 6: Autonomous Operations | ⏳ Pending | ✅ **Complete** |
 
 ---
 
-#### Task 2.1.2: Enhance TaskQueue Component
+## What's Actually Implemented
 
-**Current State**: Basic task display in Dashboard, lacks grouping and expand/collapse
+### ✅ All 10 Core Agents (Complete)
 
-**Remaining Work**:
-- [ ] Create standalone `TaskQueue.tsx` with status grouping
-- [ ] Add PriorityIndicator component
-- [ ] Add ChevronIcon for expand/collapse
-- [ ] Implement `groupTasksByStatus` utility
-- [ ] Add cancel button with hover state
+| Agent | Role | File |
+|-------|------|------|
+| Marcus Bell | CEO/Supervisor | `marcus-agent.ts` |
+| Sable Chen | Principal Engineer | `sable-agent.ts` |
+| DeVonte Jackson | Full-Stack Developer | `devonte-agent.ts` |
+| Yuki Tanaka | SRE | `yuki-agent.ts` |
+| Graham "Gray" Sutton | Data Engineer | `gray-agent.ts` |
+| Miranda Okonkwo | Software Engineer | `miranda-agent.ts` |
+| Helen Marsh | Executive Assistant | `helen-agent.ts` |
+| Walter Huang | CFO | `walter-agent.ts` |
+| Frankie Deluca | VP Sales | `frankie-agent.ts` |
+| Kenji Ross | Marketing Lead | `kenji-agent.ts` |
 
-**Files to Create**:
-```
-apps/game/src/components/TaskQueue.tsx
-```
+### ✅ Complete Infrastructure
 
-**Estimated Effort**: Small (3-4 hours)
+| Component | Location | Status |
+|-----------|----------|--------|
+| REST API | `apps/server/src/api/` | ✅ Full CRUD for agents, tasks, messages, drafts, activity, game-state, provider accounts |
+| WebSocket Server | `apps/server/src/websocket/` | ✅ Socket.io with all event handlers |
+| Temporal Workflows | `apps/server/src/temporal/` | ✅ Workflows, activities, workers, client |
+| BullMQ Queues | `apps/server/src/queues/` | ✅ Task orchestration with Temporal + fallback |
+| MCP Tools | `apps/server/src/services/tools/` | ✅ 9 tools: filesystem, bash, git, messaging, external_draft |
+| CronManager | `apps/server/src/crons/` | ✅ CEO, worker, system cron jobs |
+| Event Bus | `apps/server/src/services/event-bus.ts` | ✅ Internal pub/sub |
+| Provider Integrations | `apps/server/src/providers/` | ✅ GitHub Copilot, Google Code Assist, OpenAI Codex |
+| CLI Runner | `apps/server/src/workers/cli/` | ✅ Generic adapter for agent execution |
+| Game Dashboard | `apps/game/src/components/Dashboard.tsx` | ✅ Full UI with budget, agents, tasks, drafts |
+| Phaser Scene | `apps/game/src/components/GameCanvas.tsx` | ✅ Isometric office with 10 positions, animations |
+| Test Suite | `apps/server/src/test/` | ✅ 44 Vitest tests (unit + e2e) |
 
 ---
 
-#### Task 2.x: Missing Components from Plan
+## What Was Previously Documented as "Not Started" But Is Actually Complete
 
-**MessagePanel Component**:
-- Current: `MessageCenter.tsx` exists with basic functionality
-- Gap: Plan may have envisioned additional features
+The following items were listed in `STATUS.md` and `remaining-implementation-tasks.md` as "Not Started" or "Pending" but are **fully implemented**:
 
-**Estimated Effort**: Review needed
+1. **Temporal Infrastructure** - Complete with workflows, activities, workers
+2. **MCP Tools Server** - 9 tools implemented
+3. **Frontend UI Components** - Dashboard, ActivityFeed, MessageCenter all working
+4. **Phaser Isometric Scene** - Full 700+ line implementation
+5. **WebSocket Client Integration** - Complete with all event handlers
+6. **Remaining 5 Agents** - All 10 agents implemented
+7. **CronManager Service** - CEO, worker, system crons all working
+8. **Test Suite** - 44 Vitest tests
 
 ---
 
-## Phase 3: Agent SDK Integration
+## What's Actually Missing (Low Priority)
 
-### Implemented
+### Phase 5: Full Company Expansion
 
-| Task | Description | Status | Notes |
-|------|-------------|--------|-------|
-| 3.3.1 | Install Claude Agent SDK | **Implemented** | Using `@anthropic-ai/claude-code` |
-| 3.3.2 | AgentRunner Wrapper | **Diverged** | Uses `BaseAgent` class with Claude SDK directly |
-| 3.4.1 | MCP Server Infrastructure | **Implemented** | `apps/server/src/services/tools/index.ts` provides tools |
+The original plan called for 22 agents. Currently have 10, which is sufficient for MVP.
 
-### Key Implementation Differences
+**Potential additional agents** (not needed for MVP):
+- Additional engineers, designers, sales, marketing roles
+- Would require: personality prompts, agent classes, sprites
 
-The codebase uses a **different but valid approach**:
+### Schema Extensions
 
-**Plan**: Custom `AgentRunner` class wrapping raw Anthropic SDK
-**Actual**: `BaseAgent` class using Claude Agent SDK's built-in session management
+| Field/Model | Purpose | Priority |
+|-------------|---------|----------|
+| `Agent.tier` | CEO/lead/worker classification | Low |
+| `Agent.reportsToId` | Hierarchy reporting chain | Low |
+| `Agent.lastHeartbeat` | Stale detection | Low |
+| `TokenUsageHourly` | Aggregated metrics | Low |
+| `CircuitBreaker` | Failure tracking | Low |
 
-**Current Architecture** (`apps/server/src/agents/base-agent.ts`):
-- Uses `@anthropic-ai/claude-code` SDK directly
-- Custom MCP server with game-specific tools
-- Personality prompts per agent
+### Workflow Features
+
+| Feature | Description | Priority |
+|---------|-------------|----------|
+| TDD Workflow | Test-driven development process | Low |
+| Peer Review Workflow | Automated code review routing | Low |
+
+---
+
+## Architecture Decisions (Resolved)
+
+### Temporal vs BullMQ
+
+**Decision**: **Both** - Temporal is primary, BullMQ is fallback
+
+The codebase uses Temporal as the primary orchestration with BullMQ as a fallback when Temporal is unavailable. This provides:
+- Durable workflows with pause/resume/cancel
+- Automatic fallback to BullMQ direct execution
+- Graceful degradation
+
+### Agent SDK Integration
+
+**Decision**: Use `CliRunner` with `GenericCliAdapter`
+
+The `BaseAgent` class uses a CLI runner pattern for agent execution, providing:
 - Session management via Prisma
-- Streaming execution with token tracking
-
-### Remaining Tasks
-
-#### Task 3.x: Complete Remaining Agent Implementations
-
-**Current State**: 5 agents implemented (Marcus, Sable, DeVonte, Yuki, Gray)
-
-**Remaining Agents** (defined in constants but not implemented):
-- [ ] Miranda (Marketing Lead) - `miranda-agent.ts`
-- [ ] Helen (HR Director) - `helen-agent.ts`
-- [ ] Walter (Finance) - `walter-agent.ts`
-- [ ] Frankie (Operations) - `frankie-agent.ts`
-- [ ] Kenji (Designer) - `kenji-agent.ts`
-
-**Files to Create**:
-```
-apps/server/src/agents/miranda-agent.ts
-apps/server/src/agents/helen-agent.ts
-apps/server/src/agents/walter-agent.ts
-apps/server/src/agents/frankie-agent.ts
-apps/server/src/agents/kenji-agent.ts
-```
-
-**Estimated Effort**: Medium (2-3 hours per agent, 10-15 hours total)
+- CLI-based execution (configurable command/args/script)
+- Tool permission enforcement
 
 ---
 
-#### Task 3.x: Tool Handler Completion
+## Test Coverage
 
-**Current State**: `apps/server/src/services/tools/index.ts` has core tools
+| Category | Count | Location |
+|----------|-------|----------|
+| Unit Tests | See repo | `apps/server/src/test/unit/` |
+| E2E Tests | See repo | `apps/server/src/test/e2e/` |
 
-**Potentially Missing Tools** (from plan):
-- [ ] `filesystem_list` - Directory listing
-- [ ] `git_status` - Git repository status
-- [ ] `task_create` - Create tasks programmatically
-- [ ] `shell_exec` - Restricted shell execution (may be intentionally excluded for security)
-
-**Estimated Effort**: Small (3-4 hours)
-
----
-
-## Phase 4: Temporal Migration (NOT STARTED)
-
-> **Critical Gap**: This entire phase is unimplemented
-
-### Current State
-- BullMQ handles task queue (`apps/server/src/queues/index.ts`)
-- No Temporal infrastructure exists
-- Docker Compose has placeholder for Temporal but no config
-
-### Required Tasks
-
-#### Task 4.1.1: Add Temporal to docker-compose.yml
-
-**Remaining Work**:
-- [ ] Add Temporal server service
-- [ ] Add Temporal admin-tools service
-- [ ] Add Temporal UI service
-- [ ] Create `temporal-config/development.yaml`
-- [ ] Create PostgreSQL init script for Temporal databases
-
-**Files to Create/Modify**:
-```
-docker-compose.yml                           # Add services
-temporal-config/development.yaml             # Dynamic config
-scripts/init-temporal-db.sql                 # Already exists, may need updates
-```
-
-**Estimated Effort**: Medium (2-3 hours)
+**Key test areas:**
+- Agent classes and initialization
+- Temporal workflows, activities, workers, client
+- API routes and provider OAuth
+- WebSocket handlers and setup
+- Queue processing (Temporal path and direct execution)
+- Cron jobs and CronManager
+- Tools and tool executor
+- CLI runner and adapters
+- Event bus and message service
+- Security and encryption
 
 ---
 
-#### Task 4.2.x: Install Temporal SDK
+## Summary
 
-**Remaining Work**:
-- [ ] Install `@temporalio/client`, `@temporalio/worker`, `@temporalio/workflow`, `@temporalio/activity`
-- [ ] Create Temporal client configuration
-- [ ] Create Temporal connection module
+The Generic Corp project has **exceeded the original Phase 4 scope** and completed most of Phase 6. The documentation (STATUS.md, remaining-implementation-tasks.md) was significantly outdated.
 
-**Files to Create**:
-```
-apps/server/src/temporal/client.ts
-apps/server/src/temporal/connection.ts
-```
+**Current state**: Production-ready core with 10 agents, full Temporal integration, complete game UI, and comprehensive test coverage.
 
-**Estimated Effort**: Small (1-2 hours)
-
----
-
-#### Task 4.3.1: Create agentTaskWorkflow
-
-**Remaining Work**:
-- [ ] Create activity definitions (`agentActivities.ts`)
-  - `executeAgentStep`
-  - `updateTaskStatus`
-  - `updateAgentStatus`
-  - `runTests`
-  - `verifyTaskCompletion`
-  - `notifyLead`
-- [ ] Create main workflow (`agentTaskWorkflow.ts`)
-  - Signal handlers (cancel, pause, resume)
-  - Main execution loop
-  - Verification step
-  - Error handling
-
-**Files to Create**:
-```
-apps/server/src/temporal/workflows/agentTaskWorkflow.ts
-apps/server/src/temporal/activities/agentActivities.ts
-```
-
-**Estimated Effort**: Large (8-10 hours)
-
----
-
-#### Task 4.x: Create Temporal Worker
-
-**Remaining Work**:
-- [ ] Create worker entry point
-- [ ] Register activities and workflows
-- [ ] Add worker to startup sequence
-
-**Files to Create**:
-```
-apps/server/src/temporal/worker.ts
-```
-
-**Estimated Effort**: Medium (3-4 hours)
-
----
-
-#### Task 4.x: Migrate from BullMQ to Temporal
-
-**Remaining Work**:
-- [ ] Update task queue to use Temporal client
-- [ ] Deprecate BullMQ job processing
-- [ ] Update WebSocket handlers to start Temporal workflows
-- [ ] Add workflow status querying
-
-**Estimated Effort**: Large (6-8 hours)
-
----
-
-## Phase 6: Autonomous Operations
-
-### Implemented
-
-| Component | Status | Notes |
-|-----------|--------|-------|
-| Agent Scheduler | **Partial** | `agent-scheduler.ts` exists with basic auto-wake |
-
-### Remaining Tasks
-
-#### Task 6.1.2: Create CronManager Service
-
-**Current State**: No CronManager exists
-
-**Remaining Work**:
-- [ ] Create `CronManager` class with BullMQ repeatable jobs
-- [ ] Implement register/unregister/pause/resume
-- [ ] Add job status tracking
-- [ ] Create singleton accessor
-
-**Files to Create**:
-```
-apps/server/src/services/CronManager.ts
-```
-
-**Estimated Effort**: Medium (4-5 hours)
-
----
-
-#### Task 6.x: Create CEO Cron Jobs
-
-**Remaining Work**:
-- [ ] `ceo:daily-priorities` - 8 AM daily review
-- [ ] `ceo:weekly-planning` - Monday morning strategy
-- [ ] `ceo:status-synthesis` - 6 PM daily summary
-- [ ] `ceo:monthly-okr` - Monthly OKR review
-
-**Files to Create**:
-```
-apps/server/src/crons/ceo.ts
-```
-
-**Estimated Effort**: Medium (3-4 hours)
-
----
-
-#### Task 6.x: Create Worker Cron Jobs
-
-**Remaining Work**:
-- [ ] `workers:check-inbox` - Every 15 min task pickup
-- [ ] `workers:heartbeat` - Every 5 min health check
-
-**Files to Create**:
-```
-apps/server/src/crons/workers.ts
-```
-
-**Estimated Effort**: Small (2-3 hours)
-
----
-
-#### Task 6.x: Create System Cron Jobs
-
-**Remaining Work**:
-- [ ] `system:health-check` - Every 5 min
-- [ ] `system:token-aggregate` - Hourly token usage
-- [ ] `system:db-cleanup` - Daily old record cleanup
-- [ ] `system:circuit-check` - Per-minute circuit breaker check
-
-**Files to Create**:
-```
-apps/server/src/crons/system.ts
-```
-
-**Estimated Effort**: Medium (3-4 hours)
-
----
-
-#### Task 6.x: Cron Registration & Startup
-
-**Remaining Work**:
-- [ ] Create cron index with all job registrations
-- [ ] Integrate into server startup
-- [ ] Add graceful shutdown handling
-
-**Files to Create**:
-```
-apps/server/src/crons/index.ts
-```
-
-**Estimated Effort**: Small (1-2 hours)
-
----
-
-## Database Schema Gaps
-
-### Missing Models (from plan)
-
-Based on cron job references, these may be needed:
-
-- [ ] `TokenUsageHourly` - Aggregated hourly token metrics
-- [ ] `CircuitBreaker` - Circuit breaker state tracking
-- [ ] `Draft` model with `status: 'pending_approval'` (may need enum update)
-
-**Files to Modify**:
-```
-apps/server/prisma/schema.prisma
-```
-
-**Estimated Effort**: Small (2-3 hours including migration)
-
----
-
-## Priority Ranking
-
-### High Priority (Core Functionality)
-
-1. **Remaining Agent Implementations** - 5 agents need personality prompts
-2. **Phase 4: Temporal Infrastructure** - Critical for durable workflows
-3. **CronManager Service** - Required for autonomous operation
-
-### Medium Priority (Enhanced Features)
-
-4. **CEO/Worker Cron Jobs** - Enables autonomous behavior
-5. **System Cron Jobs** - Health and maintenance
-6. **Component Extraction** - AgentPanel, TaskQueue as standalone
-
-### Low Priority (Polish)
-
-7. **Tool Handler Completion** - Additional MCP tools
-8. **Database Schema Additions** - Supporting models
-
----
-
-## Recommended Implementation Order
-
-```
-Phase 1: Complete Agents (1-2 days)
-├── Implement miranda-agent.ts
-├── Implement helen-agent.ts
-├── Implement walter-agent.ts
-├── Implement frankie-agent.ts
-└── Implement kenji-agent.ts
-
-Phase 2: Temporal Foundation (3-4 days)
-├── Update docker-compose.yml with Temporal
-├── Install Temporal SDK
-├── Create connection and client modules
-├── Create agentTaskWorkflow and activities
-├── Create Temporal worker
-└── Migrate task execution from BullMQ
-
-Phase 3: Autonomous Operations (2-3 days)
-├── Create CronManager service
-├── Implement CEO cron jobs
-├── Implement worker cron jobs
-├── Implement system cron jobs
-└── Integrate crons into startup
-
-Phase 4: Polish (1-2 days)
-├── Extract standalone components
-├── Add missing database models
-└── Complete tool handlers
-```
-
----
-
-## Acceptance Criteria (Overall)
-
-- [ ] All 10 agents have implementations
-- [ ] Temporal server runs in Docker (if Option A chosen)
-- [ ] Tasks execute via Temporal workflows (if Option A chosen)
-- [ ] Workflows can be cancelled/paused/resumed
-- [ ] CEO runs daily/weekly/monthly autonomous routines
-- [ ] Workers automatically pick up tasks
-- [ ] System health is monitored
-- [ ] All frontend components match plan structure
-
----
-
-## Critical Questions Requiring Clarification
-
-### Architecture Decisions
-
-| Question | Impact | Default Assumption |
-|----------|--------|-------------------|
-| Temporal vs. BullMQ? | Blocks Phase 4 | Implement Temporal for durability |
-| Migration strategy from BullMQ? | Data loss risk | Run parallel during migration |
-| Agent tier hierarchy? | Reports-to chain unclear | Add `tier` enum and `reportsToId` FK |
-| What happens on missed cron? | Server downtime behavior | Execute immediately with max staleness |
-
-### Schema Additions Needed
-
-| Model/Field | Purpose | Current State |
-|-------------|---------|---------------|
-| `TokenUsageHourly` | Aggregate metrics | Missing |
-| `CircuitBreaker` | Failure tracking | Missing |
-| `Agent.tier` | CEO/lead/worker | Missing |
-| `Agent.reportsToId` | Hierarchy | Missing |
-| `Agent.lastHeartbeat` | Stale detection | Missing |
-
-### Agent Hierarchy (Recommended)
-
-```
-Marcus (CEO)
-├── Sable (Principal Eng) - leads tech
-│   ├── DeVonte (Full-Stack)
-│   ├── Yuki (SRE)
-│   ├── Gray (Data)
-│   └── Kenji (Designer - if tech)
-├── Helen (Exec Asst) - direct report
-└── Miranda (VP Marketing)
-    ├── Walter (Finance)
-    └── Frankie (Sales)
-```
-
----
-
-## References
-
-- `/home/nkillgore/generic-corp/docs/PROJECT_PLAN_DETAILED.md` - Source plan
-- `/home/nkillgore/generic-corp/apps/server/src/agents/` - Existing agent implementations
-- `/home/nkillgore/generic-corp/apps/server/src/services/agent-scheduler.ts` - Current scheduler
-- `/home/nkillgore/generic-corp/packages/shared/src/constants.ts` - Agent configurations
+**Remaining work** is primarily optional enhancements:
+- Additional agents (12 more for full 22-agent roster)
+- Schema extensions for hierarchy
+- Optional workflow features (TDD, peer review)
