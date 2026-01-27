@@ -2,8 +2,32 @@ import type { Express } from "express";
 import { db } from "../db/index.js";
 import { EventBus } from "../services/event-bus.js";
 import { setupProviderRoutes } from "./providers/index.js";
+import claudeTasksRouter from "./tasks.js";
+import analyticsRouter from "../routes/analytics.js";
+import { register } from "../services/metrics.js";
 
 export function setupRoutes(app: Express) {
+  // ================== METRICS ==================
+
+  app.get("/metrics", async (_req, res) => {
+    try {
+      res.set("Content-Type", register.contentType);
+      const metrics = await register.metrics();
+      res.end(metrics);
+    } catch (error) {
+      console.error("[API] Error fetching metrics:", error);
+      res.status(500).end("Failed to fetch metrics");
+    }
+  });
+
+  // ================== ANALYTICS ==================
+
+  app.use("/api/analytics", analyticsRouter);
+
+  // ================== CLAUDE CODE TASKS ==================
+
+  app.use("/api/claude-tasks", claudeTasksRouter);
+
   // ================== AGENTS ==================
 
   app.get("/api/agents", async (_req, res) => {
@@ -151,6 +175,9 @@ export function setupRoutes(app: Express) {
         include: { assignedTo: true, providerAccount: true },
       });
 
+      // Auto-execute the task
+      EventBus.emit("task:queued", { agentId: agent.id, task });
+
       res.status(201).json(task);
     } catch (error) {
       console.error("[API] Error creating task:", error);
@@ -263,9 +290,96 @@ export function setupRoutes(app: Express) {
     }
   });
 
+  // ================== CLAUDE CODE EVENTS ==================
+
+  app.post("/api/claude-events", async (req, res) => {
+    try {
+      const event = req.body;
+
+      // Validate event structure
+      if (!event.timestamp || !event.event || !event.sessionId) {
+        return res.status(400).json({
+          error: "Invalid event structure. Required: timestamp, event, sessionId",
+        });
+      }
+
+      // Validate event type
+      const validEvents = ["PreToolUse", "PostToolUse", "SessionStart", "SessionEnd", "UserPromptSubmit", "Stop"];
+      if (!validEvents.includes(event.event)) {
+        return res.status(400).json({
+          error: `Invalid event type. Must be one of: ${validEvents.join(", ")}`,
+        });
+      }
+
+      // Import and add event
+      const { claudeEventsService } = await import("../services/claudeEvents.js");
+      await claudeEventsService.addEvent(event);
+
+      res.status(201).json({ success: true });
+    } catch (error) {
+      console.error("[API] Error processing Claude event:", error);
+      res.status(500).json({ error: "Failed to process event" });
+    }
+  });
+
+  app.get("/api/claude-events", async (req, res) => {
+    try {
+      const { sessionId, limit } = req.query;
+      const { claudeEventsService } = await import("../services/claudeEvents.js");
+
+      let events;
+      if (sessionId && typeof sessionId === "string") {
+        events = await claudeEventsService.getSessionEvents(
+          sessionId,
+          parseInt(limit as string) || 100
+        );
+      } else {
+        events = await claudeEventsService.getRecentEvents(
+          parseInt(limit as string) || 100
+        );
+      }
+
+      res.json(events);
+    } catch (error) {
+      console.error("[API] Error fetching Claude events:", error);
+      res.status(500).json({ error: "Failed to fetch events" });
+    }
+  });
+
   // ================== PROVIDER ACCOUNTS ==================
 
   app.use("/api/providers", setupProviderRoutes());
+
+  // ================== WAITLIST ==================
+
+  app.post("/api/waitlist", async (req, res) => {
+    try {
+      const { email } = req.body;
+
+      if (!email || typeof email !== 'string') {
+        return res.status(400).json({ error: "Email is required" });
+      }
+
+      // Basic email validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({ error: "Invalid email format" });
+      }
+
+      // For now, log to console and store in memory
+      // TODO: Add proper database table for waitlist
+      console.log(`[WAITLIST] New signup: ${email}`);
+
+      // Send success response
+      res.json({
+        success: true,
+        message: "Thanks for joining our waitlist!"
+      });
+    } catch (error) {
+      console.error("[API] Error processing waitlist signup:", error);
+      res.status(500).json({ error: "Failed to process signup" });
+    }
+  });
 
   console.log("[API] Routes configured");
 }

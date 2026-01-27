@@ -23,7 +23,7 @@ const features = [
     icon: '🤖',
     title: 'Built on Anthropic Claude',
     description: 'Leverage the most reliable AI models with built-in Agent SDK integration.',
-    highlight: '99.5% uptime SLA for Pro tier, enterprise-ready from day one.'
+    highlight: 'Production-grade reliability architecture, enterprise-ready from day one.'
   }
 ]
 
@@ -71,8 +71,8 @@ function TechnicalFeatures() {
             <div>
               <strong>Security & Compliance:</strong>
               <ul style={{marginTop: '8px', paddingLeft: '20px'}}>
-                <li>SOC 2 Type II ready architecture</li>
-                <li>End-to-end encryption for agent communications</li>
+                <li>SOC 2 compliance in progress</li>
+                <li>Enterprise-grade encryption in transit and at rest</li>
                 <li>Per-tenant data isolation</li>
               </ul>
             </div>

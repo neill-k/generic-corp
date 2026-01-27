@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import Hero from './components/Hero'
 import DemoShowcase from './components/DemoShowcase'
 import TechnicalFeatures from './components/TechnicalFeatures'
+import CodeSnippet from './components/CodeSnippet'
 import VideoDemo from './components/VideoDemo'
 import Pricing from './components/Pricing'
 import Waitlist from './components/Waitlist'
@@ -26,6 +27,7 @@ function App() {
       <Hero />
       <DemoShowcase />
       <TechnicalFeatures />
+      <CodeSnippet />
       <VideoDemo />
       <Pricing />
       <Waitlist />

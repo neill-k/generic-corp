@@ -259,7 +259,7 @@ export abstract class BaseAgent {
           mcpServers: {
             "game-tools": gameToolsServer,
           },
-          maxTurns: 10, // Allow multiple tool use turns
+          maxTurns: Infinity, // No turn limit - agents work until done
         },
       });
 
@@ -287,7 +287,9 @@ export abstract class BaseAgent {
 
         if (message.type === "result") {
           if (message.subtype !== "success") {
-            throw new Error(message.errors.join("\n"));
+            const errorText = message.errors?.length ? message.errors.join("\n") : `Agent failed with subtype: ${message.subtype}`;
+            console.error(`[${this.config.name}] Agent SDK error:`, errorText);
+            throw new Error(errorText);
           }
 
           // Use final result
@@ -295,8 +297,8 @@ export abstract class BaseAgent {
             output = message.result;
           }
 
-          tokensUsed.input = message.usage.input_tokens;
-          tokensUsed.output = message.usage.output_tokens;
+          tokensUsed.input = message.usage?.input_tokens || 0;
+          tokensUsed.output = message.usage?.output_tokens || 0;
           break;
         }
       }
@@ -305,7 +307,7 @@ export abstract class BaseAgent {
       console.log(`[${this.config.name}] Tokens: ${tokensUsed.input} input, ${tokensUsed.output} output`);
 
       if (tokensUsed.input <= 0 || tokensUsed.output <= 0) {
-        throw new Error("Agent execution did not report token usage");
+        console.warn(`[${this.config.name}] Warning: Agent did not report token usage (input: ${tokensUsed.input}, output: ${tokensUsed.output})`);
       }
 
       toolsUsed.push("claude-agent-sdk");

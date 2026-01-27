@@ -1,0 +1,297 @@
+{
+  "dashboard": {
+    "title": "Generic Corp - WebSocket Monitoring",
+    "tags": ["websocket", "real-time", "production"],
+    "timezone": "browser",
+    "refresh": "10s",
+    "time": {
+      "from": "now-15m",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Active WebSocket Connections",
+        "type": "graph",
+        "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "websocket_active_connections",
+            "legendFormat": "Active Connections"
+          }
+        ],
+        "yaxes": [
+          { "format": "short", "label": "Connections" },
+          { "format": "short" }
+        ],
+        "alert": {
+          "name": "High Connection Count",
+          "conditions": [
+            {
+              "evaluator": { "params": [1000], "type": "gt" },
+              "operator": { "type": "and" },
+              "query": { "params": ["A", "5m", "now"] },
+              "reducer": { "type": "avg" },
+              "type": "query"
+            }
+          ],
+          "executionErrorState": "alerting",
+          "frequency": "1m",
+          "handler": 1,
+          "message": "WebSocket connections exceed 1000",
+          "name": "High Connection Count",
+          "noDataState": "no_data"
+        }
+      },
+      {
+        "id": 2,
+        "title": "Connection Rate (per minute)",
+        "type": "graph",
+        "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "rate(websocket_connections_total[1m]) * 60",
+            "legendFormat": "Connections/min"
+          },
+          {
+            "expr": "rate(websocket_disconnections_total[1m]) * 60",
+            "legendFormat": "Disconnections/min"
+          }
+        ],
+        "yaxes": [
+          { "format": "short", "label": "Rate" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Event Throughput by Type",
+        "type": "graph",
+        "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "sum(rate(websocket_events_emitted_total[1m])) by (event_type)",
+            "legendFormat": "{{ event_type }}"
+          }
+        ],
+        "yaxes": [
+          { "format": "ops", "label": "Events/sec" },
+          { "format": "short" }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "P95 Event Latency by Type",
+        "type": "graph",
+        "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(websocket_event_latency_milliseconds_bucket[5m])) by (le, event_type))",
+            "legendFormat": "{{ event_type }} (p95)"
+          }
+        ],
+        "yaxes": [
+          { "format": "ms", "label": "Latency" },
+          { "format": "short" }
+        ],
+        "thresholds": [
+          {
+            "value": 500,
+            "colorMode": "critical",
+            "op": "gt",
+            "fill": true,
+            "line": true
+          }
+        ],
+        "alert": {
+          "name": "High Event Latency",
+          "conditions": [
+            {
+              "evaluator": { "params": [500], "type": "gt" },
+              "operator": { "type": "and" },
+              "query": { "params": ["A", "5m", "now"] },
+              "reducer": { "type": "avg" },
+              "type": "query"
+            }
+          ],
+          "executionErrorState": "alerting",
+          "frequency": "1m",
+          "handler": 1,
+          "message": "WebSocket event latency P95 > 500ms",
+          "name": "High Event Latency"
+        }
+      },
+      {
+        "id": 5,
+        "title": "Event Error Rate",
+        "type": "graph",
+        "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "sum(rate(websocket_event_errors_total[5m])) by (event_type)",
+            "legendFormat": "{{ event_type }}"
+          }
+        ],
+        "yaxes": [
+          { "format": "ops", "label": "Errors/sec" },
+          { "format": "short" }
+        ],
+        "alert": {
+          "name": "High WebSocket Error Rate",
+          "conditions": [
+            {
+              "evaluator": { "params": [0.1], "type": "gt" },
+              "operator": { "type": "and" },
+              "query": { "params": ["A", "5m", "now"] },
+              "reducer": { "type": "avg" },
+              "type": "query"
+            }
+          ],
+          "executionErrorState": "alerting",
+          "frequency": "1m",
+          "handler": 1,
+          "message": "WebSocket error rate > 0.1 errors/sec",
+          "name": "High WebSocket Error Rate"
+        }
+      },
+      {
+        "id": 6,
+        "title": "Initial State Send Latency (P90)",
+        "type": "graph",
+        "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.90, sum(rate(websocket_initial_state_latency_milliseconds_bucket[5m])) by (le))",
+            "legendFormat": "P90 Latency"
+          }
+        ],
+        "yaxes": [
+          { "format": "ms", "label": "Latency" },
+          { "format": "short" }
+        ],
+        "thresholds": [
+          {
+            "value": 1000,
+            "colorMode": "critical",
+            "op": "gt",
+            "fill": true,
+            "line": true
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Connection Duration Distribution",
+        "type": "heatmap",
+        "gridPos": { "x": 0, "y": 24, "w": 24, "h": 8 },
+        "targets": [
+          {
+            "expr": "sum(rate(websocket_connection_duration_seconds_bucket[5m])) by (le)",
+            "legendFormat": "{{ le }}",
+            "format": "heatmap"
+          }
+        ],
+        "dataFormat": "tsbuckets"
+      },
+      {
+        "id": 8,
+        "title": "Total Events (Emitted vs Received)",
+        "type": "stat",
+        "gridPos": { "x": 0, "y": 32, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "sum(websocket_events_emitted_total)"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "justifyMode": "auto",
+          "orientation": "auto",
+          "reduceOptions": {
+            "calcs": ["lastNotNull"],
+            "fields": "",
+            "values": false
+          }
+        },
+        "pluginVersion": "9.0.0"
+      },
+      {
+        "id": 9,
+        "title": "Total Connections",
+        "type": "stat",
+        "gridPos": { "x": 6, "y": 32, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "websocket_connections_total"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "justifyMode": "auto",
+          "orientation": "auto",
+          "reduceOptions": {
+            "calcs": ["lastNotNull"],
+            "fields": "",
+            "values": false
+          }
+        }
+      },
+      {
+        "id": 10,
+        "title": "Average Connection Duration",
+        "type": "stat",
+        "gridPos": { "x": 12, "y": 32, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "rate(websocket_connection_duration_seconds_sum[5m]) / rate(websocket_connection_duration_seconds_count[5m])"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "justifyMode": "auto",
+          "orientation": "auto",
+          "reduceOptions": {
+            "calcs": ["lastNotNull"],
+            "fields": "",
+            "values": false
+          },
+          "unit": "s"
+        }
+      },
+      {
+        "id": 11,
+        "title": "Current Error Rate",
+        "type": "stat",
+        "gridPos": { "x": 18, "y": 32, "w": 6, "h": 4 },
+        "targets": [
+          {
+            "expr": "sum(rate(websocket_event_errors_total[1m]))"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "justifyMode": "auto",
+          "orientation": "auto",
+          "reduceOptions": {
+            "calcs": ["lastNotNull"],
+            "fields": "",
+            "values": false
+          },
+          "unit": "ops"
+        },
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            { "value": null, "color": "green" },
+            { "value": 0.1, "color": "yellow" },
+            { "value": 1, "color": "red" }
+          ]
+        }
+      }
+    ]
+  }
+}

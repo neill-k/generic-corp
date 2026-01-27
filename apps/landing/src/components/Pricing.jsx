@@ -2,30 +2,45 @@ import React from 'react'
 
 const pricingTiers = [
   {
-    name: 'Starter',
+    name: 'Free',
+    price: '$0',
+    period: '/month',
+    description: 'Perfect for individual developers exploring AI orchestration',
+    features: [
+      '5 AI agents',
+      '100 agent-minutes/month',
+      'Community support',
+      'Multi-provider access',
+      'Basic analytics'
+    ]
+  },
+  {
+    name: 'Team',
     price: '$49',
     period: '/month',
-    description: 'Perfect for small teams getting started',
+    description: 'For small teams shipping AI features',
     features: [
-      'Up to 5 agents',
-      '10,000 tasks/month',
-      'Basic monitoring',
+      '25 AI agents',
+      '2,500 agent-minutes/month',
       'Email support',
-      'Community access'
+      'Team collaboration features',
+      'Usage analytics',
+      'API access'
     ]
   },
   {
     name: 'Professional',
-    price: '$199',
+    price: '$99',
     period: '/month',
-    description: 'For growing teams with serious workflows',
+    description: 'For growing companies scaling AI operations',
     features: [
-      'Up to 25 agents',
-      '100,000 tasks/month',
-      'Advanced monitoring & analytics',
+      '100 AI agents',
+      '10,000 agent-minutes/month',
       'Priority support',
+      'Advanced analytics & ROI tracking',
+      'Multi-provider optimization',
       'Custom integrations',
-      'SLA guarantee'
+      'Performance insights'
     ],
     featured: true
   },
@@ -33,15 +48,15 @@ const pricingTiers = [
     name: 'Enterprise',
     price: 'Custom',
     period: '',
-    description: 'Unlimited scale for large organizations',
+    description: 'For large organizations with complex AI needs',
     features: [
       'Unlimited agents',
-      'Unlimited tasks',
-      'Dedicated infrastructure',
-      '24/7 support',
-      'Custom development',
-      'Security & compliance',
-      'White-glove onboarding'
+      'Custom agent-minutes',
+      'Dedicated support + SLA',
+      'SSO & advanced security',
+      'Custom integrations',
+      'White-glove onboarding',
+      'Architecture consultation'
     ]
   }
 ]

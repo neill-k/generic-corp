@@ -1,7 +1,9 @@
 import { useEffect, useRef, useCallback } from "react";
 import Phaser from "phaser";
 import { useGameStore } from "../store/gameStore";
-import type { Agent, Task } from "@generic-corp/shared";
+import type { Agent, Task, Message, ActivityEvent } from "@generic-corp/shared";
+import { WS_EVENTS } from "@generic-corp/shared";
+import { SpeechBubble } from "../game/SpeechBubble";
 
 // Agent desk positions in isometric coordinates
 const AGENT_DESK_POSITIONS: Record<string, { x: number; y: number; deskX: number; deskY: number }> = {
@@ -112,6 +114,7 @@ class IndicatorPool {
 // Enhanced Office Scene with animations and object pooling
 class OfficeScene extends Phaser.Scene {
   private agents: Map<string, Phaser.GameObjects.Container> = new Map();
+  private speechBubbles: Map<string, SpeechBubble> = new Map();
   private tooltipContainer: Phaser.GameObjects.Container | null = null;
   private pendingUpdates: Map<string, Partial<Agent>> = new Map();
   private updateTimer: number = 0;
@@ -155,6 +158,8 @@ class OfficeScene extends Phaser.Scene {
     // Listen for game events
     this.game.events.on("updateAgents", this.queueAgentUpdates, this);
     this.game.events.on("updateTasks", this.updateAgentTasks, this);
+    this.game.events.on("agentMessage", this.handleAgentMessage, this);
+    this.game.events.on("agentActivity", this.handleAgentActivity, this);
 
     // Setup animation loop
     this.time.addEvent({
@@ -170,9 +175,15 @@ class OfficeScene extends Phaser.Scene {
     this.agentTimerEvents.forEach((timer) => timer.remove());
     this.agentTimerEvents.clear();
 
+    // Clean up speech bubbles
+    this.speechBubbles.forEach((bubble) => bubble.destroy());
+    this.speechBubbles.clear();
+
     // Remove game event listeners
     this.game.events.off("updateAgents", this.queueAgentUpdates, this);
     this.game.events.off("updateTasks", this.updateAgentTasks, this);
+    this.game.events.off("agentMessage", this.handleAgentMessage, this);
+    this.game.events.off("agentActivity", this.handleAgentActivity, this);
 
     // Call parent shutdown
     super.shutdown(data);
@@ -595,6 +606,27 @@ class OfficeScene extends Phaser.Scene {
     (this as any).currentTasks = tasks;
   }
 
+  private handleAgentMessage(message: Message) {
+    // Show speech bubble for the sender
+    const bubble = this.speechBubbles.get(message.fromAgentId);
+    if (bubble) {
+      // Extract first line of message body for preview
+      const preview = message.body.split('\n')[0].substring(0, 100);
+      bubble.showMessage(preview);
+    }
+  }
+
+  private handleAgentActivity(activity: ActivityEvent) {
+    // Show speech bubble for tool usage
+    const bubble = this.speechBubbles.get(activity.agentId);
+    if (bubble && activity.eventType === "tool_execution") {
+      const toolName = (activity.eventData as any).tool_name;
+      if (toolName) {
+        bubble.showMessage(`Using ${toolName}...`);
+      }
+    }
+  }
+
   private processUpdates() {
     if (this.pendingUpdates.size === 0) return;
 
@@ -734,6 +766,20 @@ class OfficeScene extends Phaser.Scene {
 
     // Store agent data on container
     container.setData("agent", agent);
+
+    // Create speech bubble for this agent
+    const agentColor = AGENT_COLORS[agent.name] || 0x888888;
+    const speechBubble = new SpeechBubble(this, 0, -70, {
+      borderColor: agentColor,
+      maxWidth: 180,
+      displayDuration: 5000,
+      maxQueue: 3,
+    });
+    speechBubble.setDepth(1000); // Above all other elements
+    container.add(speechBubble);
+
+    // Store bubble reference
+    this.speechBubbles.set(agent.id, speechBubble);
 
     return container;
   }

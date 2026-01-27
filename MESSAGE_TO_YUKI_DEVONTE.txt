@@ -1,0 +1,67 @@
+TO: Yuki Tanaka
+FROM: DeVonte Jackson
+SUBJECT: RE: Multi-Tenant Schema - My Input & Recommendations
+DATE: January 26, 2026
+
+Yuki,
+
+Read your message - excellent breakdown. Here's my input:
+
+**1. CURRENT DATA MODEL**
+Reviewed Prisma schema - we have ZERO tenant isolation currently. All models (Agent, Task, Message, etc.) are global. This needs fixing for SaaS.
+
+**2. TENANT ISOLATION - MY VOTE: Option A**
+
+Reasoning:
+- Fastest to implement (tenant_id + RLS)
+- Perfect for rapid prototyping
+- Realistic for <1000 tenants (our target)
+- Easy migration to Option B later
+- Clerk handles user→org mapping
+
+**3. PROPOSED SCHEMA**
+Add Organization + User models:
+- Organization.clerkOrgId maps to Clerk
+- User.clerkUserId maps to Clerk  
+- Add organizationId to ALL models
+- Index every organizationId column
+
+Security: Middleware validates JWT → extracts org_id → auto-inject WHERE clause
+
+**4. CLERK INTEGRATION**
+Flow: User signup → Clerk creates user+org → JWT with claims → Backend validates → Maps to our DB
+
+Mapping:
+- Clerk user ID → User.clerkUserId (unique)
+- Clerk org ID → Organization.clerkOrgId (unique)
+- Auto-create on first login
+
+**5. AUTH FLOW**
+Your flow is correct + need ApiKey model for programmatic access.
+
+**6. NO BLOCKERS**
+Considerations: migration strategy, testing, indexing, UI org switcher
+
+**MY DELIVERABLES:**
+- Frontend Clerk integration
+- User/Organization Prisma models
+- JWT middleware
+- Org-scoped API endpoints
+- Frontend org context
+
+**TIMELINE:**
+Today: Alignment ✅
+Tuesday AM: Schema review
+Tuesday PM: Sable security review
+Tuesday Eve: Frontend Clerk mapping
+Wednesday: Integration testing
+
+**QUESTIONS:**
+1. Multi-org support per user?
+2. Workspace concept within orgs?
+3. Org creation - auto or invite?
+4. API keys - org or user level?
+
+Ready to proceed with Option A. Let me know answers when you can.
+
+-- DeVonte

@@ -1,8 +1,17 @@
 import { Server as SocketIOServer } from "socket.io";
 import type { Server as HttpServer } from "http";
+import { createAdapter } from "@socket.io/redis-adapter";
 import { db } from "../db/index.js";
 import { EventBus } from "../services/event-bus.js";
 import { WS_EVENTS } from "@generic-corp/shared";
+import {
+  ConnectionTracker,
+  wsEventsReceived,
+  wsEventErrors,
+  recordEventDelivery,
+  wsInitialStateLatency,
+} from "../services/metrics.js";
+import { getRedisPubClient, getRedisSubClient } from "../services/redis-client.js";
 
 export function setupWebSocket(httpServer: HttpServer) {
   const io = new SocketIOServer(httpServer, {
@@ -13,46 +22,91 @@ export function setupWebSocket(httpServer: HttpServer) {
     transports: ["websocket", "polling"],
   });
 
+  // Configure Redis adapter for horizontal scaling
+  const pubClient = getRedisPubClient();
+  const subClient = getRedisSubClient();
+  io.adapter(createAdapter(pubClient, subClient));
+  console.log("[WebSocket] Redis adapter configured for horizontal scaling");
+
   // ================== SERVER -> CLIENT EVENTS ==================
 
-  EventBus.on("agent:status", (data) => {
+  EventBus.on("agent:status", (data: any) => {
     io.emit(WS_EVENTS.AGENT_STATUS, data);
+    if (data._emitTimestamp) {
+      recordEventDelivery("agent:status", data._emitTimestamp);
+    }
   });
 
-  EventBus.on("task:progress", (data) => {
+  EventBus.on("task:progress", (data: any) => {
     io.emit(WS_EVENTS.TASK_PROGRESS, data);
+    if (data._emitTimestamp) {
+      recordEventDelivery("task:progress", data._emitTimestamp);
+    }
   });
 
-  EventBus.on("task:completed", (data) => {
+  EventBus.on("task:completed", (data: any) => {
     io.emit(WS_EVENTS.TASK_COMPLETED, data);
+    if (data._emitTimestamp) {
+      recordEventDelivery("task:completed", data._emitTimestamp);
+    }
   });
 
-  EventBus.on("task:failed", (data) => {
+  EventBus.on("task:failed", (data: any) => {
     io.emit(WS_EVENTS.TASK_FAILED, data);
+    if (data._emitTimestamp) {
+      recordEventDelivery("task:failed", data._emitTimestamp);
+    }
   });
 
-  EventBus.on("message:new", (data) => {
+  EventBus.on("message:new", (data: any) => {
     io.emit(WS_EVENTS.MESSAGE_NEW, data);
+    if (data._emitTimestamp) {
+      recordEventDelivery("message:new", data._emitTimestamp);
+    }
   });
 
-  EventBus.on("draft:pending", (data) => {
+  EventBus.on("draft:pending", (data: any) => {
     io.emit(WS_EVENTS.DRAFT_PENDING, data);
+    if (data._emitTimestamp) {
+      recordEventDelivery("draft:pending", data._emitTimestamp);
+    }
   });
 
-  EventBus.on("activity:log", (data) => {
+  EventBus.on("activity:log", (data: any) => {
     io.emit(WS_EVENTS.ACTIVITY_LOG, data);
+    if (data._emitTimestamp) {
+      recordEventDelivery("activity:log", data._emitTimestamp);
+    }
   });
+
+  // Claude Code events broadcasting
+  const setupClaudeEventsBroadcast = async () => {
+    try {
+      const { claudeEventsService } = await import("../services/claudeEvents.js");
+      claudeEventsService.on("event", (event) => {
+        io.emit("claude:event", event);
+      });
+      console.log("[WebSocket] Claude events broadcasting enabled");
+    } catch (error) {
+      console.error("[WebSocket] Failed to setup Claude events:", error);
+    }
+  };
+  setupClaudeEventsBroadcast();
 
   // ================== CLIENT -> SERVER COMMANDS ==================
 
   io.on("connection", async (socket) => {
     console.log(`[WebSocket] Client connected: ${socket.id}`);
 
+    // Track connection lifecycle
+    const connectionTracker = new ConnectionTracker();
+
     // Send initial state
     await sendInitialState(socket);
 
     // Handle task assignment
     socket.on(WS_EVENTS.TASK_ASSIGN, async (data, callback) => {
+      wsEventsReceived.inc({ event_type: "task_assign" });
       try {
         const { agentId, title, description, priority } = data;
 
@@ -81,6 +135,7 @@ export function setupWebSocket(httpServer: HttpServer) {
 
         callback({ success: true, taskId: task.id });
       } catch (error) {
+        wsEventErrors.inc({ event_type: "task_assign" });
         const message = error instanceof Error ? error.message : "Unknown error";
         callback({ success: false, error: message });
       }
@@ -88,6 +143,7 @@ export function setupWebSocket(httpServer: HttpServer) {
 
     // Handle draft approval
     socket.on(WS_EVENTS.DRAFT_APPROVE, async (data, callback) => {
+      wsEventsReceived.inc({ event_type: "draft_approve" });
       try {
         const { draftId } = data;
 
@@ -125,6 +181,7 @@ export function setupWebSocket(httpServer: HttpServer) {
 
         callback({ success: true, messageId: emailResult.messageId });
       } catch (error) {
+        wsEventErrors.inc({ event_type: "draft_approve" });
         const message = error instanceof Error ? error.message : "Unknown error";
         callback({ success: false, error: message });
       }
@@ -132,6 +189,7 @@ export function setupWebSocket(httpServer: HttpServer) {
 
     // Handle draft rejection
     socket.on(WS_EVENTS.DRAFT_REJECT, async (data, callback) => {
+      wsEventsReceived.inc({ event_type: "draft_reject" });
       try {
         const { draftId, reason } = data;
 
@@ -144,6 +202,7 @@ export function setupWebSocket(httpServer: HttpServer) {
 
         callback({ success: true });
       } catch (error) {
+        wsEventErrors.inc({ event_type: "draft_reject" });
         const message = error instanceof Error ? error.message : "Unknown error";
         callback({ success: false, error: message });
       }
@@ -151,6 +210,7 @@ export function setupWebSocket(httpServer: HttpServer) {
 
     // Handle message send from player
     socket.on(WS_EVENTS.MESSAGE_SEND, async (data, callback) => {
+      wsEventsReceived.inc({ event_type: "message_send" });
       try {
         const { toAgentId, subject, body } = data;
 
@@ -183,6 +243,7 @@ export function setupWebSocket(httpServer: HttpServer) {
 
         callback({ success: true, messageId: message.id });
       } catch (error) {
+        wsEventErrors.inc({ event_type: "message_send" });
         const message = error instanceof Error ? error.message : "Unknown error";
         callback({ success: false, error: message });
       }
@@ -190,6 +251,7 @@ export function setupWebSocket(httpServer: HttpServer) {
 
     // Handle game state sync
     socket.on(WS_EVENTS.STATE_SYNC, async (data) => {
+      wsEventsReceived.inc({ event_type: "state_sync" });
       await db.gameState.upsert({
         where: { playerId: "default" },
         update: {
@@ -209,6 +271,7 @@ export function setupWebSocket(httpServer: HttpServer) {
 
     socket.on("disconnect", () => {
       console.log(`[WebSocket] Client disconnected: ${socket.id}`);
+      connectionTracker.disconnect();
     });
   });
 
@@ -221,6 +284,8 @@ export function setupWebSocket(httpServer: HttpServer) {
 }
 
 async function sendInitialState(socket: any) {
+  const startTime = Date.now();
+
   const agents = await db.agent.findMany({
     where: { deletedAt: null },
     include: {
@@ -283,6 +348,15 @@ async function sendInitialState(socket: any) {
       : Number(gameState.budgetLimitUsd),
   } : null;
 
+  // Fetch recent Claude Code events
+  let claudeEvents: any[] = [];
+  try {
+    const { claudeEventsService } = await import("../services/claudeEvents.js");
+    claudeEvents = await claudeEventsService.getRecentEvents(100);
+  } catch (error) {
+    console.error("[WebSocket] Failed to fetch Claude events for initial state:", error);
+  }
+
   socket.emit(WS_EVENTS.INIT, {
     agents,
     pendingDrafts,
@@ -291,4 +365,13 @@ async function sendInitialState(socket: any) {
     gameState: serializedGameState,
     timestamp: Date.now(),
   });
+
+  // Send Claude events history separately
+  if (claudeEvents.length > 0) {
+    socket.emit("claude:events:history", claudeEvents);
+  }
+
+  // Record initial state latency
+  const latency = Date.now() - startTime;
+  wsInitialStateLatency.observe(latency);
 }

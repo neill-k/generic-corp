@@ -6,31 +6,41 @@ import helmet from "helmet";
 import { setupWebSocket } from "./websocket/index.js";
 import { setupRoutes } from "./api/index.js";
 import { initializeQueues } from "./queues/index.js";
+import { TaskWatcher } from "./services/taskWatcher.js";
 import { seedAgents } from "./db/seed.js";
 import { initializeAgents } from "./agents/index.js";
 import { initEncryption } from "./services/encryption.js";
+import { runWorker } from "./temporal/index.js";
+import {
+  applyProductionHardening,
+  applyErrorHandlers,
+} from "./middleware/production.js";
 
 const app = express();
 const httpServer = createServer(app);
 
-// Middleware
+// Middleware - Order matters!
 app.use(helmet());
 app.use(cors({
   origin: process.env.CLIENT_URL || "http://localhost:5173",
   credentials: true,
 }));
-app.use(express.json());
+app.use(express.json({ limit: "10mb" })); // Add size limit to prevent DoS
 
-// Health check
-app.get("/health", (_req, res) => {
-  res.json({ status: "ok", timestamp: Date.now() });
-});
+// Apply production hardening (logging, rate limiting, health checks)
+applyProductionHardening(app);
 
 // Setup API routes
 setupRoutes(app);
 
 // Setup WebSocket
 const io = setupWebSocket(httpServer);
+
+// Initialize task file watcher
+const taskWatcher = new TaskWatcher(io);
+
+// Apply error handlers (must be last)
+applyErrorHandlers(app);
 
 // Initialize queues and start server
 async function start() {
@@ -50,6 +60,14 @@ async function start() {
 
     // Initialize task orchestration (Temporal or fallback)
     await initializeQueues(io);
+
+    // Start Temporal worker in background (don't await - it runs forever)
+    runWorker().catch((err) => {
+      console.error("[Server] Temporal worker failed:", err);
+    });
+
+    // Start task file watcher
+    taskWatcher.start();
 
     const port = process.env.PORT || 3000;
     httpServer.listen(port, () => {

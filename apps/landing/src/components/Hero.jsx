@@ -4,19 +4,19 @@ function Hero() {
   return (
     <section className="hero">
       <div className="container">
-        <h1>Ship Complex AI Agent Workflows in Minutes, Not Weeks</h1>
+        <h1>Multi-Provider AI Orchestration Built for Production</h1>
         <p>
-          The only multi-agent orchestration platform with real-time visual debugging. Built for developers who need production-grade reliability without the complexity.
+          Connect to Claude, GPT-4, Gemini, and open-source models through one unified platform. Intelligent routing, cost optimization, and enterprise-grade reliability built in from day one.
         </p>
         <div style={{marginBottom: '20px', fontSize: '16px', opacity: 0.9, fontStyle: 'italic'}}>
-          <p>Managing multiple AI agents is complex. Debugging failures is painful. Scaling to production is risky. Until now.</p>
+          <p>Stop overpaying for AI. Stop vendor lock-in. Stop rebuilding infrastructure. Start shipping faster.</p>
         </div>
         <div style={{marginBottom: '30px', fontSize: '16px', opacity: 0.9}}>
-          <p>✨ Built on Claude Agent SDK by ex-Google/Stripe engineers</p>
+          <p>✨ Built by ex-Google & Stripe engineers. Production-ready from day one.</p>
         </div>
         <div className="cta-group">
-          <a href="#waitlist" className="btn btn-primary">Start Free Trial</a>
-          <a href="#demo" className="btn btn-secondary">View Live Demo</a>
+          <a href="#waitlist" className="btn btn-primary">Join Beta Waitlist</a>
+          <a href="#pricing" className="btn btn-secondary">View Pricing</a>
         </div>
       </div>
     </section>

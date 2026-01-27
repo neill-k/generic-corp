@@ -5,7 +5,7 @@ const demos = [
     icon: '💬',
     title: 'Customer Support Automation',
     description: 'Agent reads support tickets, drafts responses, escalates complex issues. Multi-step workflows with approval gates and inter-agent messaging.',
-    tag: 'ROI: 10x'
+    tag: 'High ROI'
   },
   {
     icon: '📊',

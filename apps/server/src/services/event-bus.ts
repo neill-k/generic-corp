@@ -1,4 +1,5 @@
 import { EventEmitter } from "events";
+import { recordEventEmission } from "./metrics.js";
 
 // Typed event bus for internal server communication
 type EventMap = {
@@ -35,7 +36,16 @@ class TypedEventEmitter {
   }
 
   emit<K extends keyof EventMap>(event: K, data: EventMap[K]): boolean {
-    return this.emitter.emit(event, data);
+    // Record metrics for event emission
+    recordEventEmission(event);
+
+    // Attach timestamp for latency tracking
+    const eventWithTimestamp = {
+      ...data,
+      _emitTimestamp: Date.now(),
+    };
+
+    return this.emitter.emit(event, eventWithTimestamp);
   }
 
   once<K extends keyof EventMap>(event: K, listener: (data: EventMap[K]) => void): this {

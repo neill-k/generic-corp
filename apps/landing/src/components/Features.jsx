@@ -2,50 +2,50 @@ import React from 'react'
 
 const features = [
   {
-    icon: '👁️',
-    title: 'Real-Time Visual Orchestration',
-    description: 'See every agent action, decision, and interaction as it happens. Debug faster, ship with confidence.',
-    highlight: 'LangGraph and CrewAI are code-first/CLI-only. We have live visual debugging.',
+    icon: '🔄',
+    title: 'Multi-Provider AI Orchestration',
+    description: 'Connect to OpenAI, Anthropic Claude, Google Gemini, and open-source models through a unified API. Switch providers without rewriting code.',
+    highlight: 'One API for all major LLM providers',
     technicalDetails: [
-      'Isometric game-like visualization',
-      'Real-time agent state monitoring',
-      'Interactive debugging interface',
-      'Complete execution history'
+      'Unified interface for Claude, GPT-4, Gemini',
+      'Automatic fallback and retry logic',
+      'Provider-agnostic agent definitions',
+      'No vendor lock-in'
     ]
   },
   {
-    icon: '🏢',
-    title: 'Multi-Tenant Production Architecture',
-    description: 'Enterprise-grade security and isolation from day one. No "rebuild for production" surprises.',
-    highlight: 'Built by ex-Google, ex-Stripe engineers',
+    icon: '💰',
+    title: 'Intelligent Cost Optimization',
+    description: 'Automatic routing to the most cost-effective model for each task. Built-in caching and prompt optimization reduce LLM costs significantly.',
+    highlight: 'Built-in cost savings and real-time tracking',
     technicalDetails: [
-      'Multi-tenant PostgreSQL with row-level security',
-      'Per-tenant data isolation',
-      'Kubernetes-native horizontal scaling',
-      '99.5% uptime SLA for Pro tier'
+      'Smart routing based on task complexity',
+      'Response caching to reduce API calls',
+      'Real-time cost tracking and analytics',
+      'Provider cost comparison dashboard'
     ]
   },
   {
-    icon: '📚',
-    title: 'Template-First Developer Experience',
-    description: 'Clone proven workflows, customize for your use case. Start with best practices, not blank files.',
-    highlight: 'Get to production in minutes, not weeks',
+    icon: '🛠️',
+    title: 'Developer-First Design',
+    description: 'Built by engineers, for engineers. Comprehensive debugging tools, clear error messages, and local development environment.',
+    highlight: 'Production-ready from day one',
     technicalDetails: [
-      'RESTful API with full OpenAPI documentation',
-      'Python & TypeScript SDKs included',
-      'Webhook support for event-driven workflows',
-      'Local development mode for testing'
+      'RESTful API with comprehensive documentation',
+      'Python SDK with TypeScript coming soon',
+      'Webhook support for real-time notifications',
+      'Environment-based configuration'
     ]
   },
   {
     icon: '🔐',
-    title: 'Built on Anthropic Claude',
-    description: 'Leverage the most reliable AI models with built-in Agent SDK integration.',
-    highlight: 'Production-grade reliability and safety',
+    title: 'Enterprise-Ready Security',
+    description: 'Multi-tenant isolation, API key scoping, rate limiting, and audit logging built in from day one.',
+    highlight: 'Secure and scalable by design',
     technicalDetails: [
-      'SOC 2 Type II ready architecture',
-      'End-to-end encryption for agent communications',
-      'API rate limiting and abuse prevention',
+      'Multi-tenant schema-level isolation',
+      'SOC 2-aligned architecture',
+      'Enterprise-grade encryption (TLS, at-rest)',
       'Comprehensive audit logging'
     ]
   }

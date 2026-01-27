@@ -181,7 +181,7 @@ export async function getAgentById(agentId: string): Promise<{ id: string; name:
 }
 
 /**
- * Create a task for an agent
+ * Create a task for an agent and queue it for execution
  */
 export async function createTask(input: {
   agentId: string;
@@ -199,6 +199,9 @@ export async function createTask(input: {
       status: "pending",
     },
   });
+
+  // Auto-execute the task
+  EventBus.emit("task:queued", { agentId: input.agentId, task });
 
   return task.id;
 }

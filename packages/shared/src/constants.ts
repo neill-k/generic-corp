@@ -200,6 +200,9 @@ export const WS_EVENTS = {
   DRAFT_REJECTED: "draft:rejected",
   ACTIVITY_LOG: "activity:log",
   HEARTBEAT: "heartbeat",
+  TASK_CREATED: "task:created",
+  TASK_UPDATED: "task:updated",
+  TASK_DELETED: "task:deleted",
 
   // Client -> Server
   TASK_ASSIGN: "task:assign",

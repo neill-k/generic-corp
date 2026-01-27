@@ -270,42 +270,12 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
             {/* Free Tier */}
             <div className="bg-white rounded-xl shadow-lg p-8 border-2 border-gray-200">
               <h3 className="text-2xl font-bold text-gray-900 mb-2">Free</h3>
-              <p className="text-gray-600 mb-4">Self-Hosted</p>
+              <p className="text-gray-600 mb-4">Developer Evaluation</p>
               <p className="text-4xl font-bold text-gray-900 mb-6">$0</p>
-              <ul className="space-y-3 mb-8">
-                <li className="flex items-center text-gray-700">
-                  <span className="text-green-500 mr-2">✓</span>
-                  Open-source core
-                </li>
-                <li className="flex items-center text-gray-700">
-                  <span className="text-green-500 mr-2">✓</span>
-                  Unlimited agents
-                </li>
-                <li className="flex items-center text-gray-700">
-                  <span className="text-green-500 mr-2">✓</span>
-                  Docker deployment
-                </li>
-                <li className="flex items-center text-gray-700">
-                  <span className="text-green-500 mr-2">✓</span>
-                  Community support
-                </li>
-              </ul>
-              <a href="https://github.com" className="block w-full text-center px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-semibold">
-                View on GitHub
-              </a>
-            </div>
-
-            {/* Starter Tier */}
-            <div className="bg-white rounded-xl shadow-lg p-8 border-2 border-gray-200">
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">Starter</h3>
-              <p className="text-gray-600 mb-4">Managed Cloud</p>
-              <p className="text-4xl font-bold text-gray-900 mb-6">
-                $49<span className="text-lg text-gray-600">/mo</span>
-              </p>
               <ul className="space-y-3 mb-8">
                 <li className="flex items-center text-gray-700">
                   <span className="text-green-500 mr-2">✓</span>
@@ -313,36 +283,36 @@ export default function Home() {
                 </li>
                 <li className="flex items-center text-gray-700">
                   <span className="text-green-500 mr-2">✓</span>
-                  1K agent-minutes/mo
+                  100 agent-minutes/mo
                 </li>
                 <li className="flex items-center text-gray-700">
                   <span className="text-green-500 mr-2">✓</span>
-                  Email support
+                  Community support
                 </li>
                 <li className="flex items-center text-gray-700">
                   <span className="text-green-500 mr-2">✓</span>
-                  99% uptime SLA
+                  Basic monitoring
                 </li>
               </ul>
-              <a href="#waitlist" className="block w-full text-center px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-semibold">
-                Start Free Trial
+              <a href="#waitlist" className="block w-full text-center px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-semibold">
+                Start Free
               </a>
             </div>
 
-            {/* Pro Tier */}
+            {/* Professional Tier */}
             <div className="bg-white rounded-xl shadow-lg p-8 border-2 border-primary-600 relative">
               <div className="absolute top-0 right-0 bg-primary-600 text-white px-4 py-1 rounded-bl-lg rounded-tr-lg text-sm font-semibold">
                 POPULAR
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">Pro</h3>
-              <p className="text-gray-600 mb-4">Managed Cloud</p>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">Professional</h3>
+              <p className="text-gray-600 mb-4">Production Teams</p>
               <p className="text-4xl font-bold text-gray-900 mb-6">
-                $149<span className="text-lg text-gray-600">/mo</span>
+                $199<span className="text-lg text-gray-600">/mo</span>
               </p>
               <ul className="space-y-3 mb-8">
                 <li className="flex items-center text-gray-700">
                   <span className="text-green-500 mr-2">✓</span>
-                  20 agents
+                  50 agents
                 </li>
                 <li className="flex items-center text-gray-700">
                   <span className="text-green-500 mr-2">✓</span>
@@ -354,7 +324,7 @@ export default function Home() {
                 </li>
                 <li className="flex items-center text-gray-700">
                   <span className="text-green-500 mr-2">✓</span>
-                  SSO integration
+                  Advanced monitoring
                 </li>
               </ul>
               <a href="#waitlist" className="block w-full text-center px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-semibold">
@@ -365,7 +335,7 @@ export default function Home() {
             {/* Enterprise Tier */}
             <div className="bg-white rounded-xl shadow-lg p-8 border-2 border-gray-200">
               <h3 className="text-2xl font-bold text-gray-900 mb-2">Enterprise</h3>
-              <p className="text-gray-600 mb-4">Custom</p>
+              <p className="text-gray-600 mb-4">Custom Scale</p>
               <p className="text-4xl font-bold text-gray-900 mb-6">Custom</p>
               <ul className="space-y-3 mb-8">
                 <li className="flex items-center text-gray-700">
