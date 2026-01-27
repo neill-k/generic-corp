@@ -1,20 +1,20 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const executeAgentTaskMock = vi.fn();
-const updateTaskStatusMock = vi.fn(async () => undefined);
-const updateAgentStatusMock = vi.fn(async () => undefined);
-const emitTaskProgressMock = vi.fn(async () => undefined);
-const emitTaskCompletedMock = vi.fn(async () => undefined);
-const getUnreadMessagesMock = vi.fn(async () => []);
-const hasUnreadMessagesMock = vi.fn(async () => false);
-const createTaskMock = vi.fn(async () => "t1");
-const logActivityMock = vi.fn(async () => undefined);
+const executeAgentTaskMock = vi.fn(async (..._args: any[]) => undefined);
+const updateTaskStatusMock = vi.fn(async (..._args: any[]) => undefined);
+const updateAgentStatusMock = vi.fn(async (..._args: any[]) => undefined);
+const emitTaskProgressMock = vi.fn(async (..._args: any[]) => undefined);
+const emitTaskCompletedMock = vi.fn(async (..._args: any[]) => undefined);
+const getUnreadMessagesMock = vi.fn(async (..._args: any[]) => [] as any[]);
+const hasUnreadMessagesMock = vi.fn(async (..._args: any[]) => false);
+const createTaskMock = vi.fn(async (..._args: any[]) => "t1");
+const logActivityMock = vi.fn(async (..._args: any[]) => undefined);
 
 let cancelHandler: (() => void) | undefined;
 let newMessageHandler: ((msg: any) => void) | undefined;
 let statusQueryHandler: (() => any) | undefined;
 
-const continueAsNewMock = vi.fn(async () => undefined);
+const continueAsNewMock = vi.fn(async (..._args: any[]) => undefined);
 
 vi.mock("@temporalio/workflow", () => ({
   proxyActivities: () => ({
@@ -44,7 +44,7 @@ vi.mock("@temporalio/workflow", () => ({
     }
   },
   condition: async (predicate: () => boolean, _timeout?: any) => predicate(),
-  continueAsNew: (...args: any[]) => continueAsNewMock(...args),
+  continueAsNew: (arg: any) => continueAsNewMock(arg),
 }));
 
 describe("Temporal workflows", () => {
@@ -56,7 +56,7 @@ describe("Temporal workflows", () => {
   });
 
   it("agentTaskWorkflow executes activities and returns success", async () => {
-    executeAgentTaskMock.mockResolvedValueOnce({ success: true, output: "done" });
+    executeAgentTaskMock.mockResolvedValueOnce({ success: true, output: "done" } as any);
 
     const { agentTaskWorkflow } = await import("../../temporal/workflows/agentWorkflows.js");
     const result = await agentTaskWorkflow({
@@ -127,7 +127,7 @@ describe("Temporal workflows", () => {
       .mockResolvedValue(false);
 
     getUnreadMessagesMock.mockResolvedValueOnce([
-      { id: "m2", fromAgentName: "Bob", subject: "Ping" },
+      { id: "m2", fromAgentName: "Bob", subject: "Ping" } as any,
     ]);
 
     const { agentLifecycleWorkflow } = await import("../../temporal/workflows/agentWorkflows.js");

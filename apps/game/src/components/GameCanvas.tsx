@@ -135,6 +135,10 @@ class OfficeScene extends Phaser.Scene {
   }
 
   create() {
+    // Ensure we always clean up listeners/timers when the scene stops.
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
+    this.events.once(Phaser.Scenes.Events.DESTROY, this.handleShutdown, this);
+
     // Initialize object pool for status indicators
     this.indicatorPool = new IndicatorPool(this, 20);
 
@@ -165,7 +169,7 @@ class OfficeScene extends Phaser.Scene {
     });
   }
 
-  shutdown(data?: object) {
+  private handleShutdown() {
     // Clean up all timer events
     this.agentTimerEvents.forEach((timer) => timer.remove());
     this.agentTimerEvents.clear();
@@ -173,9 +177,6 @@ class OfficeScene extends Phaser.Scene {
     // Remove game event listeners
     this.game.events.off("updateAgents", this.queueAgentUpdates, this);
     this.game.events.off("updateTasks", this.updateAgentTasks, this);
-
-    // Call parent shutdown
-    super.shutdown(data);
   }
 
   private drawBackground() {
@@ -592,7 +593,7 @@ class OfficeScene extends Phaser.Scene {
 
   private updateAgentTasks(tasks: Task[]) {
     // Store tasks for tooltip display
-    (this as any).currentTasks = tasks;
+    (this as unknown as { currentTasks?: Task[] }).currentTasks = tasks;
   }
 
   private processUpdates() {

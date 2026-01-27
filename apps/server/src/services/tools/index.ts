@@ -246,12 +246,12 @@ export const bashTool = {
   ) => {
     // Security: Block dangerous commands
     const dangerousPatterns = [
-      /rm\s+-rf\s+[\/~]/i,
+      /rm\s+-rf\s+[/~]/i,
       /mkfs/i,
       /dd\s+if=/i,
       /:(){ :|:& };:/,
-      />\s*\/dev\/sd/i,
-      /chmod\s+-R\s+777\s+\//i,
+      />\s*[/]dev[/]sd/i,
+      /chmod\s+-R\s+777\s+[/]/i,
     ];
 
     for (const pattern of dangerousPatterns) {

@@ -21,7 +21,11 @@ export class GenericCliAdapter implements CliToolAdapter {
     };
   }
 
-  parseResult(result: CliRunResult) {
+  parseResult(result: CliRunResult): {
+    output: string;
+    toolsUsed?: string[];
+    tokensUsed?: { input: number; output: number };
+  } {
     return {
       output: result.stdout.trim() || result.stderr.trim(),
       toolsUsed: ["cli"],

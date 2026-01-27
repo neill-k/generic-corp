@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-const connectMock = vi.fn(async () => ({ connection: true }));
+const connectMock = vi.fn(async (_args: any) => ({ connection: true }));
 const workerRunMock = vi.fn(async () => undefined);
-const workerCreateMock = vi.fn(async () => ({ run: workerRunMock }));
+const workerCreateMock = vi.fn(async (_args: any) => ({ run: workerRunMock }));
 
 vi.mock("@temporalio/worker", () => ({
   NativeConnection: { connect: (args: any) => connectMock(args) },

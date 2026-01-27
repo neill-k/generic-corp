@@ -5,6 +5,7 @@ describe("GenericCliAdapter", () => {
   it("buildCommand passes prompt via env", async () => {
     const adapter = new GenericCliAdapter();
     const cmd = adapter.buildCommand({
+      tool: "generic",
       prompt: "hello",
       cwd: "/tmp",
       timeoutMs: 1,
@@ -27,6 +28,7 @@ describe("GenericCliAdapter", () => {
     try {
       const adapter = new GenericCliAdapter();
       const cmd = adapter.buildCommand({
+        tool: "generic",
         prompt: "hello",
       });
 

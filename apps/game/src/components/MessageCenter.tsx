@@ -71,7 +71,7 @@ export function MessageCenter() {
       } else {
         setError(result.error || "Failed to send message");
       }
-    } catch (err) {
+    } catch {
       setError("An error occurred while sending the message");
     } finally {
       setIsSending(false);

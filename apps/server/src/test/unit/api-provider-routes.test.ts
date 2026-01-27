@@ -104,7 +104,7 @@ describe("provider routes", () => {
 
     const handler = routerMock.routes.get("DELETE /accounts/:id")!;
     const res1 = createRes();
-    dbMock.providerAccount.findFirst.mockResolvedValueOnce(null);
+    dbMock.providerAccount.findFirst.mockResolvedValueOnce(null as any);
     await handler({ params: { id: "missing" }, query: {} }, res1);
     expect(res1.statusCode).toBe(404);
 

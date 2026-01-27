@@ -59,7 +59,7 @@ export function Dashboard() {
       } else {
         setError(result.error || "Failed to assign task");
       }
-    } catch (err) {
+    } catch {
       setError("An error occurred while assigning the task");
     } finally {
       setIsAssigning(false);

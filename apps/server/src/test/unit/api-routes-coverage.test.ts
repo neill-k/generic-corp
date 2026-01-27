@@ -98,7 +98,7 @@ describe("api routes coverage", () => {
 
     const handler = app.routes.get("GET /api/agents/:id")!;
 
-    dbMock.agent.findUnique.mockResolvedValueOnce(null);
+    dbMock.agent.findUnique.mockResolvedValueOnce(null as any);
     const res1 = createRes();
     await handler({ params: { id: "missing" } }, res1);
     expect(res1.statusCode).toBe(404);
@@ -153,7 +153,7 @@ describe("api routes coverage", () => {
     const { setupRoutes } = await import("../../api/index.js");
     setupRoutes(app);
 
-    dbMock.task.findUnique.mockResolvedValueOnce(null);
+    dbMock.task.findUnique.mockResolvedValueOnce(null as any);
     const res = createRes();
     await app.routes.get("GET /api/tasks/:id")!({ params: { id: "missing" } }, res);
     expect(res.statusCode).toBe(404);
@@ -169,12 +169,12 @@ describe("api routes coverage", () => {
     await handler({ body: { agentId: "a", title: "t", providerAccountId: "p1" } }, res1);
     expect(res1.statusCode).toBe(400);
 
-    dbMock.agent.findFirst.mockResolvedValueOnce(null);
+    dbMock.agent.findFirst.mockResolvedValueOnce(null as any);
     const res2 = createRes();
     await handler({ body: { agentId: "missing", title: "t" } }, res2);
     expect(res2.statusCode).toBe(404);
 
-    dbMock.providerAccount.findUnique.mockResolvedValueOnce(null);
+    dbMock.providerAccount.findUnique.mockResolvedValueOnce(null as any);
     const res3 = createRes();
     await handler({ body: { agentId: "Marcus Bell", title: "t", provider: "openai_codex", providerAccountId: "missing" } }, res3);
     expect(res3.statusCode).toBe(404);
@@ -205,7 +205,7 @@ describe("api routes coverage", () => {
     setupRoutes(app);
     const handler = app.routes.get("POST /api/tasks/:id/execute")!;
 
-    dbMock.task.findUnique.mockResolvedValueOnce(null);
+    dbMock.task.findUnique.mockResolvedValueOnce(null as any);
     const res1 = createRes();
     await handler({ params: { id: "missing" } }, res1);
     expect(res1.statusCode).toBe(404);
