@@ -45,3 +45,7 @@ prisma/generated/
 # Temporary
 tmp/
 temp/
+
+# Local workspace (agent worktrees, board, docs)
+workspace/
+**/.gc/

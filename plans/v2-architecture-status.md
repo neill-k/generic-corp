@@ -9,9 +9,9 @@ Last updated: 2026-01-30
 - [x] 1. Project scaffolding (pnpm monorepo, TypeScript, Vite, Express, Prisma)
 - [x] 2. Database schema (4 models) + seed data (agents, org hierarchy)
 - [x] 3. `AgentRuntime` interface + `AgentSdkRuntime` implementation
-- [ ] 4. In-process MCP server factory (`createGcMcpServer`) with 6 tools
-- [ ] 5. System prompt builder (identity + briefing assembly)
-- [ ] 6. BullMQ queue setup (one queue per agent, concurrency 1)
+- [x] 4. In-process MCP server factory (`createGcMcpServer`) with 6 tools
+- [x] 5. System prompt builder (identity + briefing assembly)
+- [x] 6. BullMQ queue setup (one queue per agent, concurrency 1)
 - [ ] 7. Workspace manager (git worktree creation)
 
 ## Phase 2: Dashboard

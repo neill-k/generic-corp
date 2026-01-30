@@ -17,6 +17,8 @@ export type AgentEvent =
 
 export type McpServerInstance = unknown;
 
+export type McpServerFactory = (agentId: string, taskId: string) => McpServerInstance;
+
 export type AgentInvocation = {
   agentId: string;
   taskId: string;
