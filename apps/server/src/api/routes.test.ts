@@ -13,6 +13,7 @@ vi.mock("../db/client.js", () => {
     task: {
       create: vi.fn(),
       findUnique: vi.fn(),
+      findMany: vi.fn(),
     },
     message: {
       create: vi.fn(),
@@ -45,7 +46,7 @@ function createApp() {
 
 const mockDb = db as unknown as {
   agent: { findMany: ReturnType<typeof vi.fn>; findUnique: ReturnType<typeof vi.fn> };
-  task: { create: ReturnType<typeof vi.fn>; findUnique: ReturnType<typeof vi.fn> };
+  task: { create: ReturnType<typeof vi.fn>; findUnique: ReturnType<typeof vi.fn>; findMany: ReturnType<typeof vi.fn> };
   message: { create: ReturnType<typeof vi.fn>; findMany: ReturnType<typeof vi.fn> };
   orgNode: { findMany: ReturnType<typeof vi.fn> };
 };
@@ -285,6 +286,53 @@ describe("routes", () => {
       expect(res.body.threads[0].threadId).toBe("thread-1");
       expect(res.body.threads[0].agentName).toBe("marcus");
       expect(res.body.threads[0].preview).toBe("Latest message");
+    });
+  });
+
+  describe("GET /api/agents/:id", () => {
+    it("returns agent detail", async () => {
+      mockDb.agent.findUnique.mockResolvedValue({
+        id: "a1",
+        name: "marcus",
+        displayName: "Marcus Bell",
+        role: "CEO",
+        department: "Executive",
+        level: "c-suite",
+        personality: "You are Marcus Bell",
+        status: "idle",
+        currentTaskId: null,
+        createdAt: new Date("2025-01-01"),
+        updatedAt: new Date("2025-01-02"),
+      });
+
+      const res = await request(createApp()).get("/api/agents/a1");
+
+      expect(res.status).toBe(200);
+      expect(res.body.agent.name).toBe("marcus");
+      expect(res.body.agent.personality).toBe("You are Marcus Bell");
+    });
+
+    it("returns 404 for unknown agent", async () => {
+      mockDb.agent.findUnique.mockResolvedValue(null);
+
+      const res = await request(createApp()).get("/api/agents/unknown");
+
+      expect(res.status).toBe(404);
+    });
+  });
+
+  describe("GET /api/agents/:id/tasks", () => {
+    it("returns tasks for an agent", async () => {
+      mockDb.task.findMany.mockResolvedValue([
+        { id: "t1", prompt: "Do stuff", status: "completed", createdAt: new Date("2025-01-01"), completedAt: new Date("2025-01-01T01:00:00") },
+        { id: "t2", prompt: "Do more", status: "pending", createdAt: new Date("2025-01-02"), completedAt: null },
+      ]);
+
+      const res = await request(createApp()).get("/api/agents/a1/tasks");
+
+      expect(res.status).toBe(200);
+      expect(res.body.tasks).toHaveLength(2);
+      expect(res.body.tasks[0].id).toBe("t1");
     });
   });
 

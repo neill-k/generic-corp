@@ -96,6 +96,42 @@ export function createApiRouter(deps: ApiRouterDeps = {}): express.Router {
     }
   });
 
+  router.get("/agents/:id", async (req, res, next) => {
+    try {
+      const agent = await db.agent.findUnique({
+        where: { id: req.params["id"] ?? "" },
+      });
+      if (!agent) {
+        res.status(404).json({ error: "Agent not found" });
+        return;
+      }
+      res.json({ agent });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get("/agents/:id/tasks", async (req, res, next) => {
+    try {
+      const tasks = await db.task.findMany({
+        where: { assigneeId: req.params["id"] ?? "" },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          prompt: true,
+          status: true,
+          createdAt: true,
+          completedAt: true,
+          costUsd: true,
+          durationMs: true,
+        },
+      });
+      res.json({ tasks });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   router.post("/messages", async (req, res, next) => {
     try {
       const body = createMessageBodySchema.parse(req.body);

@@ -19,7 +19,7 @@ Last updated: 2026-01-30
 - [x] 8. Chat interface (threads, send/receive, thread list)
 - [x] 9. Org chart (React Flow, agent nodes with status)
 - [x] 10. Board view (kanban from board/ files)
-- [ ] 11. Agent detail panel (status, history, live activity stream, cost)
+- [x] 11. Agent detail panel (status, history, live activity stream, cost)
 - [x] 12. WebSocket real-time updates (agent events streamed from SDK)
 
 ## Phase 3: Agent Intelligence
