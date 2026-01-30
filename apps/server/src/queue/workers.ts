@@ -4,6 +4,7 @@ import type { Agent, Task } from "@prisma/client";
 
 import { db } from "../db/client.js";
 import { createGcMcpServer } from "../mcp/server.js";
+import { appEventBus } from "../services/app-events.js";
 import { AgentSdkRuntime } from "../services/agent-runtime-sdk.js";
 import { buildSystemPrompt } from "../services/prompt-builder.js";
 import type { WorkspaceManager } from "../services/workspace-manager.js";
@@ -37,19 +38,20 @@ async function markTaskRunning(agent: Agent, taskId: string) {
     where: { id: agent.id },
     data: { status: "running", currentTaskId: taskId },
   });
+
+  appEventBus.emit("agent_status_changed", { agentId: agent.name, status: "running" });
+  appEventBus.emit("task_status_changed", { taskId, status: "running" });
 }
 
 async function markAgentIdle(agentId: string) {
-  await db.agent.update({ where: { id: agentId }, data: { status: "idle", currentTaskId: null } });
+  const agent = await db.agent.update({ where: { id: agentId }, data: { status: "idle", currentTaskId: null } });
+  appEventBus.emit("agent_status_changed", { agentId: agent.name, status: "idle" });
 }
 
 async function maybeFinalizeTask(taskId: string, fallback: { status: "completed" | "failed"; output: string }) {
   const existing = await db.task.findUnique({ where: { id: taskId }, select: { status: true, result: true } });
   if (!existing) return;
 
-  // Only auto-finalize tasks that are still running.
-  // If an agent calls finish_task with needs_followup, the task is moved back to pending
-  // and should not be overwritten here.
   if (existing.status !== "running") return;
 
   await db.task.update({
@@ -60,6 +62,8 @@ async function maybeFinalizeTask(taskId: string, fallback: { status: "completed"
       completedAt: fallback.status === "completed" ? new Date() : null,
     },
   });
+
+  appEventBus.emit("task_status_changed", { taskId, status: fallback.status });
 }
 
 async function runTask(task: Task & { assignee: Agent }) {
@@ -79,6 +83,12 @@ async function runTask(task: Task & { assignee: Agent }) {
     cwd,
     mcpServer,
   })) {
+    appEventBus.emit("agent_event", {
+      agentId: task.assignee.name,
+      taskId: task.id,
+      event,
+    });
+
     if (event.type === "message") {
       console.log(`[Agent:${task.assignee.name}] ${event.content}`);
     }
@@ -128,6 +138,8 @@ function startWorkerForAgent(agentName: string) {
         const message = error instanceof Error ? error.message : "Unknown error";
         await db.task.update({ where: { id: taskId }, data: { status: "failed", result: message } });
         await db.agent.update({ where: { id: task.assigneeId }, data: { status: "error" } });
+        appEventBus.emit("agent_status_changed", { agentId: agentName, status: "error" });
+        appEventBus.emit("task_status_changed", { taskId, status: "failed" });
         throw error;
       } finally {
         if (!failed) {

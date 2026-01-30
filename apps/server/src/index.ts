@@ -1,6 +1,7 @@
 import "dotenv/config";
 
 import http from "node:http";
+import path from "node:path";
 
 import cors from "cors";
 import express from "express";
@@ -8,9 +9,16 @@ import { Server as SocketIOServer } from "socket.io";
 
 import { createApiRouter } from "./api/routes.js";
 import { errorMiddleware } from "./api/middleware.js";
-import { startAgentWorkers, stopAgentWorkers } from "./queue/workers.js";
+import { appEventBus } from "./services/app-events.js";
+import { WorkspaceManager } from "./services/workspace-manager.js";
+import { setWorkspaceManager, startAgentWorkers, stopAgentWorkers } from "./queue/workers.js";
+import { createWebSocketHub } from "./ws/hub.js";
 
 const PORT = Number(process.env["PORT"] ?? "3000");
+
+function resolveWorkspaceRoot(): string {
+  return path.resolve(process.cwd(), process.env["GC_WORKSPACE_ROOT"] ?? "./workspace");
+}
 
 async function main() {
   const app = express();
@@ -29,9 +37,11 @@ async function main() {
     cors: { origin: "*" },
   });
 
-  io.on("connection", (socket) => {
-    socket.emit("snapshot", { type: "snapshot", serverTime: new Date().toISOString() });
-  });
+  const wsHub = createWebSocketHub(io, appEventBus);
+
+  const wm = new WorkspaceManager(resolveWorkspaceRoot());
+  await wm.ensureInitialized();
+  setWorkspaceManager(wm);
 
   await startAgentWorkers();
 
@@ -41,6 +51,7 @@ async function main() {
 
   const shutdown = async (signal: string) => {
     console.log(`[Server] shutting down (${signal})`);
+    wsHub.stop();
     await stopAgentWorkers();
     io.close();
     server.close();
