@@ -1,0 +1,277 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AgentStatus {
+  idle
+  working
+  blocked
+  offline
+}
+
+enum TaskStatus {
+  pending
+  in_progress
+  blocked
+  completed
+  failed
+  cancelled
+}
+
+enum TaskPriority {
+  low
+  normal
+  high
+  urgent
+}
+
+enum MessageType {
+  direct
+  broadcast
+  system
+  external_draft
+}
+
+enum MessageStatus {
+  pending
+  delivered
+  read
+  approved
+  rejected
+}
+
+enum ProviderKind {
+  agents_api
+  openai_codex
+  github_copilot
+  google_code_assist
+}
+
+enum ProviderAccountStatus {
+  active
+  revoked
+  error
+}
+
+model Agent {
+  id               String       @id @default(uuid())
+  name             String       @unique
+  role             String
+  personalityPrompt String       @map("personality_prompt")
+  status           AgentStatus  @default(idle)
+  currentTaskId    String?      @map("current_task_id")
+  capabilities     Json         @default("[]")
+  toolPermissions  Json         @default("{}") @map("tool_permissions")
+  version          Int          @default(1)
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+  deletedAt        DateTime?    @map("deleted_at")
+
+  // Relations
+  assignedTasks    Task[]       @relation("AssignedTasks")
+  createdTasks     Task[]       @relation("CreatedTasks")
+  sentMessages     Message[]    @relation("SentMessages")
+  receivedMessages Message[]    @relation("ReceivedMessages")
+  activityLogs     ActivityLog[]
+  sessions         AgentSession[]
+  schedules        Schedule[]
+
+  @@map("agents")
+}
+
+model Task {
+  id                String              @id @default(uuid())
+  agentId            String              @map("agent_id")
+  createdById        String              @map("created_by_id")
+  title             String
+  description       String
+  status            TaskStatus           @default(pending)
+  previousStatus    TaskStatus?          @map("previous_status")
+  priority          TaskPriority         @default(normal)
+  progressPercent   Int                 @default(0) @map("progress_percent")
+  progressDetails   Json                @default("{}") @map("progress_details")
+  result            Json?
+  deadline          DateTime?
+  startedAt         DateTime?           @map("started_at")
+  completedAt       DateTime?           @map("completed_at")
+  errorDetails      Json?               @map("error_details")
+  version           Int                 @default(1)
+  retryCount        Int                 @default(0) @map("retry_count")
+  maxRetries        Int                 @default(3) @map("max_retries")
+  createdAt         DateTime            @default(now()) @map("created_at")
+  deletedAt         DateTime?           @map("deleted_at")
+
+  provider          ProviderKind?        @map("provider")
+  providerAccountId String?             @map("provider_account_id")
+
+  // Relations
+  assignedTo        Agent               @relation("AssignedTasks", fields: [agentId], references: [id])
+  createdBy         Agent               @relation("CreatedTasks", fields: [createdById], references: [id])
+  dependencies      TaskDependency[]    @relation("TaskDependencies")
+  dependents        TaskDependency[]    @relation("DependentTasks")
+  activityLogs      ActivityLog[]
+  providerAccount   ProviderAccount?    @relation(fields: [providerAccountId], references: [id])
+
+  @@index([provider, providerAccountId])
+  @@map("tasks")
+}
+
+model Message {
+  id                String        @id @default(uuid())
+  fromAgentId       String        @map("from_agent_id")
+  toAgentId         String        @map("to_agent_id")
+  subject           String
+  body              String
+  type              MessageType   @default(direct)
+  status            MessageStatus @default(pending)
+  isExternalDraft   Boolean       @default(false) @map("is_external_draft")
+  externalRecipient String?       @map("external_recipient")
+  approvedBy        String?       @map("approved_by")
+  approvedAt        DateTime?     @map("approved_at")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  readAt            DateTime?     @map("read_at")
+  deletedAt         DateTime?     @map("deleted_at")
+
+  // Relations
+  fromAgent         Agent         @relation("SentMessages", fields: [fromAgentId], references: [id])
+  toAgent           Agent         @relation("ReceivedMessages", fields: [toAgentId], references: [id])
+
+  @@map("messages")
+}
+
+model TaskDependency {
+  id              String @id @default(uuid())
+  taskId          String @map("task_id")
+  dependsOnTaskId String @map("depends_on_task_id")
+  depth           Int    @default(0)
+
+  // Relations
+  task            Task   @relation("TaskDependencies", fields: [taskId], references: [id])
+  dependsOn       Task   @relation("DependentTasks", fields: [dependsOnTaskId], references: [id])
+
+  @@unique([taskId, dependsOnTaskId])
+  @@map("task_dependencies")
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid())
+  agentId   String   @map("agent_id")
+  taskId    String?  @map("task_id")
+  action    String
+  details   Json     @default("{}")
+  timestamp DateTime @default(now())
+
+  // Relations
+  agent     Agent    @relation(fields: [agentId], references: [id])
+  task      Task?    @relation(fields: [taskId], references: [id])
+
+  @@map("activity_logs")
+}
+
+model AgentSession {
+  id              String    @id @default(uuid())
+  agentId         String    @map("agent_id")
+  taskId          String?   @map("task_id")
+  status          String    @default("active")
+  tokensUsed      Json      @default("{}") @map("tokens_used")
+  toolCalls       Json      @default("[]") @map("tool_calls")
+  startedAt       DateTime  @default(now()) @map("started_at")
+  endedAt         DateTime? @map("ended_at")
+
+  // Relations
+  agent           Agent     @relation(fields: [agentId], references: [id])
+
+  @@map("agent_sessions")
+}
+
+model Schedule {
+  id             String    @id @default(uuid())
+  agentId        String    @map("agent_id")
+  name           String
+  cronExpression String    @map("cron_expression")
+  taskTemplate   String    @map("task_template")
+  enabled        Boolean   @default(true)
+  lastRunAt      DateTime? @map("last_run_at")
+  nextRunAt      DateTime? @map("next_run_at")
+  failureCount   Int       @default(0) @map("failure_count")
+  deletedAt      DateTime? @map("deleted_at")
+
+  // Relations
+  agent          Agent     @relation(fields: [agentId], references: [id])
+
+  @@map("schedules")
+}
+
+model GameState {
+  id                 String   @id @default(uuid())
+  playerId           String   @unique @map("player_id")
+  cameraPosition     Json     @default("{}") @map("camera_position")
+  uiState            Json     @default("{}") @map("ui_state")
+  budgetRemainingUsd Decimal  @default(100) @map("budget_remaining_usd") @db.Decimal(10, 2)
+  budgetLimitUsd     Decimal  @default(100) @map("budget_limit_usd") @db.Decimal(10, 2)
+  lastSyncAt         DateTime @default(now()) @map("last_sync_at")
+
+  @@map("game_states")
+}
+
+model ProviderAccount {
+  id                   String                @id @default(uuid())
+  provider              ProviderKind
+  status                ProviderAccountStatus @default(active)
+
+  // For now: single local user mode
+  ownerKey              String?               @map("owner_key")
+
+  encryptedAccessToken   String                @map("encrypted_access_token")
+  accessTokenExpiresAt   DateTime?             @map("access_token_expires_at")
+  encryptedRefreshToken  String?               @map("encrypted_refresh_token")
+  refreshTokenExpiresAt  DateTime?             @map("refresh_token_expires_at")
+
+  scopes                 Json                  @default("[]")
+  accountMeta            Json                  @default("{}") @map("account_meta")
+
+  lastError              String?               @map("last_error")
+  lastErrorAt            DateTime?             @map("last_error_at")
+  lastUsedAt             DateTime?             @map("last_used_at")
+
+  createdAt              DateTime              @default(now()) @map("created_at")
+  updatedAt              DateTime              @updatedAt @map("updated_at")
+
+  tasks                  Task[]
+
+  @@index([provider])
+  @@map("provider_accounts")
+}
+
+model OAuthTransaction {
+  id                     String        @id @default(uuid())
+  provider               ProviderKind
+  ownerKey               String?       @map("owner_key")
+
+  state                  String        @unique
+  encryptedPkceVerifier   String?       @map("encrypted_pkce_verifier")
+  flowData               Json          @default("{}") @map("flow_data")
+
+  expiresAt              DateTime      @map("expires_at")
+  createdAt              DateTime      @default(now()) @map("created_at")
+
+  @@index([provider])
+  @@map("oauth_transactions")
+}
+
+model CredentialProxy {
+  id             String   @id @default(uuid())
+  name           String   @unique
+  service        String
+  encryptedValue String   @map("encrypted_value")
+  allowedAgents  Json     @default("[]") @map("allowed_agents")
+  createdAt      DateTime @default(now()) @map("created_at")
+  rotatedAt      DateTime? @map("rotated_at")
+
+  @@map("credential_proxies")
+}

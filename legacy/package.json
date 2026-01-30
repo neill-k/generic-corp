@@ -1,0 +1,41 @@
+{
+  "name": "generic-corp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "An isometric management game serving as an interface for real AI agents",
+  "pnpm": {
+    "overrides": {
+      "esbuild": "0.21.5"
+    }
+  },
+  "scripts": {
+    "dev": "pnpm -r --parallel run dev",
+    "dev:server": "pnpm --filter @generic-corp/server run dev",
+    "dev:game": "pnpm --filter @generic-corp/game run dev",
+    "build": "pnpm -r run build",
+    "lint": "pnpm -r run lint",
+    "test": "pnpm -r run test",
+    "db:generate": "pnpm --filter @generic-corp/server run db:generate",
+    "db:push": "pnpm --filter @generic-corp/server run db:push",
+    "db:migrate": "pnpm --filter @generic-corp/server run db:migrate",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down"
+  },
+  "keywords": [
+    "ai-agents",
+    "game",
+    "phaser",
+    "multi-agent"
+  ],
+  "author": "Neill Killgore",
+  "license": "MIT",
+  "packageManager": "pnpm@9.0.0",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "eslint": "^9.39.2",
+    "typescript-eslint": "^8.54.0"
+  }
+}
