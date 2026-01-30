@@ -1,0 +1,232 @@
+import { describe, expect, it, vi, beforeEach } from "vitest";
+import express from "express";
+import request from "supertest";
+
+import { createApiRouter } from "./routes.js";
+
+vi.mock("../db/client.js", () => {
+  const mockDb = {
+    agent: {
+      findMany: vi.fn(),
+      findUnique: vi.fn(),
+    },
+    task: {
+      create: vi.fn(),
+      findUnique: vi.fn(),
+    },
+    message: {
+      create: vi.fn(),
+      findMany: vi.fn(),
+    },
+  };
+  return { db: mockDb };
+});
+
+vi.mock("../queue/agent-queues.js", () => ({
+  enqueueAgentTask: vi.fn(),
+}));
+
+import { db } from "../db/client.js";
+
+function createApp() {
+  const app = express();
+  app.use(express.json());
+  app.use("/api", createApiRouter());
+  return app;
+}
+
+const mockDb = db as unknown as {
+  agent: { findMany: ReturnType<typeof vi.fn>; findUnique: ReturnType<typeof vi.fn> };
+  task: { create: ReturnType<typeof vi.fn>; findUnique: ReturnType<typeof vi.fn> };
+  message: { create: ReturnType<typeof vi.fn>; findMany: ReturnType<typeof vi.fn> };
+};
+
+describe("routes", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe("GET /api/agents", () => {
+    it("returns agents list", async () => {
+      mockDb.agent.findMany.mockResolvedValue([
+        { id: "1", name: "marcus", displayName: "Marcus Bell", role: "CEO", department: "Executive", level: "c-suite", status: "idle", currentTaskId: null, createdAt: new Date(), updatedAt: new Date() },
+      ]);
+
+      const res = await request(createApp()).get("/api/agents");
+
+      expect(res.status).toBe(200);
+      expect(res.body.agents).toHaveLength(1);
+      expect(res.body.agents[0].name).toBe("marcus");
+    });
+  });
+
+  describe("POST /api/tasks", () => {
+    it("creates a task and returns id", async () => {
+      mockDb.agent.findUnique.mockResolvedValue({ id: "a1", name: "marcus" });
+      mockDb.task.create.mockResolvedValue({ id: "t1" });
+
+      const res = await request(createApp())
+        .post("/api/tasks")
+        .send({ prompt: "Do something" });
+
+      expect(res.status).toBe(201);
+      expect(res.body.id).toBe("t1");
+    });
+
+    it("returns 404 for unknown assignee", async () => {
+      mockDb.agent.findUnique.mockResolvedValue(null);
+
+      const res = await request(createApp())
+        .post("/api/tasks")
+        .send({ prompt: "Do something", assignee: "nobody" });
+
+      expect(res.status).toBe(404);
+    });
+  });
+
+  describe("GET /api/tasks/:id", () => {
+    it("returns a task", async () => {
+      mockDb.task.findUnique.mockResolvedValue({ id: "t1", status: "pending", prompt: "test" });
+
+      const res = await request(createApp()).get("/api/tasks/t1");
+
+      expect(res.status).toBe(200);
+      expect(res.body.task.id).toBe("t1");
+    });
+
+    it("returns 404 for unknown task", async () => {
+      mockDb.task.findUnique.mockResolvedValue(null);
+
+      const res = await request(createApp()).get("/api/tasks/unknown");
+
+      expect(res.status).toBe(404);
+    });
+  });
+
+  describe("POST /api/messages", () => {
+    it("creates a message to an agent", async () => {
+      mockDb.agent.findUnique.mockResolvedValue({ id: "a1", name: "marcus" });
+      mockDb.message.create.mockResolvedValue({
+        id: "m1",
+        fromAgentId: null,
+        toAgentId: "a1",
+        threadId: "thread-1",
+        body: "Hello Marcus",
+        type: "chat",
+        createdAt: new Date("2025-01-01"),
+      });
+
+      const res = await request(createApp())
+        .post("/api/messages")
+        .send({ agentName: "marcus", body: "Hello Marcus" });
+
+      expect(res.status).toBe(201);
+      expect(res.body.message.id).toBe("m1");
+      expect(res.body.message.body).toBe("Hello Marcus");
+    });
+
+    it("creates a message with explicit threadId", async () => {
+      mockDb.agent.findUnique.mockResolvedValue({ id: "a1", name: "marcus" });
+      mockDb.message.create.mockResolvedValue({
+        id: "m2",
+        fromAgentId: null,
+        toAgentId: "a1",
+        threadId: "existing-thread",
+        body: "Follow up",
+        type: "chat",
+        createdAt: new Date("2025-01-01"),
+      });
+
+      const res = await request(createApp())
+        .post("/api/messages")
+        .send({ agentName: "marcus", body: "Follow up", threadId: "existing-thread" });
+
+      expect(res.status).toBe(201);
+      expect(res.body.message.threadId).toBe("existing-thread");
+    });
+
+    it("returns 400 for missing body", async () => {
+      const res = await request(createApp())
+        .post("/api/messages")
+        .send({ agentName: "marcus" });
+
+      expect(res.status).toBe(400);
+    });
+
+    it("returns 404 for unknown agent", async () => {
+      mockDb.agent.findUnique.mockResolvedValue(null);
+
+      const res = await request(createApp())
+        .post("/api/messages")
+        .send({ agentName: "nobody", body: "Hello" });
+
+      expect(res.status).toBe(404);
+    });
+  });
+
+  describe("GET /api/messages", () => {
+    it("returns messages for a thread", async () => {
+      mockDb.message.findMany.mockResolvedValue([
+        {
+          id: "m1",
+          fromAgentId: null,
+          toAgentId: "a1",
+          threadId: "thread-1",
+          body: "Hello",
+          type: "chat",
+          createdAt: new Date("2025-01-01"),
+        },
+        {
+          id: "m2",
+          fromAgentId: "a1",
+          toAgentId: "a1",
+          threadId: "thread-1",
+          body: "Hi there",
+          type: "chat",
+          createdAt: new Date("2025-01-01T00:01:00"),
+        },
+      ]);
+
+      const res = await request(createApp()).get("/api/messages?threadId=thread-1");
+
+      expect(res.status).toBe(200);
+      expect(res.body.messages).toHaveLength(2);
+      expect(res.body.messages[0].id).toBe("m1");
+    });
+
+    it("returns 400 when threadId is missing", async () => {
+      const res = await request(createApp()).get("/api/messages");
+
+      expect(res.status).toBe(400);
+    });
+  });
+
+  describe("GET /api/threads", () => {
+    it("returns thread list grouped by threadId", async () => {
+      mockDb.message.findMany.mockResolvedValue([
+        {
+          threadId: "thread-1",
+          toAgentId: "a1",
+          body: "Latest message",
+          createdAt: new Date("2025-01-02"),
+          recipient: { name: "marcus" },
+        },
+        {
+          threadId: "thread-2",
+          toAgentId: "a2",
+          body: "Another thread",
+          createdAt: new Date("2025-01-01"),
+          recipient: { name: "sarah" },
+        },
+      ]);
+
+      const res = await request(createApp()).get("/api/threads");
+
+      expect(res.status).toBe(200);
+      expect(res.body.threads).toHaveLength(2);
+      expect(res.body.threads[0].threadId).toBe("thread-1");
+      expect(res.body.threads[0].agentName).toBe("marcus");
+      expect(res.body.threads[0].preview).toBe("Latest message");
+    });
+  });
+});

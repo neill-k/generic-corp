@@ -1,8 +1,10 @@
+import { ChatView } from "../components/chat/ChatView.js";
+
 export function ChatPage() {
   return (
     <div>
-      <h2 className="text-xl font-semibold">Chat</h2>
-      <p className="mt-2 text-sm text-slate-500">Chat interface — coming in B2.</p>
+      <h2 className="mb-4 text-xl font-semibold">Chat</h2>
+      <ChatView />
     </div>
   );
 }

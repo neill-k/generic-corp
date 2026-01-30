@@ -1,3 +1,5 @@
+import crypto from "node:crypto";
+
 import express from "express";
 import { z } from "zod";
 
@@ -9,6 +11,12 @@ const createTaskBodySchema = z.object({
   prompt: z.string().min(1),
   context: z.string().optional(),
   priority: z.number().int().optional(),
+});
+
+const createMessageBodySchema = z.object({
+  agentName: z.string().min(1),
+  body: z.string().min(1),
+  threadId: z.string().optional(),
 });
 
 export function createApiRouter(): express.Router {
@@ -77,6 +85,109 @@ export function createApiRouter(): express.Router {
         return;
       }
       res.json({ task });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post("/messages", async (req, res, next) => {
+    try {
+      const body = createMessageBodySchema.parse(req.body);
+
+      const agent = await db.agent.findUnique({
+        where: { name: body.agentName },
+        select: { id: true },
+      });
+      if (!agent) {
+        res.status(404).json({ error: `Unknown agent: ${body.agentName}` });
+        return;
+      }
+
+      const threadId = body.threadId ?? crypto.randomUUID();
+
+      const message = await db.message.create({
+        data: {
+          fromAgentId: null,
+          toAgentId: agent.id,
+          threadId,
+          body: body.body,
+          type: "chat",
+          status: "delivered",
+        },
+        select: {
+          id: true,
+          fromAgentId: true,
+          toAgentId: true,
+          threadId: true,
+          body: true,
+          type: true,
+          createdAt: true,
+        },
+      });
+
+      res.status(201).json({ message });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: error.errors[0]?.message ?? "Validation error" });
+        return;
+      }
+      next(error);
+    }
+  });
+
+  router.get("/messages", async (req, res, next) => {
+    try {
+      const threadId = req.query["threadId"];
+      if (!threadId || typeof threadId !== "string") {
+        res.status(400).json({ error: "threadId query parameter is required" });
+        return;
+      }
+
+      const messages = await db.message.findMany({
+        where: { threadId },
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          fromAgentId: true,
+          toAgentId: true,
+          threadId: true,
+          body: true,
+          type: true,
+          createdAt: true,
+        },
+      });
+
+      res.json({ messages });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get("/threads", async (_req, res, next) => {
+    try {
+      // Get the latest message per thread using distinct + orderBy
+      const latestMessages = await db.message.findMany({
+        where: { threadId: { not: null } },
+        orderBy: { createdAt: "desc" },
+        distinct: ["threadId"],
+        select: {
+          threadId: true,
+          toAgentId: true,
+          body: true,
+          createdAt: true,
+          recipient: { select: { name: true } },
+        },
+      });
+
+      const threads = latestMessages.map((msg) => ({
+        threadId: msg.threadId!,
+        agentId: msg.toAgentId,
+        agentName: msg.recipient.name,
+        lastMessageAt: msg.createdAt.toISOString(),
+        preview: msg.body.length > 100 ? msg.body.slice(0, 100) + "..." : msg.body,
+      }));
+
+      res.json({ threads });
     } catch (error) {
       next(error);
     }

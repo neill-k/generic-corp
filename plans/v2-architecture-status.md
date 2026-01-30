@@ -12,15 +12,15 @@ Last updated: 2026-01-30
 - [x] 4. In-process MCP server factory (`createGcMcpServer`) with 6 tools
 - [x] 5. System prompt builder (identity + briefing assembly)
 - [x] 6. BullMQ queue setup (one queue per agent, concurrency 1)
-- [ ] 7. Workspace manager (git worktree creation)
+- [x] 7. Workspace manager (git worktree creation)
 
 ## Phase 2: Dashboard
 
-- [ ] 8. Chat interface (threads, send/receive, thread list)
+- [x] 8. Chat interface (threads, send/receive, thread list)
 - [ ] 9. Org chart (React Flow, agent nodes with status)
 - [ ] 10. Board view (kanban from board/ files)
 - [ ] 11. Agent detail panel (status, history, live activity stream, cost)
-- [ ] 12. WebSocket real-time updates (agent events streamed from SDK)
+- [x] 12. WebSocket real-time updates (agent events streamed from SDK)
 
 ## Phase 3: Agent Intelligence
 
