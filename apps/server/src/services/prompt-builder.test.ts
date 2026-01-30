@@ -107,4 +107,25 @@ describe("buildSystemPrompt", () => {
 
     expect(text).not.toContain("Pending Results");
   });
+
+  it("includes context health warning when provided", () => {
+    const text = buildSystemPrompt({
+      agent: makeAgent(),
+      task: makeTask(),
+      contextHealthWarning: "Warning: your context.md is ~7000 tokens (limit: 6000). Consider compacting.",
+    });
+
+    expect(text).toContain("## Context Health");
+    expect(text).toContain("~7000 tokens");
+  });
+
+  it("omits context health section when warning is null", () => {
+    const text = buildSystemPrompt({
+      agent: makeAgent(),
+      task: makeTask(),
+      contextHealthWarning: null,
+    });
+
+    expect(text).not.toContain("## Context Health");
+  });
 });

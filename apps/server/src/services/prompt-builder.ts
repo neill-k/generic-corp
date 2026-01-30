@@ -14,6 +14,7 @@ type BuildSystemPromptParams = {
   generatedAt?: Date;
   pendingResults?: PendingResult[];
   skills?: SkillId[];
+  contextHealthWarning?: string | null;
 };
 
 function asIso(date: Date): string {
@@ -48,7 +49,10 @@ You follow corporate chain-of-command:
 ## Context Management
 Your \`.gc/context.md\` is YOUR working memory. Read it at the start of each run.
 Update it before finishing to reflect current goals, priorities, and key context.
-
+${params.contextHealthWarning ? `
+## Context Health
+${params.contextHealthWarning}
+` : ""}
 ## Available Tools
 All standard Claude Code tools (file I/O, bash, git, grep, etc.) plus:
 - \`delegate_task\`
