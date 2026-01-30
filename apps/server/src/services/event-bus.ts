@@ -1,48 +1,30 @@
-import { EventEmitter } from "events";
+export type Unsubscribe = () => void;
 
-// Typed event bus for internal server communication
-type EventMap = {
-  "agent:status": { agentId: string; status: string; taskId?: string };
-  "task:queued": { agentId: string; task: any };
-  "task:progress": { taskId: string; progress: number; details?: Record<string, unknown> };
-  "task:completed": { taskId: string; result: any };
-  "task:failed": { taskId: string; error: string };
-  "message:new": { toAgentId: string; message: any };
-  "draft:pending": { draftId: string; fromAgent: string; content: any };
-  "draft:rejected": { draftId: string; reason?: string };
-  "activity:log": { agentId: string; eventType: string; eventData?: Record<string, unknown> };
-  "cron:started": { name: string };
-  "cron:completed": { name: string; durationMs: number };
-  "cron:failed": { name: string; error: string; durationMs: number };
-};
+type Handler<T> = (payload: T) => void;
 
-class TypedEventEmitter {
-  private emitter = new EventEmitter();
+export class EventBus<EventMap extends Record<string, unknown>> {
+  private readonly handlers = new Map<keyof EventMap, Set<Handler<unknown>>>();
 
-  constructor() {
-    // Increase max listeners for busy systems
-    this.emitter.setMaxListeners(50);
+  on<K extends keyof EventMap>(event: K, handler: Handler<EventMap[K]>): Unsubscribe {
+    const existing = this.handlers.get(event) ?? new Set<Handler<unknown>>();
+    existing.add(handler as Handler<unknown>);
+    this.handlers.set(event, existing);
+
+    return () => {
+      const set = this.handlers.get(event);
+      if (!set) return;
+
+      set.delete(handler as Handler<unknown>);
+      if (set.size === 0) this.handlers.delete(event);
+    };
   }
 
-  on<K extends keyof EventMap>(event: K, listener: (data: EventMap[K]) => void): this {
-    this.emitter.on(event, listener);
-    return this;
-  }
+  emit<K extends keyof EventMap>(event: K, payload: EventMap[K]) {
+    const set = this.handlers.get(event);
+    if (!set) return;
 
-  off<K extends keyof EventMap>(event: K, listener: (data: EventMap[K]) => void): this {
-    this.emitter.off(event, listener);
-    return this;
-  }
-
-  emit<K extends keyof EventMap>(event: K, data: EventMap[K]): boolean {
-    return this.emitter.emit(event, data);
-  }
-
-  once<K extends keyof EventMap>(event: K, listener: (data: EventMap[K]) => void): this {
-    this.emitter.once(event, listener);
-    return this;
+    for (const handler of set) {
+      handler(payload);
+    }
   }
 }
-
-// Singleton event bus instance
-export const EventBus = new TypedEventEmitter();
