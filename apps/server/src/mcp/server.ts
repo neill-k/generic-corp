@@ -5,10 +5,12 @@ import { db } from "../db/client.js";
 
 import { enqueueAgentTask } from "../queue/agent-queues.js";
 
-import { BOARD_TYPE_TO_FOLDER, type BoardItemType } from "@generic-corp/shared";
+import type { BoardItemType } from "@generic-corp/shared";
 
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+
+import { BoardService } from "../services/board-service.js";
 
 type ToolTextResult = { content: Array<{ type: "text"; text: string }> };
 
@@ -76,100 +78,8 @@ async function ensureDir(p: string) {
   await mkdir(p, { recursive: true });
 }
 
-async function writeBoardItem(params: {
-  agentName: string;
-  type: BoardItemType;
-  content: string;
-}): Promise<string> {
-  const root = resolveWorkspaceRoot();
-  const folder = BOARD_TYPE_TO_FOLDER[params.type];
-  const dir = path.join(root, "board", folder);
-  await ensureDir(dir);
-
-  const now = new Date();
-  const fileName = `${safeIsoForFilename(now)}-${params.agentName}.md`;
-  const filePath = path.join(dir, fileName);
-  const body = `# ${params.type}\n\nAuthor: ${params.agentName}\nTime: ${now.toISOString()}\n\n---\n\n${params.content.trim()}\n`;
-  await writeFile(filePath, body, "utf8");
-
-  return filePath;
-}
-
-async function listBoardItems(params: {
-  type?: BoardItemType;
-  since?: string;
-}): Promise<
-  Array<{ author: string; type: BoardItemType; summary: string; timestamp: string; path: string }>
-> {
-  const root = resolveWorkspaceRoot();
-  const types: BoardItemType[] = params.type
-    ? [params.type]
-    : (Object.keys(BOARD_TYPE_TO_FOLDER) as BoardItemType[]);
-
-  const sinceMs = params.since ? Date.parse(params.since) : null;
-  if (params.since && Number.isNaN(sinceMs)) {
-    throw new Error(`Invalid 'since' timestamp: ${params.since}`);
-  }
-
-  const items: Array<{ author: string; type: BoardItemType; summary: string; timestamp: string; path: string }>
-    = [];
-
-  for (const type of types) {
-    const folder = BOARD_TYPE_TO_FOLDER[type];
-    const dir = path.join(root, "board", folder);
-
-    let files: string[] = [];
-    try {
-      files = await readdir(dir);
-    } catch {
-      continue;
-    }
-
-    for (const file of files) {
-      if (!file.endsWith(".md")) continue;
-      const filePath = path.join(dir, file);
-
-      let text: string;
-      try {
-        text = await readFile(filePath, "utf8");
-      } catch {
-        continue;
-      }
-
-      const summaryLine = text
-        .split("\n")
-        .map((l) => l.trim())
-        .find((l) => l.length > 0 && !l.startsWith("#"))
-        ?? "";
-
-      // If the file includes a Time: line, prefer that.
-      const timeLine = text
-        .split("\n")
-        .map((l) => l.trim())
-        .find((l) => l.startsWith("Time: "));
-
-      const timestamp = timeLine ? timeLine.replace("Time: ", "") : new Date().toISOString();
-      const timestampMs = Date.parse(timestamp);
-      if (sinceMs !== null && !Number.isNaN(timestampMs) && timestampMs < sinceMs) continue;
-
-      const authorLine = text
-        .split("\n")
-        .map((l) => l.trim())
-        .find((l) => l.startsWith("Author: "));
-      const author = authorLine ? authorLine.replace("Author: ", "") : "unknown";
-
-      items.push({
-        author,
-        type,
-        summary: summaryLine,
-        timestamp,
-        path: filePath,
-      });
-    }
-  }
-
-  items.sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp));
-  return items;
+function getBoardService(): BoardService {
+  return new BoardService(resolveWorkspaceRoot());
 }
 
 export function createGcMcpServer(agentId: string, taskId: string) {
@@ -289,10 +199,11 @@ export function createGcMcpServer(agentId: string, taskId: string) {
             }
 
             if (args.status === "blocked") {
+              const boardService = getBoardService();
               const content = args.blockers?.trim().length
                 ? args.blockers.trim()
                 : `Task ${taskId} blocked: ${args.resultSummary}`;
-              await writeBoardItem({ agentName: agent.name, type: "blocker", content });
+              await boardService.writeBoardItem({ agentName: agent.name, type: "blocker", content });
             }
 
             return toolText("Acknowledged.");
@@ -402,10 +313,10 @@ export function createGcMcpServer(agentId: string, taskId: string) {
         },
         async (args) => {
           try {
-            // scope is not enforced yet (needs org/team mapping and shared workspace conventions)
             void args.scope;
 
-            const items = await listBoardItems({
+            const boardService = getBoardService();
+            const items = await boardService.listBoardItems({
               type: args.type as BoardItemType | undefined,
               since: args.since,
             });
@@ -429,7 +340,8 @@ export function createGcMcpServer(agentId: string, taskId: string) {
           try {
             const agent = await getAgentByIdOrName(agentId);
             const agentName = agent?.name ?? agentId;
-            const filePath = await writeBoardItem({
+            const boardService = getBoardService();
+            const filePath = await boardService.writeBoardItem({
               agentName,
               type: args.type as BoardItemType,
               content: args.content,

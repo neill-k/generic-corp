@@ -108,4 +108,71 @@ export interface WsSnapshotEvent extends WsEventBase {
   serverTime: string;
 }
 
-export type WsOutboundEvent = WsAgentEvent | WsSnapshotEvent;
+export interface WsAgentStatusChanged extends WsEventBase {
+  type: "agent_status_changed";
+  agentId: string;
+  status: string;
+}
+
+export interface WsTaskStatusChanged extends WsEventBase {
+  type: "task_status_changed";
+  taskId: string;
+  status: string;
+}
+
+export type WsOutboundEvent =
+  | WsAgentEvent
+  | WsSnapshotEvent
+  | WsAgentStatusChanged
+  | WsTaskStatusChanged;
+
+// --- API Response Types ---
+
+export interface ApiAgentSummary {
+  id: string;
+  name: string;
+  displayName: string;
+  role: string;
+  department: string;
+  level: AgentLevel;
+  status: AgentStatus;
+  currentTaskId: string | null;
+}
+
+export interface ApiAgentDetail extends ApiAgentSummary {
+  personality: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ApiOrgNode {
+  agent: ApiAgentSummary;
+  parentAgentId: string | null;
+  children: ApiOrgNode[];
+}
+
+export interface ApiBoardItem {
+  author: string;
+  type: BoardItemType;
+  summary: string;
+  timestamp: string;
+  path: string;
+}
+
+export interface ApiThread {
+  threadId: string;
+  agentId: string;
+  agentName: string;
+  lastMessageAt: string;
+  preview: string;
+}
+
+export interface ApiMessage {
+  id: string;
+  fromAgentId: string | null;
+  toAgentId: string;
+  threadId: string | null;
+  body: string;
+  type: MessageType;
+  createdAt: string;
+}
