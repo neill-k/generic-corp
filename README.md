@@ -1,110 +1,70 @@
-# Generic Corp
+# Generic Corp (v2)
 
-An isometric management game where you oversee a team of AI agents working to save a struggling company.
+Generic Corp is an agent orchestration platform where Claude Code instances act as employees in a corporate hierarchy.
 
-## Quick Start
+This repository is in the middle of a full rewrite. The current implementation follows the v2 architecture docs in `plans/`.
+
+## Repo Layout
+
+- `apps/server/` - TypeScript backend (Express + Socket.io + BullMQ + Prisma)
+- `apps/dashboard/` - Vite + React + Tailwind frontend (chat, org chart, kanban)
+- `packages/shared/` - Shared TypeScript types and constants
+- `plans/` - Architecture and status docs (start here)
+- `legacy/` - Pre-overhaul codebase (read-only reference; do not modify)
+
+## Prereqs
+
+- Node.js >= 22
+- pnpm >= 9
+- Docker (for Postgres + Redis)
+
+## Quickstart
+
+Install deps:
 
 ```bash
-# Install dependencies
 pnpm install
+```
 
-# Start infrastructure (PostgreSQL + Redis)
-pnpm docker:up
+Start infra:
 
-# Initialize database
-cd apps/server
+```bash
+docker compose up -d postgres redis
+```
+
+Configure env:
+
+```bash
+cp apps/server/.env.example apps/server/.env
+```
+
+Initialize database:
+
+```bash
 pnpm db:generate
 pnpm db:push
-cd ../..
+pnpm db:seed
+```
 
-# Start development servers (both server and game)
+Run dev:
+
+```bash
 pnpm dev
 ```
 
-The game will be available at http://localhost:5173 and the API at http://localhost:3000.
+- Server: http://localhost:3000
+- Dashboard: http://localhost:5173
 
-## Project Structure
-
-```
-generic-corp/
-├── apps/
-│   ├── server/          # Express + Socket.io backend
-│   │   ├── src/
-│   │   │   ├── agents/  # AI agent implementations
-│   │   │   ├── api/     # REST API routes
-│   │   │   ├── db/      # Prisma client + seed
-│   │   │   ├── queues/  # BullMQ task queue
-│   │   │   ├── services/ # Event bus, utilities
-│   │   │   └── websocket/ # Socket.io handlers
-│   │   └── prisma/      # Database schema
-│   └── game/            # Vite + React + Phaser frontend
-│       ├── src/
-│       │   ├── components/ # React UI components
-│       │   ├── game/      # Phaser scene
-│       │   ├── hooks/     # React hooks
-│       │   └── store/     # Zustand state
-│       └── public/        # Static assets
-└── packages/
-    └── shared/          # Shared types and constants
-```
-
-## Development
-
-### Commands
+## Common Commands
 
 ```bash
-# Start everything
-pnpm dev
-
-# Start only server
-pnpm dev:server
-
-# Start only game
-pnpm dev:game
-
-# Database management
-cd apps/server
-pnpm db:studio    # Open Prisma Studio
-pnpm db:migrate   # Run migrations
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
 ```
 
-### Environment Variables
+## Architecture Docs
 
-Copy `apps/server/.env.example` to `apps/server/.env` and configure as needed.
-
-**Note:** Agent execution is performed via a configurable CLI runner (see `apps/server/src/workers/cli/`).
-By default it runs in "echo" mode (returns the prompt). To use a real CLI tool, set `GENERIC_CORP_AGENT_CLI_SCRIPT`.
-
-### Testing
-
-See [TESTING.md](./TESTING.md) for comprehensive testing guide.
-
-**Quick API Test:**
-```bash
-# Run automated API tests
-./scripts/test-api.sh
-
-# Or test manually:
-curl http://localhost:3000/health
-curl http://localhost:3000/api/agents
-```
-
-## Architecture
-
-- **Frontend**: Phaser 3 for isometric rendering, React for UI, Zustand for state, Socket.io for real-time
-- **Backend**: Express server, BullMQ for job queue, Prisma ORM, PostgreSQL + Redis
-- **AI Agents**: CLI-based agent runtime (configurable adapters), personality-driven responses
-
-## Phase 1 Features
-
-- [x] Monorepo setup with pnpm workspaces
-- [x] PostgreSQL + Redis via Docker
-- [x] Prisma schema with all models
-- [x] WebSocket server with event handling
-- [x] REST API endpoints
-- [x] BullMQ task queue
-- [x] BaseAgent + SableAgent implementation
-- [x] Phaser isometric game shell
-- [x] React dashboard with agent list
-- [x] Zustand state management
-- [x] Full agent task execution test
+- Canonical design: `plans/v2-architecture-simplified.md`
+- Implementation status: `plans/v2-architecture-status.md`

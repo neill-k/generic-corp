@@ -31,6 +31,10 @@ pnpm-debug.log*
 # Testing
 coverage/
 
+# Agent tools
+.claude/
+.serena/
+
 # Database
 *.db
 *.sqlite
