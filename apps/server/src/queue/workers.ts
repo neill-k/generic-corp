@@ -5,7 +5,9 @@ import type { Agent, Task } from "@prisma/client";
 import { db } from "../db/client.js";
 import { createGcMcpServer } from "../mcp/server.js";
 import { appEventBus } from "../services/app-events.js";
+import type { AgentRuntime } from "../services/agent-lifecycle.js";
 import { AgentSdkRuntime } from "../services/agent-runtime-sdk.js";
+import { AgentCliRuntime } from "../services/agent-runtime-cli.js";
 import { buildSystemPrompt } from "../services/prompt-builder.js";
 import type { WorkspaceManager } from "../services/workspace-manager.js";
 
@@ -16,6 +18,12 @@ type WorkerJobData = { taskId: string };
 
 const workers: Worker[] = [];
 let workspaceManager: WorkspaceManager | null = null;
+
+export function createRuntime(): AgentRuntime {
+  const runtimeType = process.env["GC_RUNTIME"] ?? "sdk";
+  if (runtimeType === "cli") return new AgentCliRuntime();
+  return new AgentSdkRuntime();
+}
 
 export function setWorkspaceManager(wm: WorkspaceManager) {
   workspaceManager = wm;
@@ -69,7 +77,7 @@ async function maybeFinalizeTask(taskId: string, fallback: { status: "completed"
 async function runTask(task: Task & { assignee: Agent }) {
   const wm = getWorkspaceManager();
   const cwd = await wm.ensureAgentWorkspace(task.assignee.name);
-  const runtime = new AgentSdkRuntime();
+  const runtime = createRuntime();
   const systemPrompt = buildSystemPrompt({ agent: task.assignee, task });
   const mcpServer = createGcMcpServer(task.assignee.name, task.id);
 

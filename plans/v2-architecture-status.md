@@ -34,9 +34,9 @@ Last updated: 2026-01-30
 - [x] 17. Board archival (completed/ folder)
 - [x] 18. Context health warnings
 - [x] 19. Error recovery (agent crash detection, task retry)
-- [ ] 20. CLI runtime alternative (`AgentCliRuntime` for fallback)
+- [x] 20. CLI runtime alternative (`AgentCliRuntime` for fallback)
 
 ## Quality Gates
 
-- [ ] All tests passing
+- [x] All tests passing
 - [ ] Minimum 90% test coverage
