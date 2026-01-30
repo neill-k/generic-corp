@@ -1,41 +1,26 @@
 {
   "name": "generic-corp",
-  "version": "0.1.0",
+  "version": "0.0.0",
   "private": true,
-  "description": "An isometric management game serving as an interface for real AI agents",
-  "pnpm": {
-    "overrides": {
-      "esbuild": "0.21.5"
-    }
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=22.0.0"
   },
   "scripts": {
-    "dev": "pnpm -r --parallel run dev",
+    "dev": "pnpm --filter @generic-corp/server --filter @generic-corp/dashboard --parallel run dev",
     "dev:server": "pnpm --filter @generic-corp/server run dev",
-    "dev:game": "pnpm --filter @generic-corp/game run dev",
+    "dev:dashboard": "pnpm --filter @generic-corp/dashboard run dev",
     "build": "pnpm -r run build",
     "lint": "pnpm -r run lint",
+    "typecheck": "pnpm -r run typecheck",
     "test": "pnpm -r run test",
+    "test:coverage": "pnpm -r run test:coverage",
     "db:generate": "pnpm --filter @generic-corp/server run db:generate",
     "db:push": "pnpm --filter @generic-corp/server run db:push",
     "db:migrate": "pnpm --filter @generic-corp/server run db:migrate",
-    "docker:up": "docker compose up -d",
+    "db:seed": "pnpm --filter @generic-corp/server run db:seed",
+    "db:studio": "pnpm --filter @generic-corp/server run db:studio",
+    "docker:up": "docker compose up -d postgres redis",
     "docker:down": "docker compose down"
-  },
-  "keywords": [
-    "ai-agents",
-    "game",
-    "phaser",
-    "multi-agent"
-  ],
-  "author": "Neill Killgore",
-  "license": "MIT",
-  "packageManager": "pnpm@9.0.0",
-  "engines": {
-    "node": ">=20.0.0"
-  },
-  "devDependencies": {
-    "@eslint/js": "^9.39.2",
-    "eslint": "^9.39.2",
-    "typescript-eslint": "^8.54.0"
   }
 }
