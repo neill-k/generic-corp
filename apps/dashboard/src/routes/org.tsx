@@ -1,8 +1,10 @@
+import { OrgChart } from "../components/org/OrgChart.js";
+
 export function OrgPage() {
   return (
     <div>
-      <h2 className="text-xl font-semibold">Org Chart</h2>
-      <p className="mt-2 text-sm text-slate-500">Org chart — coming in B3.</p>
+      <h2 className="mb-4 text-xl font-semibold">Org Chart</h2>
+      <OrgChart />
     </div>
   );
 }

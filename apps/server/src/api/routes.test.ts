@@ -18,6 +18,9 @@ vi.mock("../db/client.js", () => {
       create: vi.fn(),
       findMany: vi.fn(),
     },
+    orgNode: {
+      findMany: vi.fn(),
+    },
   };
   return { db: mockDb };
 });
@@ -39,6 +42,7 @@ const mockDb = db as unknown as {
   agent: { findMany: ReturnType<typeof vi.fn>; findUnique: ReturnType<typeof vi.fn> };
   task: { create: ReturnType<typeof vi.fn>; findUnique: ReturnType<typeof vi.fn> };
   message: { create: ReturnType<typeof vi.fn>; findMany: ReturnType<typeof vi.fn> };
+  orgNode: { findMany: ReturnType<typeof vi.fn> };
 };
 
 describe("routes", () => {
@@ -198,6 +202,55 @@ describe("routes", () => {
       const res = await request(createApp()).get("/api/messages");
 
       expect(res.status).toBe(400);
+    });
+  });
+
+  describe("GET /api/org", () => {
+    it("returns org tree with nested children", async () => {
+      mockDb.orgNode.findMany.mockResolvedValue([
+        {
+          id: "on1",
+          agentId: "a1",
+          parentNodeId: null,
+          position: 0,
+          agent: { id: "a1", name: "marcus", displayName: "Marcus Bell", role: "CEO", department: "Executive", level: "c-suite", status: "idle", currentTaskId: null },
+        },
+        {
+          id: "on2",
+          agentId: "a2",
+          parentNodeId: "on1",
+          position: 0,
+          agent: { id: "a2", name: "sable", displayName: "Sable Chen", role: "Principal Engineer", department: "Engineering", level: "lead", status: "idle", currentTaskId: null },
+        },
+        {
+          id: "on3",
+          agentId: "a3",
+          parentNodeId: "on1",
+          position: 1,
+          agent: { id: "a3", name: "viv", displayName: "Vivian Reyes", role: "VP Product", department: "Product", level: "vp", status: "running", currentTaskId: "t1" },
+        },
+      ]);
+
+      const res = await request(createApp()).get("/api/org");
+
+      expect(res.status).toBe(200);
+      expect(res.body.org).toHaveLength(1);
+
+      const root = res.body.org[0];
+      expect(root.agent.name).toBe("marcus");
+      expect(root.parentAgentId).toBeNull();
+      expect(root.children).toHaveLength(2);
+      expect(root.children[0].agent.name).toBe("sable");
+      expect(root.children[1].agent.name).toBe("viv");
+    });
+
+    it("returns empty array when no org nodes exist", async () => {
+      mockDb.orgNode.findMany.mockResolvedValue([]);
+
+      const res = await request(createApp()).get("/api/org");
+
+      expect(res.status).toBe(200);
+      expect(res.body.org).toEqual([]);
     });
   });
 

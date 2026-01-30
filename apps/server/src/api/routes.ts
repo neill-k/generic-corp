@@ -163,6 +163,58 @@ export function createApiRouter(): express.Router {
     }
   });
 
+  router.get("/org", async (_req, res, next) => {
+    try {
+      const nodes = await db.orgNode.findMany({
+        orderBy: { position: "asc" },
+        include: {
+          agent: {
+            select: {
+              id: true,
+              name: true,
+              displayName: true,
+              role: true,
+              department: true,
+              level: true,
+              status: true,
+              currentTaskId: true,
+            },
+          },
+        },
+      });
+
+      // Build tree: map nodeId → children, then return roots
+      const nodeMap = new Map<string, { agent: typeof nodes[0]["agent"]; parentAgentId: string | null; children: unknown[] }>();
+      const parentLookup = new Map<string, string>(); // nodeId → parentNodeId
+
+      for (const node of nodes) {
+        const parentNode = node.parentNodeId ? nodes.find((n) => n.id === node.parentNodeId) : null;
+        nodeMap.set(node.id, {
+          agent: node.agent,
+          parentAgentId: parentNode?.agent.id ?? null,
+          children: [],
+        });
+        if (node.parentNodeId) {
+          parentLookup.set(node.id, node.parentNodeId);
+        }
+      }
+
+      const roots: unknown[] = [];
+      for (const [nodeId, treeNode] of nodeMap) {
+        const parentNodeId = parentLookup.get(nodeId);
+        if (parentNodeId && nodeMap.has(parentNodeId)) {
+          (nodeMap.get(parentNodeId)!.children as unknown[]).push(treeNode);
+        } else {
+          roots.push(treeNode);
+        }
+      }
+
+      res.json({ org: roots });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   router.get("/threads", async (_req, res, next) => {
     try {
       // Get the latest message per thread using distinct + orderBy
