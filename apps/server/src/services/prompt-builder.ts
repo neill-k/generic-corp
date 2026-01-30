@@ -1,10 +1,16 @@
 import type { Agent, Task } from "@prisma/client";
 
+interface PendingResult {
+  childTaskId: string;
+  result: string;
+}
+
 type BuildSystemPromptParams = {
   agent: Agent;
   task: Task;
   delegatorDisplayName?: string;
   generatedAt?: Date;
+  pendingResults?: PendingResult[];
 };
 
 function asIso(date: Date): string {
@@ -62,5 +68,10 @@ Generated: ${asIso(generatedAt)}
 
 ## Context from delegator
 ${context}
-`;
+${params.pendingResults && params.pendingResults.length > 0 ? `
+## Pending Results from Delegated Work
+The following child tasks have completed and their results are available:
+
+${params.pendingResults.map((r) => `### Child Task ${r.childTaskId}\n${r.result}`).join("\n\n")}
+` : ""}`;
 }

@@ -11,6 +11,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { BoardService } from "../services/board-service.js";
+import { handleChildCompletion } from "../services/delegation-flow.js";
 
 type ToolTextResult = { content: Array<{ type: "text"; text: string }> };
 
@@ -186,6 +187,17 @@ export function createGcMcpServer(agentId: string, taskId: string) {
 
             if (args.status === "needs_followup") {
               await enqueueAgentTask({ agentName: agent.name, taskId, priority: updated.priority });
+            }
+
+            // Cascade result to parent if this was a delegated task
+            if (args.status === "completed") {
+              const completedTask = await db.task.findUnique({
+                where: { id: taskId },
+                select: { id: true, parentTaskId: true, assigneeId: true, result: true, status: true },
+              });
+              if (completedTask) {
+                await handleChildCompletion(completedTask, resolveWorkspaceRoot());
+              }
             }
 
             if (args.learnings && args.learnings.trim().length > 0) {

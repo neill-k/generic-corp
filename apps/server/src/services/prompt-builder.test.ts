@@ -67,4 +67,31 @@ describe("buildSystemPrompt", () => {
     expect(text).toContain("Prompt**: Do the thing");
     expect(text).toContain("Some context");
   });
+
+  it("includes pending results section when provided", () => {
+    const text = buildSystemPrompt({
+      agent: makeAgent(),
+      task: makeTask(),
+      pendingResults: [
+        { childTaskId: "child-1", result: "Revenue report complete" },
+        { childTaskId: "child-2", result: "Security audit passed" },
+      ],
+    });
+
+    expect(text).toContain("Pending Results from Delegated Work");
+    expect(text).toContain("Child Task child-1");
+    expect(text).toContain("Revenue report complete");
+    expect(text).toContain("Child Task child-2");
+    expect(text).toContain("Security audit passed");
+  });
+
+  it("omits pending results section when empty", () => {
+    const text = buildSystemPrompt({
+      agent: makeAgent(),
+      task: makeTask(),
+      pendingResults: [],
+    });
+
+    expect(text).not.toContain("Pending Results");
+  });
 });
