@@ -5,6 +5,8 @@ import { z } from "zod";
 
 import { db } from "../db/client.js";
 import { enqueueAgentTask } from "../queue/agent-queues.js";
+import type { BoardService } from "../services/board-service.js";
+import type { BoardItemType } from "@generic-corp/shared";
 
 const createTaskBodySchema = z.object({
   assignee: z.string().optional().describe("Agent name (slug). Defaults to marcus"),
@@ -19,7 +21,11 @@ const createMessageBodySchema = z.object({
   threadId: z.string().optional(),
 });
 
-export function createApiRouter(): express.Router {
+export interface ApiRouterDeps {
+  boardService?: BoardService;
+}
+
+export function createApiRouter(deps: ApiRouterDeps = {}): express.Router {
   const router = express.Router();
 
   router.get("/agents", async (_req, res, next) => {
@@ -240,6 +246,27 @@ export function createApiRouter(): express.Router {
       }));
 
       res.json({ threads });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get("/board", async (req, res, next) => {
+    try {
+      if (!deps.boardService) {
+        res.status(503).json({ error: "Board service not available" });
+        return;
+      }
+
+      const type = req.query["type"] as BoardItemType | undefined;
+      const since = req.query["since"] as string | undefined;
+
+      const items = await deps.boardService.listBoardItems({
+        type: type || undefined,
+        since: since || undefined,
+      });
+
+      res.json({ items });
     } catch (error) {
       next(error);
     }

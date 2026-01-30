@@ -10,6 +10,7 @@ import { Server as SocketIOServer } from "socket.io";
 import { createApiRouter } from "./api/routes.js";
 import { errorMiddleware } from "./api/middleware.js";
 import { appEventBus } from "./services/app-events.js";
+import { BoardService } from "./services/board-service.js";
 import { WorkspaceManager } from "./services/workspace-manager.js";
 import { setWorkspaceManager, startAgentWorkers, stopAgentWorkers } from "./queue/workers.js";
 import { createWebSocketHub } from "./ws/hub.js";
@@ -29,7 +30,8 @@ async function main() {
     res.json({ ok: true, time: new Date().toISOString() });
   });
 
-  app.use("/api", createApiRouter());
+  const boardService = new BoardService(resolveWorkspaceRoot());
+  app.use("/api", createApiRouter({ boardService }));
   app.use(errorMiddleware);
 
   const server = http.createServer(app);

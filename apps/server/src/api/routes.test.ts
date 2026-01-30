@@ -31,10 +31,15 @@ vi.mock("../queue/agent-queues.js", () => ({
 
 import { db } from "../db/client.js";
 
+const mockBoardService = {
+  listBoardItems: vi.fn(),
+  writeBoardItem: vi.fn(),
+};
+
 function createApp() {
   const app = express();
   app.use(express.json());
-  app.use("/api", createApiRouter());
+  app.use("/api", createApiRouter({ boardService: mockBoardService as never }));
   return app;
 }
 
@@ -280,6 +285,48 @@ describe("routes", () => {
       expect(res.body.threads[0].threadId).toBe("thread-1");
       expect(res.body.threads[0].agentName).toBe("marcus");
       expect(res.body.threads[0].preview).toBe("Latest message");
+    });
+  });
+
+  describe("GET /api/board", () => {
+    it("returns board items", async () => {
+      mockBoardService.listBoardItems.mockResolvedValue([
+        {
+          author: "marcus",
+          type: "status_update",
+          summary: "All systems go",
+          timestamp: "2025-01-01T00:00:00.000Z",
+          path: "/workspace/board/status-updates/file.md",
+        },
+      ]);
+
+      const res = await request(createApp()).get("/api/board");
+
+      expect(res.status).toBe(200);
+      expect(res.body.items).toHaveLength(1);
+      expect(res.body.items[0].author).toBe("marcus");
+      expect(res.body.items[0].type).toBe("status_update");
+    });
+
+    it("passes type and since filters", async () => {
+      mockBoardService.listBoardItems.mockResolvedValue([]);
+
+      const res = await request(createApp()).get("/api/board?type=blocker&since=2025-01-01");
+
+      expect(res.status).toBe(200);
+      expect(mockBoardService.listBoardItems).toHaveBeenCalledWith({
+        type: "blocker",
+        since: "2025-01-01",
+      });
+    });
+
+    it("returns empty array when no items", async () => {
+      mockBoardService.listBoardItems.mockResolvedValue([]);
+
+      const res = await request(createApp()).get("/api/board");
+
+      expect(res.status).toBe(200);
+      expect(res.body.items).toEqual([]);
     });
   });
 });
