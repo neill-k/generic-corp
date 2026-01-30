@@ -6,6 +6,8 @@ import { z } from "zod";
 import { db } from "../db/client.js";
 import { enqueueAgentTask } from "../queue/agent-queues.js";
 import type { BoardService } from "../services/board-service.js";
+import type { AgentRuntime } from "../services/agent-lifecycle.js";
+import { generateThreadSummary } from "../services/chat-continuity.js";
 import type { BoardItemType } from "@generic-corp/shared";
 
 const createTaskBodySchema = z.object({
@@ -23,6 +25,7 @@ const createMessageBodySchema = z.object({
 
 export interface ApiRouterDeps {
   boardService?: BoardService;
+  runtime?: AgentRuntime;
 }
 
 export function createApiRouter(deps: ApiRouterDeps = {}): express.Router {
@@ -282,6 +285,31 @@ export function createApiRouter(deps: ApiRouterDeps = {}): express.Router {
       }));
 
       res.json({ threads });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get("/threads/:id/summary", async (req, res, next) => {
+    try {
+      if (!deps.runtime) {
+        res.status(503).json({ error: "Runtime not available" });
+        return;
+      }
+
+      const since = req.query["since"];
+      if (!since || typeof since !== "string") {
+        res.status(400).json({ error: "since query parameter is required" });
+        return;
+      }
+
+      const summary = await generateThreadSummary({
+        threadId: req.params["id"] ?? "",
+        since,
+        runtime: deps.runtime,
+      });
+
+      res.json({ summary });
     } catch (error) {
       next(error);
     }

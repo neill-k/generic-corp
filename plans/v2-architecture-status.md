@@ -30,7 +30,7 @@ Last updated: 2026-01-30
 
 ## Phase 4: Polish
 
-- [ ] 16. Chat continuity (while-you-were-away summaries)
+- [x] 16. Chat continuity (while-you-were-away summaries)
 - [ ] 17. Board archival (completed/ folder)
 - [ ] 18. Context health warnings
 - [ ] 19. Error recovery (agent crash detection, task retry)

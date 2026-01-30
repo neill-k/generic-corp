@@ -32,15 +32,24 @@ vi.mock("../queue/agent-queues.js", () => ({
 
 import { db } from "../db/client.js";
 
+vi.mock("../services/chat-continuity.js", () => ({
+  generateThreadSummary: vi.fn(),
+}));
+
+import { generateThreadSummary } from "../services/chat-continuity.js";
+
 const mockBoardService = {
   listBoardItems: vi.fn(),
   writeBoardItem: vi.fn(),
 };
 
+const mockRuntime = {} as never;
+const mockGenerateThreadSummary = generateThreadSummary as ReturnType<typeof vi.fn>;
+
 function createApp() {
   const app = express();
   app.use(express.json());
-  app.use("/api", createApiRouter({ boardService: mockBoardService as never }));
+  app.use("/api", createApiRouter({ boardService: mockBoardService as never, runtime: mockRuntime }));
   return app;
 }
 
@@ -333,6 +342,36 @@ describe("routes", () => {
       expect(res.status).toBe(200);
       expect(res.body.tasks).toHaveLength(2);
       expect(res.body.tasks[0].id).toBe("t1");
+    });
+  });
+
+  describe("GET /api/threads/:id/summary", () => {
+    it("returns a thread summary", async () => {
+      mockGenerateThreadSummary.mockResolvedValue("While you were away: feature deployed.");
+
+      const res = await request(createApp()).get(
+        "/api/threads/t1/summary?since=2025-01-01T00:00:00Z",
+      );
+
+      expect(res.status).toBe(200);
+      expect(res.body.summary).toBe("While you were away: feature deployed.");
+    });
+
+    it("returns null summary when no activity", async () => {
+      mockGenerateThreadSummary.mockResolvedValue(null);
+
+      const res = await request(createApp()).get(
+        "/api/threads/t1/summary?since=2025-01-01T00:00:00Z",
+      );
+
+      expect(res.status).toBe(200);
+      expect(res.body.summary).toBeNull();
+    });
+
+    it("returns 400 when since is missing", async () => {
+      const res = await request(createApp()).get("/api/threads/t1/summary");
+
+      expect(res.status).toBe(400);
     });
   });
 
