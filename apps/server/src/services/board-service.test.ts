@@ -90,4 +90,43 @@ describe("BoardService", () => {
       expect(items).toHaveLength(0);
     });
   });
+
+  describe("archiveBoardItem", () => {
+    it("moves a board item to completed/ folder", async () => {
+      const filePath = await service.writeBoardItem({
+        agentName: "marcus",
+        type: "status_update",
+        content: "Done with this",
+      });
+
+      expect(existsSync(filePath)).toBe(true);
+
+      const archivedPath = await service.archiveBoardItem(filePath);
+
+      expect(existsSync(filePath)).toBe(false);
+      expect(existsSync(archivedPath)).toBe(true);
+      expect(archivedPath).toContain("completed");
+    });
+  });
+
+  describe("listArchivedItems", () => {
+    it("returns archived items", async () => {
+      const filePath = await service.writeBoardItem({
+        agentName: "sable",
+        type: "blocker",
+        content: "Resolved blocker",
+      });
+
+      await service.archiveBoardItem(filePath);
+
+      const archived = await service.listArchivedItems();
+      expect(archived).toHaveLength(1);
+      expect(archived[0]!.author).toBe("sable");
+    });
+
+    it("returns empty array when no archived items", async () => {
+      const archived = await service.listArchivedItems();
+      expect(archived).toEqual([]);
+    });
+  });
 });

@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "../../lib/api-client.js";
 import { BoardColumn } from "./BoardColumn.js";
@@ -12,10 +12,20 @@ const COLUMNS: { type: BoardItemType; title: string }[] = [
 ];
 
 export function BoardView() {
+  const queryClient = useQueryClient();
+
   const boardQuery = useQuery({
     queryKey: ["board"],
     queryFn: () => api.get<{ items: ApiBoardItem[] }>("/board"),
     refetchInterval: 30000,
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: (filePath: string) =>
+      api.post<{ archivedPath: string }>("/board/archive", { filePath }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["board"] });
+    },
   });
 
   if (boardQuery.isLoading) {
@@ -35,6 +45,7 @@ export function BoardView() {
           key={col.type}
           title={col.title}
           items={items.filter((item) => item.type === col.type)}
+          onArchive={(filePath) => archiveMutation.mutate(filePath)}
         />
       ))}
     </div>

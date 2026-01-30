@@ -315,6 +315,40 @@ export function createApiRouter(deps: ApiRouterDeps = {}): express.Router {
     }
   });
 
+  router.post("/board/archive", async (req, res, next) => {
+    try {
+      if (!deps.boardService) {
+        res.status(503).json({ error: "Board service not available" });
+        return;
+      }
+
+      const filePath = req.body?.filePath;
+      if (!filePath || typeof filePath !== "string") {
+        res.status(400).json({ error: "filePath is required" });
+        return;
+      }
+
+      const archivedPath = await deps.boardService.archiveBoardItem(filePath);
+      res.json({ archivedPath });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get("/board/archived", async (_req, res, next) => {
+    try {
+      if (!deps.boardService) {
+        res.status(503).json({ error: "Board service not available" });
+        return;
+      }
+
+      const items = await deps.boardService.listArchivedItems();
+      res.json({ items });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   router.get("/board", async (req, res, next) => {
     try {
       if (!deps.boardService) {

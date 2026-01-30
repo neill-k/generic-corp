@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { BOARD_TYPE_TO_FOLDER, type BoardItemType } from "@generic-corp/shared";
@@ -100,6 +100,69 @@ export class BoardService {
 
         items.push({ author, type, summary: summaryLine, timestamp, path: filePath });
       }
+    }
+
+    items.sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp));
+    return items;
+  }
+
+  async archiveBoardItem(filePath: string): Promise<string> {
+    const completedDir = path.join(this.root, "board", "completed");
+    await mkdir(completedDir, { recursive: true });
+
+    const fileName = path.basename(filePath);
+    const destPath = path.join(completedDir, fileName);
+    await rename(filePath, destPath);
+
+    return destPath;
+  }
+
+  async listArchivedItems(): Promise<BoardItem[]> {
+    const completedDir = path.join(this.root, "board", "completed");
+    const items: BoardItem[] = [];
+
+    let files: string[] = [];
+    try {
+      files = await readdir(completedDir);
+    } catch {
+      return [];
+    }
+
+    for (const file of files) {
+      if (!file.endsWith(".md")) continue;
+      const filePath = path.join(completedDir, file);
+
+      let text: string;
+      try {
+        text = await readFile(filePath, "utf8");
+      } catch {
+        continue;
+      }
+
+      const summaryLine = text
+        .split("\n")
+        .map((l) => l.trim())
+        .find((l) => l.length > 0 && !l.startsWith("#"))
+        ?? "";
+
+      const timeLine = text
+        .split("\n")
+        .map((l) => l.trim())
+        .find((l) => l.startsWith("Time: "));
+
+      const timestamp = timeLine ? timeLine.replace("Time: ", "") : new Date().toISOString();
+
+      const authorLine = text
+        .split("\n")
+        .map((l) => l.trim())
+        .find((l) => l.startsWith("Author: "));
+      const author = authorLine ? authorLine.replace("Author: ", "") : "unknown";
+
+      // Infer type from header line
+      const headerLine = text.split("\n").map((l) => l.trim()).find((l) => l.startsWith("# "));
+      const type = (headerLine?.replace("# ", "") ?? "status_update") as BoardItemType;
+
+      items.push({ author, type, summary: summaryLine, timestamp, path: filePath });
     }
 
     items.sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp));

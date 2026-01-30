@@ -41,6 +41,8 @@ import { generateThreadSummary } from "../services/chat-continuity.js";
 const mockBoardService = {
   listBoardItems: vi.fn(),
   writeBoardItem: vi.fn(),
+  archiveBoardItem: vi.fn(),
+  listArchivedItems: vi.fn(),
 };
 
 const mockRuntime = {} as never;
@@ -411,6 +413,59 @@ describe("routes", () => {
       mockBoardService.listBoardItems.mockResolvedValue([]);
 
       const res = await request(createApp()).get("/api/board");
+
+      expect(res.status).toBe(200);
+      expect(res.body.items).toEqual([]);
+    });
+  });
+
+  describe("POST /api/board/archive", () => {
+    it("archives a board item", async () => {
+      mockBoardService.archiveBoardItem.mockResolvedValue("/workspace/board/completed/file.md");
+
+      const res = await request(createApp())
+        .post("/api/board/archive")
+        .send({ filePath: "/workspace/board/status-updates/file.md" });
+
+      expect(res.status).toBe(200);
+      expect(res.body.archivedPath).toBe("/workspace/board/completed/file.md");
+      expect(mockBoardService.archiveBoardItem).toHaveBeenCalledWith(
+        "/workspace/board/status-updates/file.md",
+      );
+    });
+
+    it("returns 400 when filePath is missing", async () => {
+      const res = await request(createApp())
+        .post("/api/board/archive")
+        .send({});
+
+      expect(res.status).toBe(400);
+    });
+  });
+
+  describe("GET /api/board/archived", () => {
+    it("returns archived items", async () => {
+      mockBoardService.listArchivedItems.mockResolvedValue([
+        {
+          author: "sable",
+          type: "blocker",
+          summary: "Resolved blocker",
+          timestamp: "2025-01-01T00:00:00.000Z",
+          path: "/workspace/board/completed/file.md",
+        },
+      ]);
+
+      const res = await request(createApp()).get("/api/board/archived");
+
+      expect(res.status).toBe(200);
+      expect(res.body.items).toHaveLength(1);
+      expect(res.body.items[0].author).toBe("sable");
+    });
+
+    it("returns empty array when no archived items", async () => {
+      mockBoardService.listArchivedItems.mockResolvedValue([]);
+
+      const res = await request(createApp()).get("/api/board/archived");
 
       expect(res.status).toBe(200);
       expect(res.body.items).toEqual([]);

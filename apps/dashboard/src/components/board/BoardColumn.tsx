@@ -4,9 +4,10 @@ import { BoardCard } from "./BoardCard.js";
 interface BoardColumnProps {
   title: string;
   items: ApiBoardItem[];
+  onArchive?: (filePath: string) => void;
 }
 
-export function BoardColumn({ title, items }: BoardColumnProps) {
+export function BoardColumn({ title, items, onArchive }: BoardColumnProps) {
   return (
     <div className="flex w-72 flex-shrink-0 flex-col rounded-lg border border-slate-200 bg-slate-50">
       <div className="border-b border-slate-200 px-3 py-2">
@@ -22,7 +23,7 @@ export function BoardColumn({ title, items }: BoardColumnProps) {
           <p className="py-4 text-center text-xs text-slate-400">No items</p>
         )}
         {items.map((item) => (
-          <BoardCard key={item.path} item={item} />
+          <BoardCard key={item.path} item={item} onArchive={onArchive} />
         ))}
       </div>
     </div>
