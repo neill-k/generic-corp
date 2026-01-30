@@ -1,17 +1,30 @@
+import { useEffect } from "react";
+import { RouterProvider } from "@tanstack/react-router";
+import { QueryClientProvider } from "@tanstack/react-query";
+
+import { router } from "./router.js";
+import { queryClient } from "./lib/query-client.js";
+import { getSocket } from "./lib/socket.js";
+import { useSocketStore } from "./store/socket-store.js";
+
 export function App() {
+  const setConnected = useSocketStore((s) => s.setConnected);
+
+  useEffect(() => {
+    const socket = getSocket();
+
+    socket.on("connect", () => setConnected(true));
+    socket.on("disconnect", () => setConnected(false));
+
+    return () => {
+      socket.off("connect");
+      socket.off("disconnect");
+    };
+  }, [setConnected]);
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-5xl px-4 py-4">
-          <h1 className="text-lg font-semibold">Generic Corp</h1>
-          <p className="text-sm text-slate-600">Agent-native orchestration dashboard</p>
-        </div>
-      </header>
-      <main className="mx-auto max-w-5xl px-4 py-8">
-        <p className="text-sm">
-          Dashboard scaffolding is live. Next: chat, org chart, board, and agent detail.
-        </p>
-      </main>
-    </div>
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>
   );
 }
