@@ -1,4 +1,6 @@
 import type { Agent, Task } from "@prisma/client";
+import type { SkillId } from "./skills.js";
+import { SKILL_PROMPTS } from "./skills.js";
 
 interface PendingResult {
   childTaskId: string;
@@ -11,6 +13,7 @@ type BuildSystemPromptParams = {
   delegatorDisplayName?: string;
   generatedAt?: Date;
   pendingResults?: PendingResult[];
+  skills?: SkillId[];
 };
 
 function asIso(date: Date): string {
@@ -73,5 +76,11 @@ ${params.pendingResults && params.pendingResults.length > 0 ? `
 The following child tasks have completed and their results are available:
 
 ${params.pendingResults.map((r) => `### Child Task ${r.childTaskId}\n${r.result}`).join("\n\n")}
+` : ""}${params.skills && params.skills.length > 0 ? `
+---
+
+# Relevant Skills
+
+${params.skills.map((id) => SKILL_PROMPTS[id]).join("\n\n")}
 ` : ""}`;
 }

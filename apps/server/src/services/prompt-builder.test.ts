@@ -85,6 +85,19 @@ describe("buildSystemPrompt", () => {
     expect(text).toContain("Security audit passed");
   });
 
+  it("includes skill sections when provided", () => {
+    const text = buildSystemPrompt({
+      agent: makeAgent(),
+      task: makeTask(),
+      skills: ["review", "standup"],
+    });
+
+    expect(text).toContain("Relevant Skills");
+    expect(text).toContain("Skill: Code Review");
+    expect(text).toContain("Skill: Standup Report");
+    expect(text).not.toContain("Skill: Compound Learning");
+  });
+
   it("omits pending results section when empty", () => {
     const text = buildSystemPrompt({
       agent: makeAgent(),
