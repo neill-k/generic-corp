@@ -1,14 +1,12 @@
 import { Worker } from "bullmq";
 
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
-
 import type { Agent, Task } from "@prisma/client";
 
 import { db } from "../db/client.js";
 import { createGcMcpServer } from "../mcp/server.js";
 import { AgentSdkRuntime } from "../services/agent-runtime-sdk.js";
 import { buildSystemPrompt } from "../services/prompt-builder.js";
+import type { WorkspaceManager } from "../services/workspace-manager.js";
 
 import { queueNameForAgent } from "./agent-queues.js";
 import { closeRedis, getRedis } from "./redis.js";
@@ -16,25 +14,17 @@ import { closeRedis, getRedis } from "./redis.js";
 type WorkerJobData = { taskId: string };
 
 const workers: Worker[] = [];
+let workspaceManager: WorkspaceManager | null = null;
 
-function resolveWorkspaceRoot(): string {
-  return path.resolve(process.cwd(), process.env["GC_WORKSPACE_ROOT"] ?? "./workspace");
+export function setWorkspaceManager(wm: WorkspaceManager) {
+  workspaceManager = wm;
 }
 
-async function ensureAgentWorkspace(agentName: string): Promise<string> {
-  const root = resolveWorkspaceRoot();
-  const cwd = path.join(root, "agents", agentName);
-  const gcDir = path.join(cwd, ".gc");
-  await mkdir(gcDir, { recursive: true });
-
-  const contextPath = path.join(gcDir, "context.md");
-  try {
-    await readFile(contextPath, "utf8");
-  } catch {
-    await writeFile(contextPath, "# context\n\n", "utf8");
+function getWorkspaceManager(): WorkspaceManager {
+  if (!workspaceManager) {
+    throw new Error("[Queue] WorkspaceManager not set — call setWorkspaceManager() before starting workers");
   }
-
-  return cwd;
+  return workspaceManager;
 }
 
 async function markTaskRunning(agent: Agent, taskId: string) {
@@ -73,7 +63,8 @@ async function maybeFinalizeTask(taskId: string, fallback: { status: "completed"
 }
 
 async function runTask(task: Task & { assignee: Agent }) {
-  const cwd = await ensureAgentWorkspace(task.assignee.name);
+  const wm = getWorkspaceManager();
+  const cwd = await wm.ensureAgentWorkspace(task.assignee.name);
   const runtime = new AgentSdkRuntime();
   const systemPrompt = buildSystemPrompt({ agent: task.assignee, task });
   const mcpServer = createGcMcpServer(task.assignee.name, task.id);
