@@ -32,6 +32,8 @@ export async function enqueueAgentTask(params: EnqueueAgentTaskParams) {
       priority: params.priority,
       removeOnComplete: true,
       removeOnFail: false,
+      attempts: 3,
+      backoff: { type: "exponential", delay: 5000 },
     },
   );
 }

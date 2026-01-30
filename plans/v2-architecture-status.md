@@ -33,7 +33,7 @@ Last updated: 2026-01-30
 - [x] 16. Chat continuity (while-you-were-away summaries)
 - [x] 17. Board archival (completed/ folder)
 - [x] 18. Context health warnings
-- [ ] 19. Error recovery (agent crash detection, task retry)
+- [x] 19. Error recovery (agent crash detection, task retry)
 - [ ] 20. CLI runtime alternative (`AgentCliRuntime` for fallback)
 
 ## Quality Gates

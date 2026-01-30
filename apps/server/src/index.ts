@@ -13,6 +13,7 @@ import { appEventBus } from "./services/app-events.js";
 import { BoardService } from "./services/board-service.js";
 import { WorkspaceManager } from "./services/workspace-manager.js";
 import { setWorkspaceManager, startAgentWorkers, stopAgentWorkers } from "./queue/workers.js";
+import { startStuckAgentChecker, stopStuckAgentChecker } from "./services/error-recovery.js";
 import { createWebSocketHub } from "./ws/hub.js";
 
 const PORT = Number(process.env["PORT"] ?? "3000");
@@ -46,6 +47,7 @@ async function main() {
   setWorkspaceManager(wm);
 
   await startAgentWorkers();
+  startStuckAgentChecker();
 
   server.listen(PORT, () => {
     console.log(`[Server] listening on http://localhost:${PORT}`);
@@ -53,6 +55,7 @@ async function main() {
 
   const shutdown = async (signal: string) => {
     console.log(`[Server] shutting down (${signal})`);
+    stopStuckAgentChecker();
     wsHub.stop();
     await stopAgentWorkers();
     io.close();
