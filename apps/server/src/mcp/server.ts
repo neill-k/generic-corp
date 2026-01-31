@@ -575,6 +575,8 @@ export function createGcMcpServer(agentId: string, taskId: string) {
 
             await db.task.update({ where: { id: args.taskId }, data });
 
+            appEventBus.emit("task_updated", { taskId: args.taskId });
+
             return toolText(`Task ${args.taskId} updated.`);
           } catch (error) {
             const msg = error instanceof Error ? error.message : "Unknown error";
@@ -711,6 +713,8 @@ export function createGcMcpServer(agentId: string, taskId: string) {
               where: { id: args.messageId },
               data: { status: "read", readAt: new Date() },
             });
+
+            appEventBus.emit("message_updated", { messageId: args.messageId });
 
             return toolText(`Message ${args.messageId} marked as read.`);
           } catch (error) {

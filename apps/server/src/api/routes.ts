@@ -576,6 +576,7 @@ export function createApiRouter(deps: ApiRouterDeps = {}): express.Router {
           position: body.position ?? 0,
         },
       });
+      appEventBus.emit("org_changed", {});
       res.status(201).json({ node });
     } catch (error) {
       next(error);
@@ -594,6 +595,7 @@ export function createApiRouter(deps: ApiRouterDeps = {}): express.Router {
       if (body.parentNodeId !== undefined) data["parentNodeId"] = body.parentNodeId;
       if (body.position !== undefined) data["position"] = body.position;
       const updated = await db.orgNode.update({ where: { id: node.id }, data });
+      appEventBus.emit("org_changed", {});
       res.json({ node: updated });
     } catch (error) {
       next(error);
@@ -608,6 +610,7 @@ export function createApiRouter(deps: ApiRouterDeps = {}): express.Router {
         return;
       }
       await db.orgNode.delete({ where: { id: node.id } });
+      appEventBus.emit("org_changed", {});
       res.json({ deleted: true });
     } catch (error) {
       next(error);

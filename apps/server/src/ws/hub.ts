@@ -94,6 +94,18 @@ export function createWebSocketHub(
     }),
   );
 
+  unsubs.push(
+    eventBus.on("task_updated", (payload) => {
+      io.to("broadcast").emit("task_updated", payload);
+    }),
+  );
+
+  unsubs.push(
+    eventBus.on("org_changed", () => {
+      io.to("broadcast").emit("org_changed", {});
+    }),
+  );
+
   return {
     stop() {
       for (const unsub of unsubs) unsub();

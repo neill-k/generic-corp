@@ -13,6 +13,8 @@ export type AppEventMap = {
   agent_deleted: { agentId: string };
   message_updated: { messageId: string };
   message_deleted: { messageId: string };
+  task_updated: { taskId: string };
+  org_changed: Record<string, never>;
 };
 
 export const appEventBus = new EventBus<AppEventMap>();

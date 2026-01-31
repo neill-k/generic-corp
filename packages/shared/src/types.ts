@@ -168,6 +168,15 @@ export interface WsMessageDeleted extends WsEventBase {
   messageId: string;
 }
 
+export interface WsTaskUpdated extends WsEventBase {
+  type: "task_updated";
+  taskId: string;
+}
+
+export interface WsOrgChanged extends WsEventBase {
+  type: "org_changed";
+}
+
 export type WsOutboundEvent =
   | WsAgentEvent
   | WsSnapshotEvent
@@ -180,7 +189,9 @@ export type WsOutboundEvent =
   | WsAgentUpdated
   | WsAgentDeleted
   | WsMessageUpdated
-  | WsMessageDeleted;
+  | WsMessageDeleted
+  | WsTaskUpdated
+  | WsOrgChanged;
 
 // --- API Response Types ---
 
