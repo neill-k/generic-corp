@@ -8,8 +8,9 @@ type SdkMessage = { [key: string]: unknown; type?: unknown };
 
 function safeStringify(value: unknown): string {
   if (typeof value === "string") return value;
+  if (value === undefined || value === null) return "";
   try {
-    return JSON.stringify(value);
+    return JSON.stringify(value) ?? "";
   } catch {
     return String(value);
   }
@@ -76,7 +77,6 @@ export class AgentSdkRuntime implements AgentRuntime {
       permissionMode: "bypassPermissions",
       allowDangerouslySkipPermissions: true,
       model: params.model ?? "sonnet",
-      maxTurns: params.maxTurns ?? 10,
     };
 
     if (params.allowedTools) {

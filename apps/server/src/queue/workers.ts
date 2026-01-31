@@ -340,7 +340,7 @@ async function runTask(task: Task & { assignee: Agent }) {
     // Fallback: if this was a chat task and agent didn't use send_message,
     // capture the text output as a chat reply
     const chatThreadMatch = task.context?.match(/thread "([^"]+)"/);
-    if (chatThreadMatch && !usedSendMessage && lastResult.output.length > 0) {
+    if (chatThreadMatch && !usedSendMessage && lastResult.output && lastResult.output.length > 0) {
       const threadId = chatThreadMatch[1];
       console.log(`[Agent:${task.assignee.name}] Fallback: creating chat reply from text output`);
       await db.message.create({
