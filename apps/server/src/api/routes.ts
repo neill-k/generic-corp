@@ -1,4 +1,6 @@
 import crypto from "node:crypto";
+import { readFile, readdir } from "node:fs/promises";
+import nodePath from "node:path";
 
 import express from "express";
 import { z } from "zod";
@@ -170,6 +172,62 @@ export function createApiRouter(deps: ApiRouterDeps = {}): express.Router {
         },
       });
       res.json({ tasks });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // --- Agent workspace file access (read-only, shared workspace) ---
+
+  router.get("/agents/:id/context", async (req, res, next) => {
+    try {
+      const agent = await db.agent.findUnique({ where: { id: req.params["id"] ?? "" }, select: { name: true } });
+      if (!agent) {
+        res.status(404).json({ error: "Agent not found" });
+        return;
+      }
+      const root = process.env["GC_WORKSPACE_ROOT"];
+      if (!root) {
+        res.status(503).json({ error: "Workspace not configured" });
+        return;
+      }
+      const contextPath = nodePath.join(root, agent.name, ".gc", "context.md");
+      try {
+        const content = await readFile(contextPath, "utf8");
+        res.json({ content });
+      } catch {
+        res.json({ content: null });
+      }
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get("/agents/:id/results", async (req, res, next) => {
+    try {
+      const agent = await db.agent.findUnique({ where: { id: req.params["id"] ?? "" }, select: { name: true } });
+      if (!agent) {
+        res.status(404).json({ error: "Agent not found" });
+        return;
+      }
+      const root = process.env["GC_WORKSPACE_ROOT"];
+      if (!root) {
+        res.status(503).json({ error: "Workspace not configured" });
+        return;
+      }
+      const resultsDir = nodePath.join(root, agent.name, ".gc", "results");
+      try {
+        const files = await readdir(resultsDir);
+        const results = [];
+        for (const file of files.slice(0, 20)) {
+          if (!file.endsWith(".md")) continue;
+          const content = await readFile(nodePath.join(resultsDir, file), "utf8");
+          results.push({ file, content: content.slice(0, 2000) });
+        }
+        res.json({ results });
+      } catch {
+        res.json({ results: [] });
+      }
     } catch (error) {
       next(error);
     }
@@ -519,6 +577,7 @@ export function createApiRouter(deps: ApiRouterDeps = {}): express.Router {
       if (body.status) {
         appEventBus.emit("task_status_changed", { taskId: task.id, status: body.status });
       }
+      appEventBus.emit("task_updated", { taskId: task.id });
       res.json({ task: updated });
     } catch (error) {
       next(error);
