@@ -24,6 +24,19 @@ const createMessageBodySchema = z.object({
   threadId: z.string().optional(),
 });
 
+const updateAgentBodySchema = z.object({
+  displayName: z.string().min(1).optional(),
+  role: z.string().min(1).optional(),
+  department: z.string().min(1).optional(),
+  personality: z.string().optional(),
+});
+
+const updateTaskBodySchema = z.object({
+  priority: z.number().int().optional(),
+  context: z.string().optional(),
+  status: z.enum(["pending", "running", "completed", "failed", "blocked"]).optional(),
+});
+
 export interface ApiRouterDeps {
   boardService?: BoardService;
   runtime?: AgentRuntime;
@@ -382,6 +395,108 @@ export function createApiRouter(deps: ApiRouterDeps = {}): express.Router {
       });
 
       res.json({ items });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // --- Agent CRUD ---
+
+  router.patch("/agents/:id", async (req, res, next) => {
+    try {
+      const agent = await db.agent.findUnique({ where: { id: req.params["id"] ?? "" } });
+      if (!agent) {
+        res.status(404).json({ error: "Agent not found" });
+        return;
+      }
+      const body = updateAgentBodySchema.parse(req.body);
+      const updated = await db.agent.update({ where: { id: agent.id }, data: body });
+      res.json({ agent: updated });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.delete("/agents/:id", async (req, res, next) => {
+    try {
+      const agent = await db.agent.findUnique({ where: { id: req.params["id"] ?? "" } });
+      if (!agent) {
+        res.status(404).json({ error: "Agent not found" });
+        return;
+      }
+      await db.orgNode.deleteMany({ where: { agentId: agent.id } });
+      await db.agent.delete({ where: { id: agent.id } });
+      res.json({ deleted: true });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // --- Task CRUD ---
+
+  router.patch("/tasks/:id", async (req, res, next) => {
+    try {
+      const task = await db.task.findUnique({ where: { id: req.params["id"] ?? "" } });
+      if (!task) {
+        res.status(404).json({ error: "Task not found" });
+        return;
+      }
+      const body = updateTaskBodySchema.parse(req.body);
+      const updated = await db.task.update({ where: { id: task.id }, data: body });
+      if (body.status) {
+        appEventBus.emit("task_status_changed", { taskId: task.id, status: body.status });
+      }
+      res.json({ task: updated });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.delete("/tasks/:id", async (req, res, next) => {
+    try {
+      const task = await db.task.findUnique({ where: { id: req.params["id"] ?? "" } });
+      if (!task) {
+        res.status(404).json({ error: "Task not found" });
+        return;
+      }
+      await db.task.delete({ where: { id: task.id } });
+      appEventBus.emit("task_status_changed", { taskId: task.id, status: "deleted" });
+      res.json({ deleted: true });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // --- Message CRUD ---
+
+  router.patch("/messages/:id", async (req, res, next) => {
+    try {
+      const message = await db.message.findUnique({ where: { id: req.params["id"] ?? "" } });
+      if (!message) {
+        res.status(404).json({ error: "Message not found" });
+        return;
+      }
+      const data: Record<string, unknown> = {};
+      if (req.body?.status === "read") {
+        data["status"] = "read";
+        data["readAt"] = new Date();
+      }
+      const updated = await db.message.update({ where: { id: message.id }, data });
+      res.json({ message: updated });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.delete("/messages/:id", async (req, res, next) => {
+    try {
+      const message = await db.message.findUnique({ where: { id: req.params["id"] ?? "" } });
+      if (!message) {
+        res.status(404).json({ error: "Message not found" });
+        return;
+      }
+      await db.message.delete({ where: { id: message.id } });
+      res.json({ deleted: true });
     } catch (error) {
       next(error);
     }
