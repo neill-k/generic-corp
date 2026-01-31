@@ -10,6 +10,7 @@ import type { BoardItemType } from "@generic-corp/shared";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { appEventBus } from "../services/app-events.js";
 import { BoardService } from "../services/board-service.js";
 import { handleChildCompletion } from "../services/delegation-flow.js";
 
@@ -130,6 +131,12 @@ export function createGcMcpServer(agentId: string, taskId: string) {
               priority: args.priority ?? 0,
             });
 
+            appEventBus.emit("task_created", {
+              taskId: task.id,
+              assignee: target.name,
+              delegator: caller.name,
+            });
+
             return toolText(
               `Delegated to ${target.name}. Task ${task.id} queued.`,
             );
@@ -177,6 +184,8 @@ export function createGcMcpServer(agentId: string, taskId: string) {
               },
               select: { id: true, priority: true },
             });
+
+            appEventBus.emit("task_status_changed", { taskId, status: mappedStatus });
 
             if (args.status === "needs_followup") {
               await enqueueAgentTask({ agentName: agent.name, taskId, priority: updated.priority });
@@ -342,6 +351,13 @@ export function createGcMcpServer(agentId: string, taskId: string) {
               type: args.type as BoardItemType,
               content: args.content,
             });
+
+            appEventBus.emit("board_item_created", {
+              type: args.type,
+              author: agentName,
+              path: filePath,
+            });
+
             return toolText(JSON.stringify({ path: filePath }, null, 2));
           } catch (error) {
             const message = error instanceof Error ? error.message : "Unknown error";

@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { db } from "../db/client.js";
 import { enqueueAgentTask } from "../queue/agent-queues.js";
+import { appEventBus } from "../services/app-events.js";
 import type { BoardService } from "../services/board-service.js";
 import type { AgentRuntime } from "../services/agent-lifecycle.js";
 import { generateThreadSummary } from "../services/chat-continuity.js";
@@ -79,6 +80,12 @@ export function createApiRouter(deps: ApiRouterDeps = {}): express.Router {
       });
 
       await enqueueAgentTask({ agentName: assignee.name, taskId: task.id, priority: body.priority ?? 0 });
+
+      appEventBus.emit("task_created", {
+        taskId: task.id,
+        assignee: assignee.name,
+        delegator: null,
+      });
 
       res.status(201).json({ id: task.id });
     } catch (error) {
@@ -168,6 +175,13 @@ export function createApiRouter(deps: ApiRouterDeps = {}): express.Router {
           type: true,
           createdAt: true,
         },
+      });
+
+      appEventBus.emit("message_created", {
+        messageId: message.id,
+        threadId,
+        fromAgentId: null,
+        toAgentId: agent.id,
       });
 
       res.status(201).json({ message });
@@ -329,6 +343,9 @@ export function createApiRouter(deps: ApiRouterDeps = {}): express.Router {
       }
 
       const archivedPath = await deps.boardService.archiveBoardItem(filePath);
+
+      appEventBus.emit("board_item_archived", { path: filePath, archivedPath });
+
       res.json({ archivedPath });
     } catch (error) {
       next(error);

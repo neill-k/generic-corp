@@ -15,6 +15,7 @@ export function createWebSocketHub(
   const unsubs: Unsubscribe[] = [];
 
   io.on("connection", (socket: Socket) => {
+    void socket.join("broadcast");
     socket.emit("snapshot", { type: "snapshot", serverTime: new Date().toISOString() });
 
     socket.on("join_agent", (agentId: string) => {
@@ -35,12 +36,37 @@ export function createWebSocketHub(
   unsubs.push(
     eventBus.on("agent_status_changed", (payload) => {
       io.to(`agent:${payload.agentId}`).emit("agent_status_changed", payload);
+      io.to("broadcast").emit("agent_status_changed", payload);
     }),
   );
 
   unsubs.push(
     eventBus.on("task_status_changed", (payload) => {
-      io.to(`agent:${payload.taskId}`).emit("task_status_changed", payload);
+      io.to("broadcast").emit("task_status_changed", payload);
+    }),
+  );
+
+  unsubs.push(
+    eventBus.on("task_created", (payload) => {
+      io.to("broadcast").emit("task_created", payload);
+    }),
+  );
+
+  unsubs.push(
+    eventBus.on("message_created", (payload) => {
+      io.to("broadcast").emit("message_created", payload);
+    }),
+  );
+
+  unsubs.push(
+    eventBus.on("board_item_created", (payload) => {
+      io.to("broadcast").emit("board_item_created", payload);
+    }),
+  );
+
+  unsubs.push(
+    eventBus.on("board_item_archived", (payload) => {
+      io.to("broadcast").emit("board_item_archived", payload);
     }),
   );
 

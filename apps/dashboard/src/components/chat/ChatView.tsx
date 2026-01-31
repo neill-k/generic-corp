@@ -1,5 +1,5 @@
 import { useEffect, useCallback } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "../../lib/api-client.js";
 import { useChatStore } from "../../store/chat-store.js";
@@ -22,11 +22,20 @@ export function ChatView() {
     setSending,
   } = useChatStore();
 
+  const queryClient = useQueryClient();
+
   // Fetch threads
   const threadsQuery = useQuery({
     queryKey: ["threads"],
     queryFn: () => api.get<{ threads: ApiThread[] }>("/threads"),
-    refetchInterval: 15000,
+    refetchInterval: 300000,
+  });
+
+  useSocketEvent("message_created", () => {
+    queryClient.invalidateQueries({ queryKey: ["threads"] });
+    if (activeThreadId) {
+      queryClient.invalidateQueries({ queryKey: ["messages", activeThreadId] });
+    }
   });
 
   useEffect(() => {

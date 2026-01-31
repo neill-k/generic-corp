@@ -120,11 +120,43 @@ export interface WsTaskStatusChanged extends WsEventBase {
   status: string;
 }
 
+export interface WsTaskCreated extends WsEventBase {
+  type: "task_created";
+  taskId: string;
+  assignee: string;
+  delegator: string | null;
+}
+
+export interface WsMessageCreated extends WsEventBase {
+  type: "message_created";
+  messageId: string;
+  threadId: string;
+  fromAgentId: string | null;
+  toAgentId: string;
+}
+
+export interface WsBoardItemCreated extends WsEventBase {
+  type: "board_item_created";
+  boardType: string;
+  author: string;
+  path: string;
+}
+
+export interface WsBoardItemArchived extends WsEventBase {
+  type: "board_item_archived";
+  path: string;
+  archivedPath: string;
+}
+
 export type WsOutboundEvent =
   | WsAgentEvent
   | WsSnapshotEvent
   | WsAgentStatusChanged
-  | WsTaskStatusChanged;
+  | WsTaskStatusChanged
+  | WsTaskCreated
+  | WsMessageCreated
+  | WsBoardItemCreated
+  | WsBoardItemArchived;
 
 // --- API Response Types ---
 

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "../../lib/api-client.js";
+import { useSocketEvent } from "../../hooks/use-socket.js";
 import { BoardColumn } from "./BoardColumn.js";
 import type { ApiBoardItem, BoardItemType } from "@generic-corp/shared";
 
@@ -17,7 +18,15 @@ export function BoardView() {
   const boardQuery = useQuery({
     queryKey: ["board"],
     queryFn: () => api.get<{ items: ApiBoardItem[] }>("/board"),
-    refetchInterval: 30000,
+    refetchInterval: 300000,
+  });
+
+  useSocketEvent("board_item_created", () => {
+    queryClient.invalidateQueries({ queryKey: ["board"] });
+  });
+
+  useSocketEvent("board_item_archived", () => {
+    queryClient.invalidateQueries({ queryKey: ["board"] });
   });
 
   const archiveMutation = useMutation({
