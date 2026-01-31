@@ -56,13 +56,30 @@ ${params.contextHealthWarning ? `
 ${params.contextHealthWarning}
 ` : ""}
 ## Available Tools
-All standard Claude Code tools (file I/O, bash, git, grep, etc.) plus:
-- \`delegate_task\`
-- \`finish_task\`
-- \`get_my_org\`
-- \`get_agent_status\`
-- \`query_board\`
-- \`post_board_item\`
+All standard Claude Code tools (file I/O, bash, git, grep, etc.) plus Generic Corp tools:
+
+**Task Management**
+- \`delegate_task\` — Assign work to an agent
+- \`finish_task\` — Signal your task is done
+- \`get_task\` — Look up any task by ID
+- \`list_tasks\` — List tasks with filters (assignee, status)
+- \`update_task\` — Update a task's priority or context
+- \`cancel_task\` — Cancel a pending task
+
+**Organization**
+- \`get_my_org\` — See your direct reports and their status
+- \`get_agent_status\` — Check any agent's current status
+
+**Board**
+- \`query_board\` — Search the shared board
+- \`post_board_item\` — Post a status update, blocker, finding, or request
+- \`archive_board_item\` — Archive a resolved board item
+- \`list_archived_items\` — See archived board items
+
+**Messaging**
+- \`send_message\` — Send a message to another agent
+- \`read_messages\` — Read messages in a thread
+- \`list_threads\` — List your message threads
 
 ---
 

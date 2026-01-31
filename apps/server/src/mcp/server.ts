@@ -1,14 +1,15 @@
 import { createSdkMcpServer, tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 
+import crypto from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
+
 import { db } from "../db/client.js";
 
 import { enqueueAgentTask } from "../queue/agent-queues.js";
 
 import type { BoardItemType } from "@generic-corp/shared";
-
-import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
 
 import { appEventBus } from "../services/app-events.js";
 import { BoardService } from "../services/board-service.js";
@@ -362,6 +363,341 @@ export function createGcMcpServer(agentId: string, taskId: string) {
           } catch (error) {
             const message = error instanceof Error ? error.message : "Unknown error";
             return toolText(`post_board_item failed: ${message}`);
+          }
+        },
+      ),
+
+      // --- Messaging tools ---
+
+      tool(
+        "send_message",
+        "Send a message to another agent",
+        {
+          toAgent: z.string().describe("Name (slug) of the recipient agent"),
+          body: z.string().describe("Message content"),
+          threadId: z.string().optional().describe("Thread ID to continue a conversation"),
+        },
+        async (args) => {
+          try {
+            const sender = await getAgentByIdOrName(agentId);
+            if (!sender) return toolText(`Unknown caller agent: ${agentId}`);
+
+            const recipient = await db.agent.findUnique({
+              where: { name: args.toAgent },
+              select: { id: true, name: true },
+            });
+            if (!recipient) return toolText(`Unknown agent: ${args.toAgent}`);
+
+            const threadId = args.threadId ?? crypto.randomUUID();
+
+            const message = await db.message.create({
+              data: {
+                fromAgentId: sender.id,
+                toAgentId: recipient.id,
+                threadId,
+                body: args.body,
+                type: "direct",
+                status: "delivered",
+              },
+              select: { id: true, threadId: true },
+            });
+
+            appEventBus.emit("message_created", {
+              messageId: message.id,
+              threadId,
+              fromAgentId: sender.id,
+              toAgentId: recipient.id,
+            });
+
+            return toolText(JSON.stringify({ messageId: message.id, threadId }, null, 2));
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`send_message failed: ${msg}`);
+          }
+        },
+      ),
+
+      tool(
+        "read_messages",
+        "Read messages in a thread",
+        {
+          threadId: z.string().describe("Thread ID to read"),
+        },
+        async (args) => {
+          try {
+            const messages = await db.message.findMany({
+              where: { threadId: args.threadId },
+              orderBy: { createdAt: "asc" },
+              select: {
+                id: true,
+                fromAgentId: true,
+                toAgentId: true,
+                body: true,
+                type: true,
+                createdAt: true,
+                sender: { select: { name: true } },
+                recipient: { select: { name: true } },
+              },
+            });
+
+            const formatted = messages.map((m) => ({
+              id: m.id,
+              from: m.sender?.name ?? "human",
+              to: m.recipient.name,
+              body: m.body,
+              type: m.type,
+              createdAt: m.createdAt.toISOString(),
+            }));
+
+            return toolText(JSON.stringify(formatted, null, 2));
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`read_messages failed: ${msg}`);
+          }
+        },
+      ),
+
+      tool(
+        "list_threads",
+        "List your message threads",
+        {},
+        async () => {
+          try {
+            const self = await getAgentByIdOrName(agentId);
+            if (!self) return toolText(`Unknown caller agent: ${agentId}`);
+
+            const latestMessages = await db.message.findMany({
+              where: {
+                OR: [
+                  { fromAgentId: self.id },
+                  { toAgentId: self.id },
+                ],
+                threadId: { not: null },
+              },
+              orderBy: { createdAt: "desc" },
+              distinct: ["threadId"],
+              select: {
+                threadId: true,
+                body: true,
+                createdAt: true,
+                sender: { select: { name: true } },
+                recipient: { select: { name: true } },
+              },
+            });
+
+            const threads = latestMessages.map((m) => ({
+              threadId: m.threadId,
+              lastMessage: m.body.length > 100 ? m.body.slice(0, 100) + "..." : m.body,
+              from: m.sender?.name ?? "human",
+              to: m.recipient.name,
+              lastMessageAt: m.createdAt.toISOString(),
+            }));
+
+            return toolText(JSON.stringify(threads, null, 2));
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`list_threads failed: ${msg}`);
+          }
+        },
+      ),
+
+      // --- Task management tools ---
+
+      tool(
+        "get_task",
+        "Get details of a specific task by ID",
+        {
+          taskId: z.string().describe("Task ID to look up"),
+        },
+        async (args) => {
+          try {
+            const task = await db.task.findUnique({
+              where: { id: args.taskId },
+              select: {
+                id: true,
+                prompt: true,
+                context: true,
+                status: true,
+                priority: true,
+                result: true,
+                learnings: true,
+                createdAt: true,
+                startedAt: true,
+                completedAt: true,
+                parentTaskId: true,
+                assignee: { select: { name: true } },
+                delegator: { select: { name: true } },
+              },
+            });
+            if (!task) return toolText(`Task not found: ${args.taskId}`);
+
+            return toolText(JSON.stringify({
+              ...task,
+              assignee: task.assignee.name,
+              delegator: task.delegator?.name ?? null,
+              createdAt: task.createdAt.toISOString(),
+              startedAt: task.startedAt?.toISOString() ?? null,
+              completedAt: task.completedAt?.toISOString() ?? null,
+            }, null, 2));
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`get_task failed: ${msg}`);
+          }
+        },
+      ),
+
+      tool(
+        "list_tasks",
+        "List tasks with optional filters",
+        {
+          assignee: z.string().optional().describe("Filter by assignee agent name"),
+          status: z.enum(["pending", "running", "completed", "failed", "blocked"]).optional(),
+          limit: z.number().int().optional().describe("Max results (default 20)"),
+        },
+        async (args) => {
+          try {
+            const where: Record<string, unknown> = {};
+            if (args.assignee) {
+              const agent = await db.agent.findUnique({
+                where: { name: args.assignee },
+                select: { id: true },
+              });
+              if (!agent) return toolText(`Unknown agent: ${args.assignee}`);
+              where["assigneeId"] = agent.id;
+            }
+            if (args.status) where["status"] = args.status;
+
+            const tasks = await db.task.findMany({
+              where,
+              orderBy: { createdAt: "desc" },
+              take: args.limit ?? 20,
+              select: {
+                id: true,
+                prompt: true,
+                status: true,
+                priority: true,
+                createdAt: true,
+                completedAt: true,
+                assignee: { select: { name: true } },
+                delegator: { select: { name: true } },
+              },
+            });
+
+            const formatted = tasks.map((t) => ({
+              id: t.id,
+              prompt: t.prompt.length > 100 ? t.prompt.slice(0, 100) + "..." : t.prompt,
+              status: t.status,
+              priority: t.priority,
+              assignee: t.assignee.name,
+              delegator: t.delegator?.name ?? null,
+              createdAt: t.createdAt.toISOString(),
+              completedAt: t.completedAt?.toISOString() ?? null,
+            }));
+
+            return toolText(JSON.stringify(formatted, null, 2));
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`list_tasks failed: ${msg}`);
+          }
+        },
+      ),
+
+      tool(
+        "update_task",
+        "Update a task's priority or context",
+        {
+          taskId: z.string(),
+          priority: z.number().int().optional(),
+          context: z.string().optional(),
+        },
+        async (args) => {
+          try {
+            const task = await db.task.findUnique({ where: { id: args.taskId }, select: { id: true } });
+            if (!task) return toolText(`Task not found: ${args.taskId}`);
+
+            const data: Record<string, unknown> = {};
+            if (args.priority !== undefined) data["priority"] = args.priority;
+            if (args.context !== undefined) data["context"] = args.context;
+
+            if (Object.keys(data).length === 0) return toolText("No fields to update.");
+
+            await db.task.update({ where: { id: args.taskId }, data });
+
+            return toolText(`Task ${args.taskId} updated.`);
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`update_task failed: ${msg}`);
+          }
+        },
+      ),
+
+      tool(
+        "cancel_task",
+        "Cancel a pending task",
+        {
+          taskId: z.string(),
+        },
+        async (args) => {
+          try {
+            const task = await db.task.findUnique({
+              where: { id: args.taskId },
+              select: { id: true, status: true },
+            });
+            if (!task) return toolText(`Task not found: ${args.taskId}`);
+
+            await db.task.update({
+              where: { id: args.taskId },
+              data: { status: "failed", result: "Cancelled" },
+            });
+
+            appEventBus.emit("task_status_changed", { taskId: args.taskId, status: "failed" });
+
+            return toolText(`Task ${args.taskId} cancelled.`);
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`cancel_task failed: ${msg}`);
+          }
+        },
+      ),
+
+      // --- Board management tools ---
+
+      tool(
+        "archive_board_item",
+        "Archive a board item (move to completed)",
+        {
+          filePath: z.string().describe("Path to the board item file"),
+        },
+        async (args) => {
+          try {
+            const boardService = getBoardService();
+            const archivedPath = await boardService.archiveBoardItem(args.filePath);
+
+            appEventBus.emit("board_item_archived", {
+              path: args.filePath,
+              archivedPath,
+            });
+
+            return toolText(JSON.stringify({ archivedPath }, null, 2));
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`archive_board_item failed: ${msg}`);
+          }
+        },
+      ),
+
+      tool(
+        "list_archived_items",
+        "List archived board items",
+        {},
+        async () => {
+          try {
+            const boardService = getBoardService();
+            const items = await boardService.listArchivedItems();
+            return toolText(JSON.stringify(items, null, 2));
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`list_archived_items failed: ${msg}`);
           }
         },
       ),
