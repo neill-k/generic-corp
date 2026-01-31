@@ -9,8 +9,10 @@ import type { AgentRuntime } from "../services/agent-lifecycle.js";
 import { AgentSdkRuntime } from "../services/agent-runtime-sdk.js";
 import { AgentCliRuntime } from "../services/agent-runtime-cli.js";
 import { BoardService } from "../services/board-service.js";
+import { checkContextHealth } from "../services/context-health.js";
 import { handleChildCompletion } from "../services/delegation-flow.js";
 import { buildSystemPrompt } from "../services/prompt-builder.js";
+import { detectRelevantSkills } from "../services/skills.js";
 import type { WorkspaceManager } from "../services/workspace-manager.js";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
@@ -188,7 +190,7 @@ async function runTask(task: Task & { assignee: Agent }) {
   const cwd = await wm.ensureAgentWorkspace(task.assignee.name);
   const runtime = createRuntime();
 
-  const [orgReports, recentBoardItems, pendingResults, manager, peers, unreadMessageCount, parentTask, taskHistory] = await Promise.all([
+  const [orgReports, recentBoardItems, pendingResults, manager, peers, unreadMessageCount, parentTask, taskHistory, contextHealthWarning] = await Promise.all([
     loadOrgReports(task.assignee.id),
     loadRecentBoardItems(),
     loadPendingResults(task.assignee.name),
@@ -197,7 +199,10 @@ async function runTask(task: Task & { assignee: Agent }) {
     loadUnreadCount(task.assignee.id),
     loadParentTask(task.parentTaskId),
     loadTaskHistory(task.assignee.id),
+    checkContextHealth(cwd),
   ]);
+
+  const skills = detectRelevantSkills(task);
 
   const systemPrompt = buildSystemPrompt({
     agent: task.assignee,
@@ -210,6 +215,8 @@ async function runTask(task: Task & { assignee: Agent }) {
     unreadMessageCount,
     parentTask,
     taskHistory,
+    contextHealthWarning,
+    skills,
   });
   const mcpServer = createGcMcpServer(task.assignee.name, task.id);
 
