@@ -200,6 +200,42 @@ async function loadDepartmentSummary(department: string) {
   };
 }
 
+async function loadActiveBlockers() {
+  const root = process.env["GC_WORKSPACE_ROOT"];
+  if (!root) return [];
+  try {
+    const boardService = new BoardService(root);
+    const items = await boardService.listBoardItems({ type: "blocker" });
+    return items.slice(0, 5).map((item) => ({
+      author: item.author,
+      summary: item.summary.slice(0, 200),
+      timestamp: item.timestamp,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+async function loadUnreadMessagePreviews(agentDbId: string) {
+  const messages = await db.message.findMany({
+    where: { toAgentId: agentDbId, status: { not: "read" } },
+    orderBy: { createdAt: "desc" },
+    take: 5,
+    select: {
+      threadId: true,
+      body: true,
+      createdAt: true,
+      sender: { select: { name: true } },
+    },
+  });
+  return messages.map((m) => ({
+    from: m.sender?.name ?? "human",
+    threadId: m.threadId ?? "unknown",
+    preview: m.body.length > 80 ? m.body.slice(0, 80) + "..." : m.body,
+    receivedAt: m.createdAt.toISOString(),
+  }));
+}
+
 async function loadPendingResults(agentName: string) {
   const root = process.env["GC_WORKSPACE_ROOT"];
   if (!root) return [];
@@ -224,7 +260,7 @@ async function runTask(task: Task & { assignee: Agent }) {
   const cwd = await wm.ensureAgentWorkspace(task.assignee.name);
   const runtime = createRuntime();
 
-  const [orgReports, recentBoardItems, pendingResults, manager, peers, unreadMessageCount, parentTask, taskHistory, contextHealthWarning, reportWorkloads, departmentSummary] = await Promise.all([
+  const [orgReports, recentBoardItems, pendingResults, manager, peers, unreadMessageCount, parentTask, taskHistory, contextHealthWarning, reportWorkloads, departmentSummary, activeBlockers, unreadMessagePreviews] = await Promise.all([
     loadOrgReports(task.assignee.id),
     loadRecentBoardItems(),
     loadPendingResults(task.assignee.name),
@@ -236,6 +272,8 @@ async function runTask(task: Task & { assignee: Agent }) {
     checkContextHealth(cwd),
     loadReportWorkloads(task.assignee.id),
     loadDepartmentSummary(task.assignee.department),
+    loadActiveBlockers(),
+    loadUnreadMessagePreviews(task.assignee.id),
   ]);
 
   const systemPrompt = buildSystemPrompt({
@@ -252,6 +290,8 @@ async function runTask(task: Task & { assignee: Agent }) {
     contextHealthWarning,
     reportWorkloads,
     departmentSummary,
+    activeBlockers,
+    unreadMessagePreviews,
     skills: ALL_SKILL_IDS,
   });
   const mcpServer = createGcMcpServer(task.assignee.name, task.id);

@@ -61,6 +61,19 @@ interface DepartmentSummary {
   offline: number;
 }
 
+interface ActiveBlocker {
+  author: string;
+  summary: string;
+  timestamp: string;
+}
+
+interface UnreadMessagePreview {
+  from: string;
+  threadId: string;
+  preview: string;
+  receivedAt: string;
+}
+
 type BuildSystemPromptParams = {
   agent: Agent;
   task: Task;
@@ -78,6 +91,8 @@ type BuildSystemPromptParams = {
   taskHistory?: TaskHistoryEntry[];
   reportWorkloads?: ReportWorkload[];
   departmentSummary?: DepartmentSummary | null;
+  activeBlockers?: ActiveBlocker[];
+  unreadMessagePreviews?: UnreadMessagePreview[];
 };
 
 function asIso(date: Date): string {
@@ -203,9 +218,12 @@ ${params.reportWorkloads.map((r) => `- **${r.name}**: ${r.pendingTasks} pending,
 ` : ""}${params.departmentSummary ? `
 ## Department Health (${params.departmentSummary.department})
 ${params.departmentSummary.totalAgents} agents: ${params.departmentSummary.idle} idle, ${params.departmentSummary.running} running, ${params.departmentSummary.error} in error, ${params.departmentSummary.offline} offline
+` : ""}${params.activeBlockers && params.activeBlockers.length > 0 ? `
+## Active Blockers
+${params.activeBlockers.map((b) => `- **${b.author}** (${b.timestamp}): ${b.summary}`).join("\n")}
 ` : ""}${params.unreadMessageCount && params.unreadMessageCount > 0 ? `
-## Unread Messages
-You have **${params.unreadMessageCount}** unread message(s). Use \`list_threads\` and \`read_messages\` to catch up.
+## Unread Messages (${params.unreadMessageCount})
+${params.unreadMessagePreviews && params.unreadMessagePreviews.length > 0 ? params.unreadMessagePreviews.map((m) => `- **${m.from}** (thread ${m.threadId.slice(0, 8)}): ${m.preview}`).join("\n") : `Use \`list_threads\` and \`read_messages\` to catch up.`}
 ` : ""}${params.taskHistory && params.taskHistory.length > 0 ? `
 ## Recent Task History
 ${params.taskHistory.map((t) => `- [${t.status}] ${t.prompt.slice(0, 80)}${t.completedAt ? ` (${t.completedAt})` : ""}`).join("\n")}
