@@ -46,6 +46,21 @@ interface TaskHistoryEntry {
   completedAt: string | null;
 }
 
+interface ReportWorkload {
+  name: string;
+  pendingTasks: number;
+  runningTasks: number;
+}
+
+interface DepartmentSummary {
+  department: string;
+  totalAgents: number;
+  idle: number;
+  running: number;
+  error: number;
+  offline: number;
+}
+
 type BuildSystemPromptParams = {
   agent: Agent;
   task: Task;
@@ -61,6 +76,8 @@ type BuildSystemPromptParams = {
   unreadMessageCount?: number;
   parentTask?: ParentTaskInfo | null;
   taskHistory?: TaskHistoryEntry[];
+  reportWorkloads?: ReportWorkload[];
+  departmentSummary?: DepartmentSummary | null;
 };
 
 function asIso(date: Date): string {
@@ -180,7 +197,13 @@ ${params.parentTask ? `**Parent Task**: ${params.parentTask.id} (delegated by ${
 
 ## Context from delegator
 ${context}
-${params.unreadMessageCount && params.unreadMessageCount > 0 ? `
+${params.reportWorkloads && params.reportWorkloads.length > 0 ? `
+## Team Workload
+${params.reportWorkloads.map((r) => `- **${r.name}**: ${r.pendingTasks} pending, ${r.runningTasks} running`).join("\n")}
+` : ""}${params.departmentSummary ? `
+## Department Health (${params.departmentSummary.department})
+${params.departmentSummary.totalAgents} agents: ${params.departmentSummary.idle} idle, ${params.departmentSummary.running} running, ${params.departmentSummary.error} in error, ${params.departmentSummary.offline} offline
+` : ""}${params.unreadMessageCount && params.unreadMessageCount > 0 ? `
 ## Unread Messages
 You have **${params.unreadMessageCount}** unread message(s). Use \`list_threads\` and \`read_messages\` to catch up.
 ` : ""}${params.taskHistory && params.taskHistory.length > 0 ? `
