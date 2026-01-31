@@ -37,6 +37,26 @@ const updateTaskBodySchema = z.object({
   status: z.enum(["pending", "running", "completed", "failed", "blocked"]).optional(),
 });
 
+const createAgentBodySchema = z.object({
+  name: z.string().min(1).regex(/^[a-z0-9-]+$/, "Must be lowercase slug"),
+  displayName: z.string().min(1),
+  role: z.string().min(1),
+  department: z.string().min(1),
+  level: z.enum(["ic", "lead", "manager", "vp", "c-suite"]),
+  personality: z.string().optional(),
+});
+
+const createOrgNodeBodySchema = z.object({
+  agentId: z.string().min(1),
+  parentNodeId: z.string().nullable().optional(),
+  position: z.number().int().optional(),
+});
+
+const updateOrgNodeBodySchema = z.object({
+  parentNodeId: z.string().nullable().optional(),
+  position: z.number().int().optional(),
+});
+
 export interface ApiRouterDeps {
   boardService?: BoardService;
   runtime?: AgentRuntime;
@@ -402,6 +422,26 @@ export function createApiRouter(deps: ApiRouterDeps = {}): express.Router {
 
   // --- Agent CRUD ---
 
+  router.post("/agents", async (req, res, next) => {
+    try {
+      const body = createAgentBodySchema.parse(req.body);
+      const agent = await db.agent.create({
+        data: {
+          name: body.name,
+          displayName: body.displayName,
+          role: body.role,
+          department: body.department,
+          level: body.level,
+          personality: body.personality ?? "",
+          status: "idle",
+        },
+      });
+      res.status(201).json({ agent });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   router.patch("/agents/:id", async (req, res, next) => {
     try {
       const agent = await db.agent.findUnique({ where: { id: req.params["id"] ?? "" } });
@@ -411,6 +451,7 @@ export function createApiRouter(deps: ApiRouterDeps = {}): express.Router {
       }
       const body = updateAgentBodySchema.parse(req.body);
       const updated = await db.agent.update({ where: { id: agent.id }, data: body });
+      appEventBus.emit("agent_updated", { agentId: agent.id });
       res.json({ agent: updated });
     } catch (error) {
       next(error);
@@ -426,6 +467,7 @@ export function createApiRouter(deps: ApiRouterDeps = {}): express.Router {
       }
       await db.orgNode.deleteMany({ where: { agentId: agent.id } });
       await db.agent.delete({ where: { id: agent.id } });
+      appEventBus.emit("agent_deleted", { agentId: agent.id });
       res.json({ deleted: true });
     } catch (error) {
       next(error);
@@ -482,6 +524,7 @@ export function createApiRouter(deps: ApiRouterDeps = {}): express.Router {
         data["readAt"] = new Date();
       }
       const updated = await db.message.update({ where: { id: message.id }, data });
+      appEventBus.emit("message_updated", { messageId: message.id });
       res.json({ message: updated });
     } catch (error) {
       next(error);
@@ -496,6 +539,75 @@ export function createApiRouter(deps: ApiRouterDeps = {}): express.Router {
         return;
       }
       await db.message.delete({ where: { id: message.id } });
+      appEventBus.emit("message_deleted", { messageId: message.id });
+      res.json({ deleted: true });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // --- OrgNode CRUD ---
+
+  router.get("/org/nodes", async (_req, res, next) => {
+    try {
+      const nodes = await db.orgNode.findMany({
+        orderBy: { position: "asc" },
+        select: {
+          id: true,
+          agentId: true,
+          parentNodeId: true,
+          position: true,
+          agent: { select: { name: true, displayName: true, role: true } },
+        },
+      });
+      res.json({ nodes });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post("/org/nodes", async (req, res, next) => {
+    try {
+      const body = createOrgNodeBodySchema.parse(req.body);
+      const node = await db.orgNode.create({
+        data: {
+          agentId: body.agentId,
+          parentNodeId: body.parentNodeId ?? null,
+          position: body.position ?? 0,
+        },
+      });
+      res.status(201).json({ node });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.patch("/org/nodes/:id", async (req, res, next) => {
+    try {
+      const node = await db.orgNode.findUnique({ where: { id: req.params["id"] ?? "" } });
+      if (!node) {
+        res.status(404).json({ error: "OrgNode not found" });
+        return;
+      }
+      const body = updateOrgNodeBodySchema.parse(req.body);
+      const data: Record<string, unknown> = {};
+      if (body.parentNodeId !== undefined) data["parentNodeId"] = body.parentNodeId;
+      if (body.position !== undefined) data["position"] = body.position;
+      const updated = await db.orgNode.update({ where: { id: node.id }, data });
+      res.json({ node: updated });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.delete("/org/nodes/:id", async (req, res, next) => {
+    try {
+      const node = await db.orgNode.findUnique({ where: { id: req.params["id"] ?? "" } });
+      if (!node) {
+        res.status(404).json({ error: "OrgNode not found" });
+        return;
+      }
+      await db.orgNode.delete({ where: { id: node.id } });
       res.json({ deleted: true });
     } catch (error) {
       next(error);

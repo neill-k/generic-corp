@@ -148,6 +148,26 @@ export interface WsBoardItemArchived extends WsEventBase {
   archivedPath: string;
 }
 
+export interface WsAgentUpdated extends WsEventBase {
+  type: "agent_updated";
+  agentId: string;
+}
+
+export interface WsAgentDeleted extends WsEventBase {
+  type: "agent_deleted";
+  agentId: string;
+}
+
+export interface WsMessageUpdated extends WsEventBase {
+  type: "message_updated";
+  messageId: string;
+}
+
+export interface WsMessageDeleted extends WsEventBase {
+  type: "message_deleted";
+  messageId: string;
+}
+
 export type WsOutboundEvent =
   | WsAgentEvent
   | WsSnapshotEvent
@@ -156,7 +176,11 @@ export type WsOutboundEvent =
   | WsTaskCreated
   | WsMessageCreated
   | WsBoardItemCreated
-  | WsBoardItemArchived;
+  | WsBoardItemArchived
+  | WsAgentUpdated
+  | WsAgentDeleted
+  | WsMessageUpdated
+  | WsMessageDeleted;
 
 // --- API Response Types ---
 

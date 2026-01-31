@@ -70,6 +70,30 @@ export function createWebSocketHub(
     }),
   );
 
+  unsubs.push(
+    eventBus.on("agent_updated", (payload) => {
+      io.to("broadcast").emit("agent_updated", payload);
+    }),
+  );
+
+  unsubs.push(
+    eventBus.on("agent_deleted", (payload) => {
+      io.to("broadcast").emit("agent_deleted", payload);
+    }),
+  );
+
+  unsubs.push(
+    eventBus.on("message_updated", (payload) => {
+      io.to("broadcast").emit("message_updated", payload);
+    }),
+  );
+
+  unsubs.push(
+    eventBus.on("message_deleted", (payload) => {
+      io.to("broadcast").emit("message_deleted", payload);
+    }),
+  );
+
   return {
     stop() {
       for (const unsub of unsubs) unsub();
