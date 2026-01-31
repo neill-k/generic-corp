@@ -6,6 +6,7 @@ const NAV_ITEMS = [
   { to: "/chat", label: "Chat", hint: "Talk to agents and delegate work" },
   { to: "/org", label: "Org Chart", hint: "Agent hierarchy and live status" },
   { to: "/board", label: "Board", hint: "Updates, blockers, findings" },
+  { to: "/help", label: "Help", hint: "Docs, tools, and workflows" },
 ] as const;
 
 export function Sidebar() {

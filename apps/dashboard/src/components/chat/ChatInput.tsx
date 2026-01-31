@@ -25,7 +25,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
         type="text"
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        placeholder="Type a message..."
+        placeholder="Type a message or /help..."
         disabled={disabled}
         className="flex-1 rounded border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
       />

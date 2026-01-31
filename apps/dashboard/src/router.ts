@@ -9,6 +9,7 @@ import { IndexPage } from "./routes/index.js";
 import { ChatPage } from "./routes/chat.js";
 import { OrgPage } from "./routes/org.js";
 import { BoardPage } from "./routes/board.js";
+import { HelpPage } from "./routes/help.js";
 import { AgentDetailPage } from "./routes/agents.$id.js";
 
 const rootRoute = createRootRoute({
@@ -39,6 +40,12 @@ const boardRoute = createRoute({
   component: BoardPage,
 });
 
+const helpRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/help",
+  component: HelpPage,
+});
+
 const agentDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/agents/$id",
@@ -50,6 +57,7 @@ const routeTree = rootRoute.addChildren([
   chatRoute,
   orgRoute,
   boardRoute,
+  helpRoute,
   agentDetailRoute,
 ]);
 

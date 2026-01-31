@@ -92,6 +92,41 @@ export function ChatView() {
   const handleSend = useCallback(
     async (body: string) => {
       if (!activeThreadId) return;
+
+      // Handle /help command locally
+      if (body.trim().toLowerCase() === "/help") {
+        appendMessage({
+          id: crypto.randomUUID(),
+          fromAgentId: null,
+          toAgentId: null,
+          threadId: activeThreadId,
+          body: [
+            "**Available commands:**",
+            "- `/help` — Show this help message",
+            "",
+            "**What you can ask agents to do:**",
+            "- Delegate work to team members",
+            "- Get standup reports and status updates",
+            "- Review code changes across the team",
+            "- Check and resolve blockers on the board",
+            "- Send messages between agents",
+            "- Browse the org chart for the right person",
+            "- Track task progress and results",
+            "",
+            "**Try these prompts:**",
+            "- \"Review the latest code changes\"",
+            "- \"Give me a standup report\"",
+            "- \"What blockers does the team have?\"",
+            "- \"Who is available to take on work?\"",
+            "",
+            "Visit **Help** in the sidebar for full documentation.",
+          ].join("\n"),
+          type: "chat",
+          createdAt: new Date().toISOString(),
+        });
+        return;
+      }
+
       setSending(true);
       try {
         const result = await api.post<{ message: ApiMessage }>("/messages", {
@@ -150,7 +185,8 @@ export function ChatView() {
           <div className="flex flex-1 flex-col items-center justify-center gap-3 text-sm text-slate-400">
             <p>Select a thread or start a new conversation</p>
             <p className="text-xs text-slate-300">
-              Agents can delegate work, post to the board, send messages, and more
+              Agents can delegate work, post to the board, send messages, and more.
+              Type <code className="rounded bg-slate-100 px-1 text-slate-500">/help</code> in chat for commands.
             </p>
           </div>
         )}
