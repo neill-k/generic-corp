@@ -23,13 +23,27 @@ See `plans/v2-architecture-simplified.md` for the full architecture.
 
 ### Key Design Principles
 
+- **100% Agent-Native is non-negotiable** — Every principle below must be fully satisfied. No exceptions.
 - **Claude Code is the runtime** — No custom agent framework. Agents are Claude Code instances invoked via the Agent SDK (`@anthropic-ai/claude-agent-sdk`).
 - **Agent SDK for v0** — `query()` provides streaming, in-process MCP, cost tracking. Runtime abstraction allows swapping to CLI or raw API later.
 - **File-first** — Agent state, board items, learnings, and digests are files in a workspace.
 - **Agent-owned memory** — Agents control their own `context.md`. Platform provides briefing via system prompt but never overwrites agent state.
-- **Prompt-level trust** — Communication rules live in the system prompt, not enforced by middleware.
+- **Prompt-level trust** — Communication rules live in the system prompt, not enforced by middleware. No hardcoded validation in tools.
 - **In-process MCP** — Single MCP server created via `createSdkMcpServer`, passed to agents via `type: "sdk"`. No `.mcp.json` files.
-- **6 MCP tools** — `delegate_task`, `finish_task`, `get_my_org`, `get_agent_status`, `query_board`, `post_board_item`. That's the entire platform API for agents.
+- **MCP tools are primitives** — Tools provide capability, not behavior. No business logic in tool handlers.
+
+### Agent-Native Architecture (100% Required)
+
+All 8 principles must score 80%+ at all times:
+
+1. **Action Parity** — Whatever the user can do, the agent can do. Every API endpoint has a corresponding MCP tool.
+2. **Tools as Primitives** — Tools provide capability (read, write, list), not behavior (no business logic, no orchestration).
+3. **Context Injection** — System prompt includes dynamic context: org structure, recent board activity, pending child results.
+4. **Shared Workspace** — Agent and user work in the same data space. No shadow databases or agent sandboxes.
+5. **CRUD Completeness** — Every entity (Agent, OrgNode, Task, Message) has full Create/Read/Update/Delete from both API and MCP.
+6. **UI Integration** — Every state mutation emits a WebSocket event. No polling-only updates. Agent actions are immediately reflected in the UI.
+7. **Capability Discovery** — Users can discover what agents can do via suggested prompts, empty state guidance, capability hints, and help documentation.
+8. **Prompt-Native Features** — Features are prompts defining outcomes, not code. Behavior changes require prompt edits, not code deploys.
 
 ## Build & Development Commands
 
@@ -133,3 +147,13 @@ Each agent receives:
 - **MCP server** — In-process Generic Corp tools (passed via `type: "sdk"`, no `.mcp.json` files)
 
 The lifecycle manager codes against an `AgentRuntime` interface so we can swap SDK → CLI → raw API later. No BaseAgent class. No personality prompts in TypeScript.
+
+## Implementation Workflow
+
+When iterating on the architecture implementation:
+
+1. **Track progress** in `plans/v2-architecture-status.md` — check off items as they are completed.
+2. **Make regular, atomic commits** — each commit should represent a single logical change (one feature, one fix, one refactoring).
+3. **Run the agent-native audit** (`/agent-native-audit`) before each commit to verify adherence to agent-native architecture principles.
+4. **Reference the canonical design** in `plans/v2-architecture-simplified.md` for all implementation decisions.
+5. **TDD is imperative** — Write tests first, then implement. Every new feature, service, component, and utility must have tests written before the implementation code. Red-green-refactor cycle.
