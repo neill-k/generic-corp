@@ -90,9 +90,9 @@ export function createGcMcpServer(agentId: string, taskId: string) {
     tools: [
       tool(
         "delegate_task",
-        "Assign work to a direct report",
+        "Assign work to any agent by name",
         {
-          targetAgent: z.string().describe("Name (slug) of the direct report"),
+          targetAgent: z.string().describe("Name (slug) of the agent to delegate to"),
           prompt: z.string().describe("What to do"),
           context: z.string().describe("Relevant context"),
           priority: z.number().int().optional().describe("Higher is more urgent"),
@@ -105,14 +105,11 @@ export function createGcMcpServer(agentId: string, taskId: string) {
             const parentTask = await db.task.findUnique({ where: { id: taskId }, select: { id: true } });
             if (!parentTask) return toolText(`Unknown parent task: ${taskId}`);
 
-            const reports = await getDirectReportsFor(caller.id);
-            const target = reports.find((r) => r.name === args.targetAgent);
-            if (!target) {
-              const names = reports.map((r) => r.name).join(", ") || "(none)";
-              return toolText(
-                `Cannot delegate to '${args.targetAgent}'. Valid direct reports for ${caller.name}: ${names}`,
-              );
-            }
+            const target = await db.agent.findUnique({
+              where: { name: args.targetAgent },
+              select: { id: true, name: true },
+            });
+            if (!target) return toolText(`Unknown agent: ${args.targetAgent}`);
 
             const task = await db.task.create({
               data: {
@@ -145,13 +142,12 @@ export function createGcMcpServer(agentId: string, taskId: string) {
 
       tool(
         "finish_task",
-        "Signal task completion with result and learnings",
+        "Signal task completion with result and optional learnings",
         {
           status: z.enum(["completed", "blocked", "needs_followup"]),
           resultSummary: z.string(),
           nextSteps: z.string().optional(),
           learnings: z.string().optional(),
-          blockers: z.string().optional(),
         },
         async (args) => {
           try {
@@ -160,12 +156,9 @@ export function createGcMcpServer(agentId: string, taskId: string) {
 
             const task = await db.task.findUnique({
               where: { id: taskId },
-              select: { id: true, assigneeId: true },
+              select: { id: true },
             });
             if (!task) return toolText(`Unknown task: ${taskId}`);
-            if (task.assigneeId !== agent.id) {
-              return toolText(`finish_task denied: task ${taskId} is not assigned to ${agent.name}`);
-            }
 
             const mappedStatus =
               args.status === "completed" ? "completed" : args.status === "blocked" ? "blocked" : "pending";
@@ -189,7 +182,6 @@ export function createGcMcpServer(agentId: string, taskId: string) {
               await enqueueAgentTask({ agentName: agent.name, taskId, priority: updated.priority });
             }
 
-            // Cascade result to parent if this was a delegated task
             if (args.status === "completed") {
               const completedTask = await db.task.findUnique({
                 where: { id: taskId },
@@ -208,14 +200,6 @@ export function createGcMcpServer(agentId: string, taskId: string) {
               const filePath = path.join(dir, `${safeIsoForFilename(now)}-${agent.name}-task-${taskId}.md`);
               const body = `---\nauthor: ${agent.name}\ndate: ${now.toISOString()}\ntags: [task] \n---\n\n${args.learnings.trim()}\n`;
               await writeFile(filePath, body, "utf8");
-            }
-
-            if (args.status === "blocked") {
-              const boardService = getBoardService();
-              const content = args.blockers?.trim().length
-                ? args.blockers.trim()
-                : `Task ${taskId} blocked: ${args.resultSummary}`;
-              await boardService.writeBoardItem({ agentName: agent.name, type: "blocker", content });
             }
 
             return toolText("Acknowledged.");
