@@ -9,6 +9,7 @@ import type { AgentRuntime } from "../services/agent-lifecycle.js";
 import { AgentSdkRuntime } from "../services/agent-runtime-sdk.js";
 import { AgentCliRuntime } from "../services/agent-runtime-cli.js";
 import { BoardService } from "../services/board-service.js";
+import { handleChildCompletion } from "../services/delegation-flow.js";
 import { buildSystemPrompt } from "../services/prompt-builder.js";
 import type { WorkspaceManager } from "../services/workspace-manager.js";
 import { readdir, readFile } from "node:fs/promises";
@@ -189,6 +190,18 @@ async function runTask(task: Task & { assignee: Agent }) {
       status: lastResult.status === "success" ? "completed" : "failed",
       output: lastResult.output,
     });
+  }
+
+  // Post-run: notify parent task if this was a delegated child task
+  const finalTask = await db.task.findUnique({
+    where: { id: task.id },
+    select: { id: true, parentTaskId: true, assigneeId: true, result: true, status: true },
+  });
+  if (finalTask && finalTask.status === "completed" && finalTask.parentTaskId) {
+    const root = process.env["GC_WORKSPACE_ROOT"];
+    if (root) {
+      await handleChildCompletion(finalTask, root);
+    }
   }
 }
 

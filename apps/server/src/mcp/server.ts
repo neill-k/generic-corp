@@ -2,7 +2,6 @@ import { createSdkMcpServer, tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 
 import crypto from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { db } from "../db/client.js";
@@ -13,16 +12,11 @@ import type { BoardItemType } from "@generic-corp/shared";
 
 import { appEventBus } from "../services/app-events.js";
 import { BoardService } from "../services/board-service.js";
-import { handleChildCompletion } from "../services/delegation-flow.js";
 
 type ToolTextResult = { content: Array<{ type: "text"; text: string }> };
 
 function toolText(text: string): ToolTextResult {
   return { content: [{ type: "text", text }] };
-}
-
-function safeIsoForFilename(date: Date): string {
-  return date.toISOString().replace(/[:.]/g, "-");
 }
 
 async function getAgentByIdOrName(agentIdOrName: string) {
@@ -75,10 +69,6 @@ function resolveWorkspaceRoot(): string {
     throw new Error("GC_WORKSPACE_ROOT is not set (needed for board/docs file tools)");
   }
   return path.resolve(root);
-}
-
-async function ensureDir(p: string) {
-  await mkdir(p, { recursive: true });
 }
 
 function getBoardService(): BoardService {
@@ -150,69 +140,31 @@ export function createGcMcpServer(agentId: string, taskId: string) {
 
       tool(
         "finish_task",
-        "Signal task completion with result and optional learnings",
+        "Mark your current task as done with a result summary",
         {
-          status: z.enum(["completed", "blocked", "needs_followup"]),
-          resultSummary: z.string(),
-          nextSteps: z.string().optional(),
-          learnings: z.string().optional(),
+          status: z.enum(["completed", "blocked", "failed"]).describe("Final task status"),
+          result: z.string().describe("Result summary or reason for blocking/failure"),
         },
         async (args) => {
           try {
-            const agent = await getAgentByIdOrName(agentId);
-            if (!agent) return toolText(`Unknown caller agent: ${agentId}`);
-
             const task = await db.task.findUnique({
               where: { id: taskId },
               select: { id: true },
             });
             if (!task) return toolText(`Unknown task: ${taskId}`);
 
-            const mappedStatus =
-              args.status === "completed" ? "completed" : args.status === "blocked" ? "blocked" : "pending";
-            const fullResult = [args.resultSummary, args.nextSteps ? `\n\nNext steps:\n${args.nextSteps}` : ""]
-              .filter(Boolean)
-              .join("");
-
-            const updated = await db.task.update({
+            await db.task.update({
               where: { id: taskId },
               data: {
-                status: mappedStatus,
-                result: fullResult,
-                learnings: args.learnings ?? null,
+                status: args.status,
+                result: args.result,
                 completedAt: args.status === "completed" ? new Date() : null,
-                priority: args.status === "needs_followup" ? { increment: 1 } : undefined,
               },
-              select: { id: true, priority: true },
             });
 
-            appEventBus.emit("task_status_changed", { taskId, status: mappedStatus });
+            appEventBus.emit("task_status_changed", { taskId, status: args.status });
 
-            if (args.status === "needs_followup") {
-              await enqueueAgentTask({ agentName: agent.name, taskId, priority: updated.priority });
-            }
-
-            if (args.status === "completed") {
-              const completedTask = await db.task.findUnique({
-                where: { id: taskId },
-                select: { id: true, parentTaskId: true, assigneeId: true, result: true, status: true },
-              });
-              if (completedTask) {
-                await handleChildCompletion(completedTask, resolveWorkspaceRoot());
-              }
-            }
-
-            if (args.learnings && args.learnings.trim().length > 0) {
-              const root = resolveWorkspaceRoot();
-              const dir = path.join(root, "docs", "learnings");
-              await ensureDir(dir);
-              const now = new Date();
-              const filePath = path.join(dir, `${safeIsoForFilename(now)}-${agent.name}-task-${taskId}.md`);
-              const body = `---\nauthor: ${agent.name}\ndate: ${now.toISOString()}\ntags: [task] \n---\n\n${args.learnings.trim()}\n`;
-              await writeFile(filePath, body, "utf8");
-            }
-
-            return toolText("Acknowledged.");
+            return toolText(`Task ${taskId} marked as ${args.status}.`);
           } catch (error) {
             const message = error instanceof Error ? error.message : "Unknown error";
             return toolText(`finish_task failed: ${message}`);
