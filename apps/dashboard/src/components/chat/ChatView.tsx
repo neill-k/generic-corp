@@ -38,6 +38,19 @@ export function ChatView() {
     }
   });
 
+  useSocketEvent("message_updated", () => {
+    if (activeThreadId) {
+      queryClient.invalidateQueries({ queryKey: ["messages", activeThreadId] });
+    }
+  });
+
+  useSocketEvent("message_deleted", () => {
+    queryClient.invalidateQueries({ queryKey: ["threads"] });
+    if (activeThreadId) {
+      queryClient.invalidateQueries({ queryKey: ["messages", activeThreadId] });
+    }
+  });
+
   useEffect(() => {
     if (threadsQuery.data) {
       setThreads(threadsQuery.data.threads);

@@ -14,6 +14,7 @@ import { useSocketEvent } from "../../hooks/use-socket.js";
 import { useAgentStore } from "../../store/agent-store.js";
 import { AgentNode } from "./AgentNode.js";
 import type { ApiOrgNode, WsAgentStatusChanged } from "@generic-corp/shared";
+import { useQueryClient } from "@tanstack/react-query";
 
 const nodeTypes: NodeTypes = {
   agent: AgentNode as NodeTypes["agent"],
@@ -60,6 +61,7 @@ function flattenOrgTree(
 
 export function OrgChart() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const updateAgentStatus = useAgentStore((s) => s.updateAgentStatus);
 
   const orgQuery = useQuery({
@@ -69,6 +71,19 @@ export function OrgChart() {
 
   useSocketEvent<WsAgentStatusChanged>("agent_status_changed", (event) => {
     updateAgentStatus(event.agentId, event.status);
+    queryClient.invalidateQueries({ queryKey: ["org"] });
+  });
+
+  useSocketEvent("agent_updated", () => {
+    queryClient.invalidateQueries({ queryKey: ["org"] });
+  });
+
+  useSocketEvent("agent_deleted", () => {
+    queryClient.invalidateQueries({ queryKey: ["org"] });
+  });
+
+  useSocketEvent("org_changed", () => {
+    queryClient.invalidateQueries({ queryKey: ["org"] });
   });
 
   const handleClickAgent = useCallback(

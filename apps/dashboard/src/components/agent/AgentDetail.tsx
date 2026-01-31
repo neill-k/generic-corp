@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "../../lib/api-client.js";
 import { useSocketEvent } from "../../hooks/use-socket.js";
@@ -27,6 +27,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export function AgentDetail({ agentId }: { agentId: string }) {
+  const queryClient = useQueryClient();
   const appendEntry = useActivityStore((s) => s.appendEntry);
   const clearEntries = useActivityStore((s) => s.clearEntries);
 
@@ -52,6 +53,22 @@ export function AgentDetail({ agentId }: { agentId: string }) {
         timestamp: new Date().toISOString(),
       });
     }
+  });
+
+  useSocketEvent("agent_updated", () => {
+    queryClient.invalidateQueries({ queryKey: ["agent", agentId] });
+  });
+
+  useSocketEvent("task_created", () => {
+    queryClient.invalidateQueries({ queryKey: ["agent-tasks", agentId] });
+  });
+
+  useSocketEvent("task_status_changed", () => {
+    queryClient.invalidateQueries({ queryKey: ["agent-tasks", agentId] });
+  });
+
+  useSocketEvent("task_updated", () => {
+    queryClient.invalidateQueries({ queryKey: ["agent-tasks", agentId] });
   });
 
   const agentQuery = useQuery({
