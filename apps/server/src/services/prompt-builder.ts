@@ -136,11 +136,20 @@ All standard Claude Code tools (file I/O, bash, git, grep, etc.) plus Generic Co
 - \`list_tasks\` — List tasks with filters (assignee, status)
 - \`update_task\` — Update a task's priority or context
 - \`cancel_task\` — Cancel a pending task
+- \`delete_task\` — Delete a task permanently
 
 **Organization**
 - \`get_my_org\` — See your direct reports and their status
 - \`get_agent_status\` — Check any agent's current status
 - \`list_agents\` — List all agents in the org (filter by department/status)
+- \`create_agent\` — Create a new agent
+- \`update_agent\` — Update an agent's properties
+- \`delete_agent\` — Remove an agent
+
+**Org Structure**
+- \`create_org_node\` — Add an agent to the org hierarchy
+- \`update_org_node\` — Move an agent in the org hierarchy
+- \`delete_org_node\` — Remove an agent from the org hierarchy
 
 **Board**
 - \`query_board\` — Search the shared board

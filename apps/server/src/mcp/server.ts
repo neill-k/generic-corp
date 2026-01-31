@@ -749,6 +749,235 @@ export function createGcMcpServer(agentId: string, taskId: string) {
           }
         },
       ),
+
+      // --- Agent administration tools ---
+
+      tool(
+        "create_agent",
+        "Create a new agent in the organization",
+        {
+          name: z.string().regex(/^[a-z0-9-]+$/).describe("Unique slug name"),
+          displayName: z.string().describe("Human-readable name"),
+          role: z.string().describe("Agent's role title"),
+          department: z.string().describe("Department name"),
+          level: z.enum(["ic", "lead", "manager", "vp", "c-suite"]),
+          personality: z.string().optional().describe("Personality/behavior description"),
+        },
+        async (args) => {
+          try {
+            const agent = await db.agent.create({
+              data: {
+                name: args.name,
+                displayName: args.displayName,
+                role: args.role,
+                department: args.department,
+                level: args.level,
+                personality: args.personality ?? "",
+                status: "idle",
+              },
+              select: { id: true, name: true },
+            });
+
+            return toolText(JSON.stringify({ id: agent.id, name: agent.name }, null, 2));
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`create_agent failed: ${msg}`);
+          }
+        },
+      ),
+
+      tool(
+        "update_agent",
+        "Update an agent's properties",
+        {
+          agentName: z.string().describe("Agent name (slug)"),
+          displayName: z.string().optional(),
+          role: z.string().optional(),
+          department: z.string().optional(),
+          personality: z.string().optional(),
+        },
+        async (args) => {
+          try {
+            const agent = await db.agent.findUnique({ where: { name: args.agentName } });
+            if (!agent) return toolText(`Unknown agent: ${args.agentName}`);
+
+            const data: Record<string, unknown> = {};
+            if (args.displayName !== undefined) data["displayName"] = args.displayName;
+            if (args.role !== undefined) data["role"] = args.role;
+            if (args.department !== undefined) data["department"] = args.department;
+            if (args.personality !== undefined) data["personality"] = args.personality;
+
+            if (Object.keys(data).length === 0) return toolText("No fields to update.");
+
+            await db.agent.update({ where: { id: agent.id }, data });
+
+            appEventBus.emit("agent_updated", { agentId: agent.id });
+
+            return toolText(`Agent ${args.agentName} updated.`);
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`update_agent failed: ${msg}`);
+          }
+        },
+      ),
+
+      tool(
+        "delete_agent",
+        "Remove an agent from the organization",
+        {
+          agentName: z.string().describe("Agent name (slug)"),
+        },
+        async (args) => {
+          try {
+            const agent = await db.agent.findUnique({ where: { name: args.agentName } });
+            if (!agent) return toolText(`Unknown agent: ${args.agentName}`);
+
+            await db.orgNode.deleteMany({ where: { agentId: agent.id } });
+            await db.agent.delete({ where: { id: agent.id } });
+
+            appEventBus.emit("agent_deleted", { agentId: agent.id });
+
+            return toolText(`Agent ${args.agentName} deleted.`);
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`delete_agent failed: ${msg}`);
+          }
+        },
+      ),
+
+      // --- Organization structure tools ---
+
+      tool(
+        "create_org_node",
+        "Add an agent to the org hierarchy",
+        {
+          agentName: z.string().describe("Agent name (slug) to place in org"),
+          parentAgentName: z.string().optional().describe("Parent agent name (slug), omit for root"),
+          position: z.number().int().optional().describe("Sort position among siblings"),
+        },
+        async (args) => {
+          try {
+            const agent = await db.agent.findUnique({ where: { name: args.agentName }, select: { id: true } });
+            if (!agent) return toolText(`Unknown agent: ${args.agentName}`);
+
+            let parentNodeId: string | null = null;
+            if (args.parentAgentName) {
+              const parentAgent = await db.agent.findUnique({ where: { name: args.parentAgentName }, select: { id: true } });
+              if (!parentAgent) return toolText(`Unknown parent agent: ${args.parentAgentName}`);
+              const parentNode = await db.orgNode.findUnique({ where: { agentId: parentAgent.id }, select: { id: true } });
+              if (!parentNode) return toolText(`Agent ${args.parentAgentName} has no org node`);
+              parentNodeId = parentNode.id;
+            }
+
+            const node = await db.orgNode.create({
+              data: { agentId: agent.id, parentNodeId, position: args.position ?? 0 },
+              select: { id: true },
+            });
+
+            appEventBus.emit("org_changed", {});
+
+            return toolText(JSON.stringify({ nodeId: node.id }, null, 2));
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`create_org_node failed: ${msg}`);
+          }
+        },
+      ),
+
+      tool(
+        "update_org_node",
+        "Move an agent in the org hierarchy",
+        {
+          agentName: z.string().describe("Agent name (slug) to move"),
+          parentAgentName: z.string().nullable().optional().describe("New parent agent name (null for root)"),
+          position: z.number().int().optional().describe("New sort position"),
+        },
+        async (args) => {
+          try {
+            const agent = await db.agent.findUnique({ where: { name: args.agentName }, select: { id: true } });
+            if (!agent) return toolText(`Unknown agent: ${args.agentName}`);
+
+            const node = await db.orgNode.findUnique({ where: { agentId: agent.id }, select: { id: true } });
+            if (!node) return toolText(`Agent ${args.agentName} has no org node`);
+
+            const data: Record<string, unknown> = {};
+            if (args.parentAgentName !== undefined) {
+              if (args.parentAgentName === null) {
+                data["parentNodeId"] = null;
+              } else {
+                const parentAgent = await db.agent.findUnique({ where: { name: args.parentAgentName }, select: { id: true } });
+                if (!parentAgent) return toolText(`Unknown parent agent: ${args.parentAgentName}`);
+                const parentNode = await db.orgNode.findUnique({ where: { agentId: parentAgent.id }, select: { id: true } });
+                if (!parentNode) return toolText(`Agent ${args.parentAgentName} has no org node`);
+                data["parentNodeId"] = parentNode.id;
+              }
+            }
+            if (args.position !== undefined) data["position"] = args.position;
+
+            if (Object.keys(data).length === 0) return toolText("No fields to update.");
+
+            await db.orgNode.update({ where: { id: node.id }, data });
+
+            appEventBus.emit("org_changed", {});
+
+            return toolText(`Org node for ${args.agentName} updated.`);
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`update_org_node failed: ${msg}`);
+          }
+        },
+      ),
+
+      tool(
+        "delete_org_node",
+        "Remove an agent from the org hierarchy",
+        {
+          agentName: z.string().describe("Agent name (slug) to remove from org"),
+        },
+        async (args) => {
+          try {
+            const agent = await db.agent.findUnique({ where: { name: args.agentName }, select: { id: true } });
+            if (!agent) return toolText(`Unknown agent: ${args.agentName}`);
+
+            const node = await db.orgNode.findUnique({ where: { agentId: agent.id }, select: { id: true } });
+            if (!node) return toolText(`Agent ${args.agentName} has no org node`);
+
+            await db.orgNode.delete({ where: { id: node.id } });
+
+            appEventBus.emit("org_changed", {});
+
+            return toolText(`Org node for ${args.agentName} deleted.`);
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`delete_org_node failed: ${msg}`);
+          }
+        },
+      ),
+
+      // --- Task lifecycle ---
+
+      tool(
+        "delete_task",
+        "Delete a task permanently",
+        {
+          taskId: z.string().describe("Task ID to delete"),
+        },
+        async (args) => {
+          try {
+            const task = await db.task.findUnique({ where: { id: args.taskId }, select: { id: true } });
+            if (!task) return toolText(`Task not found: ${args.taskId}`);
+
+            await db.task.delete({ where: { id: args.taskId } });
+
+            appEventBus.emit("task_status_changed", { taskId: args.taskId, status: "deleted" });
+
+            return toolText(`Task ${args.taskId} deleted.`);
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`delete_task failed: ${msg}`);
+          }
+        },
+      ),
     ],
   });
 }
