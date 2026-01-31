@@ -466,6 +466,7 @@ export function createApiRouter(deps: ApiRouterDeps = {}): express.Router {
           status: "idle",
         },
       });
+      appEventBus.emit("agent_updated", { agentId: agent.id });
       res.status(201).json({ agent });
     } catch (error) {
       next(error);

@@ -62,22 +62,24 @@ async function markAgentIdle(agentId: string) {
   appEventBus.emit("agent_status_changed", { agentId: agent.name, status: "idle" });
 }
 
-async function maybeFinalizeTask(taskId: string, fallback: { status: "completed" | "failed"; output: string }) {
+async function maybeFinalizeTask(taskId: string, fallback: { output: string }) {
   const existing = await db.task.findUnique({ where: { id: taskId }, select: { status: true, result: true } });
   if (!existing) return;
 
+  // If agent already called finish_task, status won't be "running" — respect that
   if (existing.status !== "running") return;
 
+  // Agent didn't explicitly call finish_task — mark as failed (agent must be intentional)
   await db.task.update({
     where: { id: taskId },
     data: {
-      status: fallback.status,
-      result: existing.result ?? fallback.output,
-      completedAt: fallback.status === "completed" ? new Date() : null,
+      status: "failed",
+      result: existing.result ?? `Agent did not call finish_task. Last output: ${fallback.output.slice(0, 500)}`,
+      completedAt: new Date(),
     },
   });
 
-  appEventBus.emit("task_status_changed", { taskId, status: fallback.status });
+  appEventBus.emit("task_status_changed", { taskId, status: "failed" });
 }
 
 async function loadOrgReports(agentDbId: string) {
@@ -331,7 +333,6 @@ async function runTask(task: Task & { assignee: Agent }) {
     });
 
     await maybeFinalizeTask(task.id, {
-      status: lastResult.status === "success" ? "completed" : "failed",
       output: lastResult.output,
     });
   }

@@ -158,7 +158,7 @@ export function createGcMcpServer(agentId: string, taskId: string) {
               data: {
                 status: args.status,
                 result: args.result,
-                completedAt: args.status === "completed" ? new Date() : null,
+                completedAt: new Date(),
               },
             });
 
@@ -562,18 +562,19 @@ export function createGcMcpServer(agentId: string, taskId: string) {
         "Cancel a pending task",
         {
           taskId: z.string(),
+          reason: z.string().optional().describe("Reason for cancellation"),
         },
         async (args) => {
           try {
             const task = await db.task.findUnique({
               where: { id: args.taskId },
-              select: { id: true, status: true },
+              select: { id: true },
             });
             if (!task) return toolText(`Task not found: ${args.taskId}`);
 
             await db.task.update({
               where: { id: args.taskId },
-              data: { status: "failed", result: "Cancelled" },
+              data: { status: "failed", result: args.reason ?? "Cancelled" },
             });
 
             appEventBus.emit("task_status_changed", { taskId: args.taskId, status: "failed" });
@@ -750,6 +751,8 @@ export function createGcMcpServer(agentId: string, taskId: string) {
               select: { id: true, name: true },
             });
 
+            appEventBus.emit("agent_updated", { agentId: agent.id });
+
             return toolText(JSON.stringify({ id: agent.id, name: agent.name }, null, 2));
           } catch (error) {
             const msg = error instanceof Error ? error.message : "Unknown error";
@@ -824,7 +827,8 @@ export function createGcMcpServer(agentId: string, taskId: string) {
         "Add an agent to the org hierarchy",
         {
           agentName: z.string().describe("Agent name (slug) to place in org"),
-          parentAgentName: z.string().optional().describe("Parent agent name (slug), omit for root"),
+          parentNodeId: z.string().optional().describe("Parent org node ID (direct), omit for root"),
+          parentAgentName: z.string().optional().describe("Parent agent name (slug) — alternative to parentNodeId"),
           position: z.number().int().optional().describe("Sort position among siblings"),
         },
         async (args) => {
@@ -832,8 +836,8 @@ export function createGcMcpServer(agentId: string, taskId: string) {
             const agent = await db.agent.findUnique({ where: { name: args.agentName }, select: { id: true } });
             if (!agent) return toolText(`Unknown agent: ${args.agentName}`);
 
-            let parentNodeId: string | null = null;
-            if (args.parentAgentName) {
+            let parentNodeId: string | null = args.parentNodeId ?? null;
+            if (!parentNodeId && args.parentAgentName) {
               const parentAgent = await db.agent.findUnique({ where: { name: args.parentAgentName }, select: { id: true } });
               if (!parentAgent) return toolText(`Unknown parent agent: ${args.parentAgentName}`);
               const parentNode = await db.orgNode.findUnique({ where: { agentId: parentAgent.id }, select: { id: true } });
@@ -861,7 +865,8 @@ export function createGcMcpServer(agentId: string, taskId: string) {
         "Move an agent in the org hierarchy",
         {
           agentName: z.string().describe("Agent name (slug) to move"),
-          parentAgentName: z.string().nullable().optional().describe("New parent agent name (null for root)"),
+          parentNodeId: z.string().nullable().optional().describe("New parent node ID (direct), null for root"),
+          parentAgentName: z.string().nullable().optional().describe("New parent agent name (slug) — alternative to parentNodeId"),
           position: z.number().int().optional().describe("New sort position"),
         },
         async (args) => {
@@ -873,7 +878,9 @@ export function createGcMcpServer(agentId: string, taskId: string) {
             if (!node) return toolText(`Agent ${args.agentName} has no org node`);
 
             const data: Record<string, unknown> = {};
-            if (args.parentAgentName !== undefined) {
+            if (args.parentNodeId !== undefined) {
+              data["parentNodeId"] = args.parentNodeId;
+            } else if (args.parentAgentName !== undefined) {
               if (args.parentAgentName === null) {
                 data["parentNodeId"] = null;
               } else {
