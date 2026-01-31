@@ -112,11 +112,33 @@ export function ChatView() {
         {activeThreadId ? (
           <>
             <MessageList messages={messages} />
+            {messages.length === 0 && (
+              <div className="flex flex-wrap justify-center gap-2 px-4 pb-2">
+                {[
+                  "Review the latest code changes",
+                  "Give me a standup report",
+                  "What blockers does the team have?",
+                  "Delegate a code review to the engineering lead",
+                ].map((prompt) => (
+                  <button
+                    key={prompt}
+                    onClick={() => handleSend(prompt)}
+                    disabled={sending}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 hover:border-blue-400 hover:text-blue-600 disabled:opacity-50"
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
+            )}
             <ChatInput onSend={handleSend} disabled={sending} />
           </>
         ) : (
-          <div className="flex flex-1 items-center justify-center text-sm text-slate-400">
-            Select a thread or start a new conversation
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 text-sm text-slate-400">
+            <p>Select a thread or start a new conversation</p>
+            <p className="text-xs text-slate-300">
+              Agents can delegate work, post to the board, send messages, and more
+            </p>
           </div>
         )}
       </div>

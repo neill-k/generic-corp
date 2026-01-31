@@ -2,10 +2,10 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { useSocketStore } from "../store/socket-store.js";
 
 const NAV_ITEMS = [
-  { to: "/", label: "Dashboard" },
-  { to: "/chat", label: "Chat" },
-  { to: "/org", label: "Org Chart" },
-  { to: "/board", label: "Board" },
+  { to: "/", label: "Dashboard", hint: "Overview and capabilities" },
+  { to: "/chat", label: "Chat", hint: "Talk to agents and delegate work" },
+  { to: "/org", label: "Org Chart", hint: "Agent hierarchy and live status" },
+  { to: "/board", label: "Board", hint: "Updates, blockers, findings" },
 ] as const;
 
 export function Sidebar() {
@@ -26,13 +26,15 @@ export function Sidebar() {
             <Link
               key={item.to}
               to={item.to}
+              title={item.hint}
               className={`block rounded px-3 py-2 text-sm ${
                 active
                   ? "bg-blue-50 font-medium text-blue-700"
                   : "text-slate-700 hover:bg-slate-100"
               }`}
             >
-              {item.label}
+              <span>{item.label}</span>
+              <span className="ml-1 text-xs text-slate-400">{item.hint}</span>
             </Link>
           );
         })}
