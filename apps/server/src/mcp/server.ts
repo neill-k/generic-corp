@@ -653,6 +653,98 @@ export function createGcMcpServer(agentId: string, taskId: string) {
           }
         },
       ),
+
+      // --- Agent discovery tools ---
+
+      tool(
+        "list_agents",
+        "List all agents in the organization",
+        {
+          department: z.string().optional().describe("Filter by department"),
+          status: z.enum(["idle", "running", "error", "offline"]).optional().describe("Filter by status"),
+        },
+        async (args) => {
+          try {
+            const where: Record<string, unknown> = {};
+            if (args.department) where["department"] = args.department;
+            if (args.status) where["status"] = args.status;
+
+            const agents = await db.agent.findMany({
+              where,
+              orderBy: { name: "asc" },
+              select: {
+                name: true,
+                displayName: true,
+                role: true,
+                department: true,
+                level: true,
+                status: true,
+                currentTaskId: true,
+              },
+            });
+
+            return toolText(JSON.stringify(agents, null, 2));
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`list_agents failed: ${msg}`);
+          }
+        },
+      ),
+
+      // --- Message management tools ---
+
+      tool(
+        "mark_message_read",
+        "Mark a message as read",
+        {
+          messageId: z.string().describe("ID of the message to mark as read"),
+        },
+        async (args) => {
+          try {
+            const message = await db.message.findUnique({
+              where: { id: args.messageId },
+              select: { id: true },
+            });
+            if (!message) return toolText(`Message not found: ${args.messageId}`);
+
+            await db.message.update({
+              where: { id: args.messageId },
+              data: { status: "read", readAt: new Date() },
+            });
+
+            return toolText(`Message ${args.messageId} marked as read.`);
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`mark_message_read failed: ${msg}`);
+          }
+        },
+      ),
+
+      tool(
+        "delete_message",
+        "Delete a message",
+        {
+          messageId: z.string().describe("ID of the message to delete"),
+        },
+        async (args) => {
+          try {
+            const message = await db.message.findUnique({
+              where: { id: args.messageId },
+              select: { id: true },
+            });
+            if (!message) return toolText(`Message not found: ${args.messageId}`);
+
+            await db.message.delete({ where: { id: args.messageId } });
+
+            appEventBus.emit("message_deleted", { messageId: args.messageId });
+
+            return toolText(`Message ${args.messageId} deleted.`);
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`delete_message failed: ${msg}`);
+          }
+        },
+      ),
     ],
   });
 }

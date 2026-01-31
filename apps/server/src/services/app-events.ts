@@ -9,6 +9,10 @@ export type AppEventMap = {
   message_created: { messageId: string; threadId: string; fromAgentId: string | null; toAgentId: string };
   board_item_created: { type: string; author: string; path: string };
   board_item_archived: { path: string; archivedPath: string };
+  agent_updated: { agentId: string };
+  agent_deleted: { agentId: string };
+  message_updated: { messageId: string };
+  message_deleted: { messageId: string };
 };
 
 export const appEventBus = new EventBus<AppEventMap>();
