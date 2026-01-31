@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectRelevantSkills, SKILL_PROMPTS, type SkillId } from "./skills.js";
+import { ALL_SKILL_IDS, getAllSkillPrompts, SKILL_PROMPTS, type SkillId } from "./skills.js";
 
 describe("skills", () => {
   it("defines prompts for all skill IDs", () => {
@@ -10,29 +10,15 @@ describe("skills", () => {
     }
   });
 
-  it("detects review skill from code review keywords", () => {
-    const skills = detectRelevantSkills({ prompt: "Review the PR for the auth module" });
-    expect(skills).toContain("review");
+  it("ALL_SKILL_IDS contains every defined skill", () => {
+    expect(ALL_SKILL_IDS).toEqual(expect.arrayContaining(["review", "standup", "learning"]));
+    expect(ALL_SKILL_IDS.length).toBe(Object.keys(SKILL_PROMPTS).length);
   });
 
-  it("detects standup skill from standup keywords", () => {
-    const skills = detectRelevantSkills({ prompt: "Prepare your daily standup report" });
-    expect(skills).toContain("standup");
-  });
-
-  it("detects learning skill from retrospective keywords", () => {
-    const skills = detectRelevantSkills({ prompt: "Document the learnings from the outage" });
-    expect(skills).toContain("learning");
-  });
-
-  it("returns empty array for unrelated tasks", () => {
-    const skills = detectRelevantSkills({ prompt: "Build the landing page" });
-    expect(skills).toEqual([]);
-  });
-
-  it("detects multiple skills when prompt matches both", () => {
-    const skills = detectRelevantSkills({ prompt: "Review the code and write a standup update" });
-    expect(skills).toContain("review");
-    expect(skills).toContain("standup");
+  it("getAllSkillPrompts returns a string containing all skill prompts", () => {
+    const combined = getAllSkillPrompts();
+    for (const id of ALL_SKILL_IDS) {
+      expect(combined).toContain(SKILL_PROMPTS[id]);
+    }
   });
 });

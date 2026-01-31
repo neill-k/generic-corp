@@ -33,18 +33,8 @@ When documenting learnings:
 - Post a "finding" board item summarizing the insight`,
 };
 
-const SKILL_KEYWORDS: Record<SkillId, RegExp> = {
-  review: /\b(review|code review|pr review|pull request|audit|inspect)\b/i,
-  standup: /\b(standup|stand-up|daily update|status update|check-in|progress report)\b/i,
-  learning: /\b(learnings?|lessons?|retrospective|retro|postmortem|post-mortem|document .* learned)\b/i,
-};
+export const ALL_SKILL_IDS: SkillId[] = Object.keys(SKILL_PROMPTS) as SkillId[];
 
-export function detectRelevantSkills(task: { prompt: string }): SkillId[] {
-  const matched: SkillId[] = [];
-  for (const [id, pattern] of Object.entries(SKILL_KEYWORDS)) {
-    if (pattern.test(task.prompt)) {
-      matched.push(id as SkillId);
-    }
-  }
-  return matched;
+export function getAllSkillPrompts(): string {
+  return ALL_SKILL_IDS.map((id) => SKILL_PROMPTS[id]).join("\n\n");
 }

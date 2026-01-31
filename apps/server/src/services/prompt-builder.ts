@@ -198,7 +198,9 @@ ${params.pendingResults.map((r) => `### Child Task ${r.childTaskId}\n${r.result}
 ` : ""}${params.skills && params.skills.length > 0 ? `
 ---
 
-# Relevant Skills
+# Available Skills
+
+Apply whichever of these skill guides are relevant to your current task:
 
 ${params.skills.map((id) => SKILL_PROMPTS[id]).join("\n\n")}
 ` : ""}`;

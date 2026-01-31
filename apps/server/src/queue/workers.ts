@@ -12,7 +12,7 @@ import { BoardService } from "../services/board-service.js";
 import { checkContextHealth } from "../services/context-health.js";
 import { handleChildCompletion } from "../services/delegation-flow.js";
 import { buildSystemPrompt } from "../services/prompt-builder.js";
-import { detectRelevantSkills } from "../services/skills.js";
+import { ALL_SKILL_IDS } from "../services/skills.js";
 import type { WorkspaceManager } from "../services/workspace-manager.js";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
@@ -202,8 +202,6 @@ async function runTask(task: Task & { assignee: Agent }) {
     checkContextHealth(cwd),
   ]);
 
-  const skills = detectRelevantSkills(task);
-
   const systemPrompt = buildSystemPrompt({
     agent: task.assignee,
     task,
@@ -216,7 +214,7 @@ async function runTask(task: Task & { assignee: Agent }) {
     parentTask,
     taskHistory,
     contextHealthWarning,
-    skills,
+    skills: ALL_SKILL_IDS,
   });
   const mcpServer = createGcMcpServer(task.assignee.name, task.id);
 
