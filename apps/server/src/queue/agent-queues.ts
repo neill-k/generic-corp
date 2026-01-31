@@ -11,7 +11,7 @@ type EnqueueAgentTaskParams = {
 const queues = new Map<string, Queue>();
 
 export function queueNameForAgent(agentName: string): string {
-  return `gc:agent:${agentName}`;
+  return `gc-agent-${agentName}`;
 }
 
 export function getAgentQueue(agentName: string): Queue {
