@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { readFile, readdir } from "node:fs/promises";
+import { readFile, readdir, writeFile } from "node:fs/promises";
 import nodePath from "node:path";
 
 import express from "express";
@@ -482,6 +482,46 @@ export function createApiRouter(deps: ApiRouterDeps = {}): express.Router {
       appEventBus.emit("board_item_created", { type, author, path: filePath });
 
       res.status(201).json({ path: filePath });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.patch("/board", async (req, res, next) => {
+    try {
+      const filePath = req.body?.filePath;
+      const content = req.body?.content;
+
+      if (!filePath || typeof filePath !== "string") {
+        res.status(400).json({ error: "filePath is required" });
+        return;
+      }
+      if (!content || typeof content !== "string") {
+        res.status(400).json({ error: "content is required" });
+        return;
+      }
+
+      let existing: string;
+      try {
+        existing = await readFile(filePath, "utf8");
+      } catch {
+        res.status(404).json({ error: "Board item not found" });
+        return;
+      }
+
+      const separatorIndex = existing.indexOf("\n---\n");
+      if (separatorIndex === -1) {
+        res.status(400).json({ error: "Invalid board item format" });
+        return;
+      }
+
+      const header = existing.slice(0, separatorIndex + 5);
+      const updated = `${header}\n${content.trim()}\n`;
+      await writeFile(filePath, updated, "utf8");
+
+      appEventBus.emit("board_item_created", { type: "updated", author: "human", path: filePath });
+
+      res.json({ updated: true, path: filePath });
     } catch (error) {
       next(error);
     }

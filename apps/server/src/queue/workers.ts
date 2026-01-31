@@ -296,7 +296,7 @@ async function runTask(task: Task & { assignee: Agent }) {
     unreadMessagePreviews,
     skills: ALL_SKILL_IDS,
   });
-  const mcpServer = createGcMcpServer(task.assignee.name, task.id);
+  const mcpServer = createGcMcpServer(task.assignee.name, task.id, runtime);
 
   let lastResult: { output: string; costUsd: number; durationMs: number; numTurns: number; status: string } | null = null;
 

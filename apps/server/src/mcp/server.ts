@@ -2,14 +2,17 @@ import { createSdkMcpServer, tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 
 import crypto from "node:crypto";
+import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { db } from "../db/client.js";
 
 import { enqueueAgentTask } from "../queue/agent-queues.js";
 
+import type { AgentRuntime } from "../services/agent-lifecycle.js";
 import { appEventBus } from "../services/app-events.js";
 import { BoardService } from "../services/board-service.js";
+import { generateThreadSummary } from "../services/chat-continuity.js";
 
 type ToolTextResult = { content: Array<{ type: "text"; text: string }> };
 
@@ -73,7 +76,7 @@ function getBoardService(): BoardService {
   return new BoardService(resolveWorkspaceRoot());
 }
 
-export function createGcMcpServer(agentId: string, taskId: string) {
+export function createGcMcpServer(agentId: string, taskId: string, runtime?: AgentRuntime) {
   return createSdkMcpServer({
     name: "generic-corp",
     version: "1.0.0",
@@ -204,6 +207,31 @@ export function createGcMcpServer(agentId: string, taskId: string) {
       ),
 
       tool(
+        "list_org_nodes",
+        "List all org hierarchy nodes with agent info",
+        {},
+        async () => {
+          try {
+            const nodes = await db.orgNode.findMany({
+              orderBy: { position: "asc" },
+              select: {
+                id: true,
+                agentId: true,
+                parentNodeId: true,
+                position: true,
+                agent: { select: { name: true, displayName: true, role: true, department: true, status: true } },
+              },
+            });
+
+            return toolText(JSON.stringify(nodes, null, 2));
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`list_org_nodes failed: ${msg}`);
+          }
+        },
+      ),
+
+      tool(
         "get_agent_status",
         "Read an agent's current status",
         {
@@ -287,6 +315,47 @@ export function createGcMcpServer(agentId: string, taskId: string) {
           } catch (error) {
             const message = error instanceof Error ? error.message : "Unknown error";
             return toolText(`post_board_item failed: ${message}`);
+          }
+        },
+      ),
+
+      tool(
+        "update_board_item",
+        "Update an existing board item's content",
+        {
+          filePath: z.string().describe("Path to the board item file"),
+          content: z.string().describe("New content for the board item"),
+        },
+        async (args) => {
+          try {
+            // Read existing file to preserve header metadata
+            let existing: string;
+            try {
+              existing = await readFile(args.filePath, "utf8");
+            } catch {
+              return toolText(`Board item not found: ${args.filePath}`);
+            }
+
+            // Preserve everything up to and including the --- separator, replace body
+            const separatorIndex = existing.indexOf("\n---\n");
+            if (separatorIndex === -1) {
+              return toolText("Invalid board item format (no --- separator found).");
+            }
+
+            const header = existing.slice(0, separatorIndex + 5); // include \n---\n
+            const updated = `${header}\n${args.content.trim()}\n`;
+            await writeFile(args.filePath, updated, "utf8");
+
+            appEventBus.emit("board_item_created", {
+              type: "updated",
+              author: "agent",
+              path: args.filePath,
+            });
+
+            return toolText(`Board item updated: ${args.filePath}`);
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`update_board_item failed: ${msg}`);
           }
         },
       ),
@@ -420,6 +489,31 @@ export function createGcMcpServer(agentId: string, taskId: string) {
           } catch (error) {
             const msg = error instanceof Error ? error.message : "Unknown error";
             return toolText(`list_threads failed: ${msg}`);
+          }
+        },
+      ),
+
+      tool(
+        "get_thread_summary",
+        "Get a summary of new messages in a thread since a given time",
+        {
+          threadId: z.string().describe("Thread ID to summarize"),
+          since: z.string().describe("ISO timestamp — summarize messages after this time"),
+        },
+        async (args) => {
+          try {
+            if (!runtime) return toolText("Runtime not available for summarization.");
+
+            const summary = await generateThreadSummary({
+              threadId: args.threadId,
+              since: args.since,
+              runtime,
+            });
+
+            return toolText(summary ?? "No new messages in this thread since the given time.");
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`get_thread_summary failed: ${msg}`);
           }
         },
       ),

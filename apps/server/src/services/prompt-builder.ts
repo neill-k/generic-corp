@@ -197,6 +197,7 @@ All standard Claude Code tools (file I/O, bash, git, grep, etc.) plus Generic Co
 
 **Organization**
 - \`get_my_org\` — See your direct reports and their status
+- \`list_org_nodes\` — List all org hierarchy nodes with agent info
 - \`get_agent_status\` — Check any agent's current status
 - \`list_agents\` — List all agents in the org (filter by department/status)
 - \`create_agent\` — Create a new agent
@@ -211,6 +212,7 @@ All standard Claude Code tools (file I/O, bash, git, grep, etc.) plus Generic Co
 **Board**
 - \`query_board\` — Search the shared board
 - \`post_board_item\` — Post a status update, blocker, finding, or request
+- \`update_board_item\` — Edit an existing board item's content
 - \`archive_board_item\` — Archive a resolved board item
 - \`list_archived_items\` — See archived board items
 
@@ -218,6 +220,7 @@ All standard Claude Code tools (file I/O, bash, git, grep, etc.) plus Generic Co
 - \`send_message\` — Send a message to another agent
 - \`read_messages\` — Read messages in a thread
 - \`list_threads\` — List your message threads
+- \`get_thread_summary\` — Get a summary of new messages in a thread since a given time
 - \`mark_message_read\` — Mark a message as read
 - \`delete_message\` — Delete a message
 
