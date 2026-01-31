@@ -7,6 +7,20 @@ interface PendingResult {
   result: string;
 }
 
+interface OrgReport {
+  name: string;
+  role: string;
+  status: string;
+  currentTask: string | null;
+}
+
+interface BoardItemSummary {
+  type: string;
+  author: string;
+  summary: string;
+  timestamp: string;
+}
+
 type BuildSystemPromptParams = {
   agent: Agent;
   task: Task;
@@ -15,6 +29,8 @@ type BuildSystemPromptParams = {
   pendingResults?: PendingResult[];
   skills?: SkillId[];
   contextHealthWarning?: string | null;
+  orgReports?: OrgReport[];
+  recentBoardItems?: BoardItemSummary[];
 };
 
 function asIso(date: Date): string {
@@ -36,8 +52,7 @@ ${params.agent.personality}
 ## Your Position
 - **Agent**: ${params.agent.displayName} (${params.agent.name})
 - **Level**: ${params.agent.level}
-- **Reports to**: (use \`get_my_org\` to discover)
-- **Direct reports**: (use \`get_my_org\` to discover)
+${params.orgReports && params.orgReports.length > 0 ? `- **Direct reports**: ${params.orgReports.map((r) => `${r.name} (${r.role}, ${r.status})`).join(", ")}` : "- **Direct reports**: none (use \\`get_my_org\\` if needed)"}
 
 ## Communication & Delegation Rules
 You follow corporate chain-of-command:
@@ -94,7 +109,10 @@ Generated: ${asIso(generatedAt)}
 
 ## Context from delegator
 ${context}
-${params.pendingResults && params.pendingResults.length > 0 ? `
+${params.recentBoardItems && params.recentBoardItems.length > 0 ? `
+## Recent Board Activity
+${params.recentBoardItems.map((item) => `- **[${item.type}]** ${item.author}: ${item.summary} (${item.timestamp})`).join("\n")}
+` : ""}${params.pendingResults && params.pendingResults.length > 0 ? `
 ## Pending Results from Delegated Work
 The following child tasks have completed and their results are available:
 

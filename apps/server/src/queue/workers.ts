@@ -8,8 +8,11 @@ import { appEventBus } from "../services/app-events.js";
 import type { AgentRuntime } from "../services/agent-lifecycle.js";
 import { AgentSdkRuntime } from "../services/agent-runtime-sdk.js";
 import { AgentCliRuntime } from "../services/agent-runtime-cli.js";
+import { BoardService } from "../services/board-service.js";
 import { buildSystemPrompt } from "../services/prompt-builder.js";
 import type { WorkspaceManager } from "../services/workspace-manager.js";
+import { readdir, readFile } from "node:fs/promises";
+import path from "node:path";
 
 import { queueNameForAgent } from "./agent-queues.js";
 import { closeRedis, getRedis } from "./redis.js";
@@ -74,11 +77,78 @@ async function maybeFinalizeTask(taskId: string, fallback: { status: "completed"
   appEventBus.emit("task_status_changed", { taskId, status: fallback.status });
 }
 
+async function loadOrgReports(agentDbId: string) {
+  const myNode = await db.orgNode.findUnique({ where: { agentId: agentDbId }, select: { id: true } });
+  if (!myNode) return [];
+  const children = await db.orgNode.findMany({
+    where: { parentNodeId: myNode.id },
+    select: { agent: { select: { name: true, role: true, status: true, currentTaskId: true } } },
+  });
+  return Promise.all(children.map(async (c) => {
+    let currentTask: string | null = null;
+    if (c.agent.currentTaskId) {
+      const t = await db.task.findUnique({ where: { id: c.agent.currentTaskId }, select: { prompt: true } });
+      currentTask = t?.prompt?.slice(0, 80) ?? null;
+    }
+    return { name: c.agent.name, role: c.agent.role, status: c.agent.status, currentTask };
+  }));
+}
+
+async function loadRecentBoardItems() {
+  const root = process.env["GC_WORKSPACE_ROOT"];
+  if (!root) return [];
+  try {
+    const boardService = new BoardService(root);
+    const since = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+    const items = await boardService.listBoardItems({ since });
+    return items.slice(0, 10).map((item) => ({
+      type: item.type,
+      author: item.author,
+      summary: item.summary.slice(0, 100),
+      timestamp: item.timestamp,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+async function loadPendingResults(agentName: string) {
+  const root = process.env["GC_WORKSPACE_ROOT"];
+  if (!root) return [];
+  const resultsDir = path.join(root, agentName, ".gc", "results");
+  try {
+    const files = await readdir(resultsDir);
+    const results = [];
+    for (const file of files.slice(0, 5)) {
+      if (!file.endsWith(".md")) continue;
+      const content = await readFile(path.join(resultsDir, file), "utf8");
+      const taskIdMatch = content.match(/\*\*Task ID\*\*:\s*(\S+)/);
+      results.push({ childTaskId: taskIdMatch?.[1] ?? file, result: content.slice(0, 500) });
+    }
+    return results;
+  } catch {
+    return [];
+  }
+}
+
 async function runTask(task: Task & { assignee: Agent }) {
   const wm = getWorkspaceManager();
   const cwd = await wm.ensureAgentWorkspace(task.assignee.name);
   const runtime = createRuntime();
-  const systemPrompt = buildSystemPrompt({ agent: task.assignee, task });
+
+  const [orgReports, recentBoardItems, pendingResults] = await Promise.all([
+    loadOrgReports(task.assignee.id),
+    loadRecentBoardItems(),
+    loadPendingResults(task.assignee.name),
+  ]);
+
+  const systemPrompt = buildSystemPrompt({
+    agent: task.assignee,
+    task,
+    orgReports,
+    recentBoardItems,
+    pendingResults,
+  });
   const mcpServer = createGcMcpServer(task.assignee.name, task.id);
 
   let lastResult: { output: string; costUsd: number; durationMs: number; numTurns: number; status: string } | null = null;
