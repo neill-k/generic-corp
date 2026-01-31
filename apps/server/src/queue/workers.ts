@@ -113,6 +113,57 @@ async function loadRecentBoardItems() {
   }
 }
 
+async function loadManager(agentDbId: string) {
+  const myNode = await db.orgNode.findUnique({ where: { agentId: agentDbId }, select: { parentNodeId: true } });
+  if (!myNode?.parentNodeId) return null;
+  const parentNode = await db.orgNode.findUnique({
+    where: { id: myNode.parentNodeId },
+    select: { agent: { select: { name: true, role: true, status: true } } },
+  });
+  if (!parentNode) return null;
+  return { name: parentNode.agent.name, role: parentNode.agent.role, status: parentNode.agent.status };
+}
+
+async function loadPeers(agentDbId: string, department: string) {
+  const peers = await db.agent.findMany({
+    where: { department, id: { not: agentDbId } },
+    select: { name: true, role: true, status: true },
+    take: 10,
+  });
+  return peers;
+}
+
+async function loadUnreadCount(agentDbId: string) {
+  return db.message.count({
+    where: { toAgentId: agentDbId, status: { not: "read" } },
+  });
+}
+
+async function loadParentTask(parentTaskId: string | null) {
+  if (!parentTaskId) return null;
+  const parent = await db.task.findUnique({
+    where: { id: parentTaskId },
+    select: { id: true, prompt: true, delegator: { select: { name: true } } },
+  });
+  if (!parent) return null;
+  return { id: parent.id, prompt: parent.prompt, delegatorName: parent.delegator?.name ?? null };
+}
+
+async function loadTaskHistory(agentDbId: string) {
+  const tasks = await db.task.findMany({
+    where: { assigneeId: agentDbId, status: { in: ["completed", "failed"] } },
+    orderBy: { completedAt: "desc" },
+    take: 5,
+    select: { id: true, prompt: true, status: true, completedAt: true },
+  });
+  return tasks.map((t) => ({
+    id: t.id,
+    prompt: t.prompt,
+    status: t.status,
+    completedAt: t.completedAt?.toISOString() ?? null,
+  }));
+}
+
 async function loadPendingResults(agentName: string) {
   const root = process.env["GC_WORKSPACE_ROOT"];
   if (!root) return [];
@@ -137,10 +188,15 @@ async function runTask(task: Task & { assignee: Agent }) {
   const cwd = await wm.ensureAgentWorkspace(task.assignee.name);
   const runtime = createRuntime();
 
-  const [orgReports, recentBoardItems, pendingResults] = await Promise.all([
+  const [orgReports, recentBoardItems, pendingResults, manager, peers, unreadMessageCount, parentTask, taskHistory] = await Promise.all([
     loadOrgReports(task.assignee.id),
     loadRecentBoardItems(),
     loadPendingResults(task.assignee.name),
+    loadManager(task.assignee.id),
+    loadPeers(task.assignee.id, task.assignee.department),
+    loadUnreadCount(task.assignee.id),
+    loadParentTask(task.parentTaskId),
+    loadTaskHistory(task.assignee.id),
   ]);
 
   const systemPrompt = buildSystemPrompt({
@@ -149,6 +205,11 @@ async function runTask(task: Task & { assignee: Agent }) {
     orgReports,
     recentBoardItems,
     pendingResults,
+    manager,
+    peers,
+    unreadMessageCount,
+    parentTask,
+    taskHistory,
   });
   const mcpServer = createGcMcpServer(task.assignee.name, task.id);
 

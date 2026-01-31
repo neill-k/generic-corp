@@ -21,6 +21,31 @@ interface BoardItemSummary {
   timestamp: string;
 }
 
+interface ManagerInfo {
+  name: string;
+  role: string;
+  status: string;
+}
+
+interface PeerAgent {
+  name: string;
+  role: string;
+  status: string;
+}
+
+interface ParentTaskInfo {
+  id: string;
+  prompt: string;
+  delegatorName: string | null;
+}
+
+interface TaskHistoryEntry {
+  id: string;
+  prompt: string;
+  status: string;
+  completedAt: string | null;
+}
+
 type BuildSystemPromptParams = {
   agent: Agent;
   task: Task;
@@ -31,6 +56,11 @@ type BuildSystemPromptParams = {
   contextHealthWarning?: string | null;
   orgReports?: OrgReport[];
   recentBoardItems?: BoardItemSummary[];
+  manager?: ManagerInfo | null;
+  peers?: PeerAgent[];
+  unreadMessageCount?: number;
+  parentTask?: ParentTaskInfo | null;
+  taskHistory?: TaskHistoryEntry[];
 };
 
 function asIso(date: Date): string {
@@ -52,7 +82,9 @@ ${params.agent.personality}
 ## Your Position
 - **Agent**: ${params.agent.displayName} (${params.agent.name})
 - **Level**: ${params.agent.level}
+${params.manager ? `- **Reports to**: ${params.manager.name} (${params.manager.role}, ${params.manager.status})` : "- **Reports to**: none (you are the top of your chain)"}
 ${params.orgReports && params.orgReports.length > 0 ? `- **Direct reports**: ${params.orgReports.map((r) => `${r.name} (${r.role}, ${r.status})`).join(", ")}` : "- **Direct reports**: none (use \\`get_my_org\\` if needed)"}
+${params.peers && params.peers.length > 0 ? `- **Peers**: ${params.peers.map((p) => `${p.name} (${p.role})`).join(", ")}` : ""}
 
 ## Communication & Delegation Rules
 You follow corporate chain-of-command:
@@ -122,9 +154,18 @@ Generated: ${asIso(generatedAt)}
 **From**: ${from}
 **Priority**: ${params.task.priority}
 **Prompt**: ${params.task.prompt}
+${params.parentTask ? `**Parent Task**: ${params.parentTask.id} (delegated by ${params.parentTask.delegatorName ?? "human"})
+**Parent Prompt**: ${params.parentTask.prompt.slice(0, 200)}` : ""}
 
 ## Context from delegator
 ${context}
+${params.unreadMessageCount && params.unreadMessageCount > 0 ? `
+## Unread Messages
+You have **${params.unreadMessageCount}** unread message(s). Use \`list_threads\` and \`read_messages\` to catch up.
+` : ""}${params.taskHistory && params.taskHistory.length > 0 ? `
+## Recent Task History
+${params.taskHistory.map((t) => `- [${t.status}] ${t.prompt.slice(0, 80)}${t.completedAt ? ` (${t.completedAt})` : ""}`).join("\n")}
+` : ""}
 ${params.recentBoardItems && params.recentBoardItems.length > 0 ? `
 ## Recent Board Activity
 ${params.recentBoardItems.map((item) => `- **[${item.type}]** ${item.author}: ${item.summary} (${item.timestamp})`).join("\n")}
