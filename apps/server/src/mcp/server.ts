@@ -174,7 +174,7 @@ export function createGcMcpServer(agentId: string, taskId: string) {
 
       tool(
         "get_my_org",
-        "Discover your direct reports and their current status",
+        "List your direct reports and their current status",
         {},
         async () => {
           try {
@@ -183,35 +183,16 @@ export function createGcMcpServer(agentId: string, taskId: string) {
 
             const reports = await getDirectReportsFor(self.id);
 
-            const reportItems = await Promise.all(
-              reports.map(async (r) => {
-                const queued = await db.task.count({ where: { assigneeId: r.id, status: "pending" } });
-
-                let currentTaskPrompt: string | null = null;
-                if (r.currentTaskId) {
-                  const t = await db.task.findUnique({
-                    where: { id: r.currentTaskId },
-                    select: { prompt: true },
-                  });
-                  currentTaskPrompt = t?.prompt ?? null;
-                }
-
-                return {
-                  name: r.name,
-                  role: r.role,
-                  department: r.department,
-                  status: r.status,
-                  currentTask: currentTaskPrompt,
-                  queuedTasks: queued,
-                };
-              }),
-            );
-
             return toolText(
               JSON.stringify(
                 {
                   self: { name: self.name, role: self.role, department: self.department, status: self.status },
-                  directReports: reportItems,
+                  directReports: reports.map((r) => ({
+                    name: r.name,
+                    role: r.role,
+                    department: r.department,
+                    status: r.status,
+                  })),
                 },
                 null,
                 2,
@@ -226,34 +207,27 @@ export function createGcMcpServer(agentId: string, taskId: string) {
 
       tool(
         "get_agent_status",
-        "Check an agent's current status",
+        "Read an agent's current status",
         {
           agentName: z.string(),
         },
         async (args) => {
           try {
-            const agent = await db.agent.findUnique({ where: { name: args.agentName } });
+            const agent = await db.agent.findUnique({
+              where: { name: args.agentName },
+              select: {
+                name: true,
+                displayName: true,
+                role: true,
+                department: true,
+                level: true,
+                status: true,
+                currentTaskId: true,
+              },
+            });
             if (!agent) return toolText(`Unknown agent: ${args.agentName}`);
 
-            let currentTaskPrompt: string | null = null;
-            if (agent.currentTaskId) {
-              const t = await db.task.findUnique({ where: { id: agent.currentTaskId }, select: { prompt: true } });
-              currentTaskPrompt = t?.prompt ?? null;
-            }
-
-            return toolText(
-              JSON.stringify(
-                {
-                  name: agent.name,
-                  role: agent.role,
-                  department: agent.department,
-                  status: agent.status,
-                  currentTask: currentTaskPrompt,
-                },
-                null,
-                2,
-              ),
-            );
+            return toolText(JSON.stringify(agent, null, 2));
           } catch (error) {
             const message = error instanceof Error ? error.message : "Unknown error";
             return toolText(`get_agent_status failed: ${message}`);
@@ -411,7 +385,7 @@ export function createGcMcpServer(agentId: string, taskId: string) {
 
       tool(
         "list_threads",
-        "List your message threads",
+        "List your message threads with latest message preview",
         {},
         async () => {
           try {
@@ -437,15 +411,13 @@ export function createGcMcpServer(agentId: string, taskId: string) {
               },
             });
 
-            const threads = latestMessages.map((m) => ({
+            return toolText(JSON.stringify(latestMessages.map((m) => ({
               threadId: m.threadId,
-              lastMessage: m.body.length > 100 ? m.body.slice(0, 100) + "..." : m.body,
               from: m.sender?.name ?? "human",
               to: m.recipient.name,
-              lastMessageAt: m.createdAt.toISOString(),
-            }));
-
-            return toolText(JSON.stringify(threads, null, 2));
+              body: m.body,
+              createdAt: m.createdAt.toISOString(),
+            })), null, 2));
           } catch (error) {
             const msg = error instanceof Error ? error.message : "Unknown error";
             return toolText(`list_threads failed: ${msg}`);
