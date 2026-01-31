@@ -399,6 +399,36 @@ export function createApiRouter(deps: ApiRouterDeps = {}): express.Router {
     }
   });
 
+  router.post("/board", async (req, res, next) => {
+    try {
+      if (!deps.boardService) {
+        res.status(503).json({ error: "Board service not available" });
+        return;
+      }
+
+      const type = req.body?.type;
+      const content = req.body?.content;
+      const author = req.body?.author ?? "human";
+
+      if (!type || !content) {
+        res.status(400).json({ error: "type and content are required" });
+        return;
+      }
+
+      const filePath = await deps.boardService.writeBoardItem({
+        agentName: author,
+        type: type as BoardItemType,
+        content,
+      });
+
+      appEventBus.emit("board_item_created", { type, author, path: filePath });
+
+      res.status(201).json({ path: filePath });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   router.get("/board", async (req, res, next) => {
     try {
       if (!deps.boardService) {
