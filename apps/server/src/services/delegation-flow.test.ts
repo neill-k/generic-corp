@@ -9,7 +9,6 @@ vi.mock("../db/client.js", () => {
   const mockDb = {
     task: {
       findUnique: vi.fn(),
-      update: vi.fn(),
     },
     agent: {
       findUnique: vi.fn(),
@@ -18,19 +17,12 @@ vi.mock("../db/client.js", () => {
   return { db: mockDb };
 });
 
-vi.mock("../queue/agent-queues.js", () => ({
-  enqueueAgentTask: vi.fn(),
-}));
-
 import { db } from "../db/client.js";
-import { enqueueAgentTask } from "../queue/agent-queues.js";
 
 const mockDb = db as unknown as {
-  task: { findUnique: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> };
+  task: { findUnique: ReturnType<typeof vi.fn> };
   agent: { findUnique: ReturnType<typeof vi.fn> };
 };
-
-const mockEnqueue = enqueueAgentTask as ReturnType<typeof vi.fn>;
 
 describe("handleChildCompletion", () => {
   let workspaceRoot: string;
@@ -41,7 +33,7 @@ describe("handleChildCompletion", () => {
     await mkdir(workspaceRoot, { recursive: true });
   });
 
-  it("writes result to parent agent workspace and enqueues parent", async () => {
+  it("writes result to parent agent workspace", async () => {
     const childTask = {
       id: "child-1",
       parentTaskId: "parent-1",
@@ -53,8 +45,6 @@ describe("handleChildCompletion", () => {
     mockDb.task.findUnique.mockResolvedValue({
       id: "parent-1",
       assigneeId: "agent-parent",
-      status: "running",
-      priority: 1,
     });
 
     mockDb.agent.findUnique.mockResolvedValue({
@@ -73,13 +63,6 @@ describe("handleChildCompletion", () => {
 
     const content = await readFile(path.join(resultsDir, fileList[0]!), "utf8");
     expect(content).toContain("Analysis complete: revenue is up 15%");
-
-    // Check that parent task was enqueued
-    expect(mockEnqueue).toHaveBeenCalledWith({
-      agentName: "marcus",
-      taskId: "parent-1",
-      priority: 1,
-    });
   });
 
   it("does nothing when child has no parent task", async () => {
@@ -94,7 +77,6 @@ describe("handleChildCompletion", () => {
     await handleChildCompletion(childTask as never, workspaceRoot);
 
     expect(mockDb.task.findUnique).not.toHaveBeenCalled();
-    expect(mockEnqueue).not.toHaveBeenCalled();
   });
 
   it("does nothing when parent task is not found", async () => {
@@ -109,7 +91,5 @@ describe("handleChildCompletion", () => {
     mockDb.task.findUnique.mockResolvedValue(null);
 
     await handleChildCompletion(childTask as never, workspaceRoot);
-
-    expect(mockEnqueue).not.toHaveBeenCalled();
   });
 });

@@ -2,7 +2,6 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { db } from "../db/client.js";
-import { enqueueAgentTask } from "../queue/agent-queues.js";
 
 interface CompletedChildTask {
   id: string;
@@ -20,7 +19,7 @@ export async function handleChildCompletion(
 
   const parentTask = await db.task.findUnique({
     where: { id: childTask.parentTaskId },
-    select: { id: true, assigneeId: true, status: true, priority: true },
+    select: { id: true, assigneeId: true },
   });
 
   if (!parentTask) {
@@ -38,7 +37,7 @@ export async function handleChildCompletion(
     return;
   }
 
-  // Write result to parent's .gc/results/ directory
+  // Write result to parent's .gc/results/ directory (shared workspace primitive)
   const resultsDir = path.join(workspaceRoot, parentAgent.name, ".gc", "results");
   await mkdir(resultsDir, { recursive: true });
 
@@ -56,11 +55,4 @@ ${childTask.result?.trim() ?? "(no result provided)"}
 `;
 
   await writeFile(path.join(resultsDir, fileName), body, "utf8");
-
-  // Enqueue parent to review results
-  await enqueueAgentTask({
-    agentName: parentAgent.name,
-    taskId: parentTask.id,
-    priority: parentTask.priority,
-  });
 }
