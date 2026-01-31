@@ -125,6 +125,7 @@ Update it before finishing to reflect current goals, priorities, and key context
 ${params.contextHealthWarning ? `
 ## Context Health
 ${params.contextHealthWarning}
+Keep your context.md concise and focused. Archive completed work and remove stale notes proactively.
 ` : ""}
 ## Available Tools
 All standard Claude Code tools (file I/O, bash, git, grep, etc.) plus Generic Corp tools:

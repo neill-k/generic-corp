@@ -18,34 +18,48 @@ describe("checkContextHealth", () => {
   });
 
   it("returns null when context.md does not exist", async () => {
-    const warning = await checkContextHealth(tmpDir);
-    expect(warning).toBeNull();
+    const result = await checkContextHealth(tmpDir);
+    expect(result).toBeNull();
   });
 
-  it("returns null when context.md is under the token limit", async () => {
+  it("returns token count info when context.md is under the advisory limit", async () => {
     // 1000 chars ≈ 250 tokens, well under 6000
     writeFileSync(path.join(tmpDir, ".gc", "context.md"), "x".repeat(1000), "utf8");
 
-    const warning = await checkContextHealth(tmpDir);
-    expect(warning).toBeNull();
+    const result = await checkContextHealth(tmpDir);
+    expect(result).not.toBeNull();
+    expect(result).toContain("250");
+    expect(result).toContain("within recommended range");
   });
 
-  it("returns a warning when context.md exceeds the token limit", async () => {
+  it("suggests compacting when context.md exceeds the advisory limit", async () => {
     // 28000 chars ≈ 7000 tokens, over the 6000 limit
     writeFileSync(path.join(tmpDir, ".gc", "context.md"), "x".repeat(28000), "utf8");
 
-    const warning = await checkContextHealth(tmpDir);
-    expect(warning).not.toBeNull();
-    expect(warning).toContain("7000");
-    expect(warning).toContain("compacting");
+    const result = await checkContextHealth(tmpDir);
+    expect(result).not.toBeNull();
+    expect(result).toContain("7000");
+    expect(result).toContain("compacting");
   });
 
-  it("uses a custom token limit when provided", async () => {
-    // 4000 chars ≈ 1000 tokens
+  it("respects GC_CONTEXT_TOKEN_LIMIT env var", async () => {
+    // 4000 chars ≈ 1000 tokens, over a limit of 500
     writeFileSync(path.join(tmpDir, ".gc", "context.md"), "x".repeat(4000), "utf8");
 
-    const warning = await checkContextHealth(tmpDir, 500);
-    expect(warning).not.toBeNull();
-    expect(warning).toContain("1000");
+    const original = process.env["GC_CONTEXT_TOKEN_LIMIT"];
+    process.env["GC_CONTEXT_TOKEN_LIMIT"] = "500";
+    try {
+      const result = await checkContextHealth(tmpDir);
+      expect(result).not.toBeNull();
+      expect(result).toContain("1000");
+      expect(result).toContain("500");
+      expect(result).toContain("compacting");
+    } finally {
+      if (original !== undefined) {
+        process.env["GC_CONTEXT_TOKEN_LIMIT"] = original;
+      } else {
+        delete process.env["GC_CONTEXT_TOKEN_LIMIT"];
+      }
+    }
   });
 });

@@ -1,12 +1,19 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
-const DEFAULT_TOKEN_LIMIT = 6000;
 const CHARS_PER_TOKEN = 4;
+
+function getTokenLimit(): number {
+  const envVal = process.env["GC_CONTEXT_TOKEN_LIMIT"];
+  if (envVal) {
+    const parsed = parseInt(envVal, 10);
+    if (!isNaN(parsed) && parsed > 0) return parsed;
+  }
+  return 6000;
+}
 
 export async function checkContextHealth(
   workspacePath: string,
-  tokenLimit: number = DEFAULT_TOKEN_LIMIT,
 ): Promise<string | null> {
   const contextPath = path.join(workspacePath, ".gc", "context.md");
 
@@ -18,10 +25,7 @@ export async function checkContextHealth(
   }
 
   const estimatedTokens = Math.round(content.length / CHARS_PER_TOKEN);
+  const tokenLimit = getTokenLimit();
 
-  if (estimatedTokens <= tokenLimit) {
-    return null;
-  }
-
-  return `Warning: your context.md is ~${estimatedTokens} tokens (limit: ${tokenLimit}). Consider compacting completed milestones and removing stale context.`;
+  return `Your context.md is ~${estimatedTokens} tokens (advisory limit: ${tokenLimit}). ${estimatedTokens > tokenLimit ? "Consider compacting completed milestones and removing stale context to stay efficient." : "Size is within recommended range."}`;
 }
