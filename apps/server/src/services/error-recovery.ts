@@ -1,12 +1,27 @@
 import { db } from "../db/client.js";
 import { appEventBus } from "./app-events.js";
 
-const STUCK_TIMEOUT_MS = 30 * 60_000; // 30 minutes
-const CHECK_INTERVAL_MS = 5 * 60_000; // Check every 5 minutes
+function getStuckTimeoutMs(): number {
+  const envVal = process.env["GC_STUCK_TIMEOUT_MINUTES"];
+  if (envVal) {
+    const parsed = parseInt(envVal, 10);
+    if (!isNaN(parsed) && parsed > 0) return parsed * 60_000;
+  }
+  return 30 * 60_000; // 30 minutes default
+}
+
+function getCheckIntervalMs(): number {
+  const envVal = process.env["GC_STUCK_CHECK_INTERVAL_MINUTES"];
+  if (envVal) {
+    const parsed = parseInt(envVal, 10);
+    if (!isNaN(parsed) && parsed > 0) return parsed * 60_000;
+  }
+  return 5 * 60_000; // 5 minutes default
+}
 
 let intervalId: ReturnType<typeof setInterval> | null = null;
 
-export async function checkStuckAgents(timeoutMs: number = STUCK_TIMEOUT_MS): Promise<number> {
+export async function checkStuckAgents(timeoutMs: number = getStuckTimeoutMs()): Promise<number> {
   const runningAgents = await db.agent.findMany({
     where: { status: "running" },
     select: { id: true, name: true, currentTaskId: true, updatedAt: true },
@@ -47,12 +62,13 @@ export async function checkStuckAgents(timeoutMs: number = STUCK_TIMEOUT_MS): Pr
 
 export function startStuckAgentChecker(): void {
   if (intervalId) return;
+  const intervalMs = getCheckIntervalMs();
   intervalId = setInterval(() => {
     checkStuckAgents().catch((err) => {
       console.error("[ErrorRecovery] stuck agent check failed:", err);
     });
-  }, CHECK_INTERVAL_MS);
-  console.log("[ErrorRecovery] stuck agent checker started (interval: 5min)");
+  }, intervalMs);
+  console.log(`[ErrorRecovery] stuck agent checker started (interval: ${Math.round(intervalMs / 60_000)}min)`);
 }
 
 export function stopStuckAgentChecker(): void {
