@@ -26,7 +26,10 @@ export function ThreadList({
       </div>
       <div className="flex-1 overflow-y-auto">
         {threads.length === 0 && (
-          <p className="px-3 py-4 text-xs text-slate-400">No conversations yet</p>
+          <div className="px-3 py-4 text-xs text-slate-400">
+            <p>No conversations yet</p>
+            <p className="mt-2 text-slate-300">Click "New" to start a conversation with the CEO agent. Try asking for a standup report or delegating a task.</p>
+          </div>
         )}
         {threads.map((thread) => (
           <button

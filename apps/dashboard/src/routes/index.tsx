@@ -19,6 +19,13 @@ const CAPABILITIES = [
   },
 ];
 
+const QUICK_ACTIONS = [
+  { label: "Review code changes", prompt: "Review the latest code changes across the team" },
+  { label: "Team standup", prompt: "Give me a standup report for all teams" },
+  { label: "Check blockers", prompt: "What blockers does the team have? Check the board" },
+  { label: "Delegate review", prompt: "Delegate a code review to the engineering lead" },
+];
+
 export function IndexPage() {
   return (
     <div className="space-y-6">
@@ -43,6 +50,22 @@ export function IndexPage() {
           <h3 className="font-medium">Board</h3>
           <p className="text-sm text-slate-500">Track status updates, blockers, findings, and requests</p>
         </Link>
+      </div>
+
+      <div>
+        <h3 className="text-sm font-semibold text-slate-700">Quick actions</h3>
+        <p className="mt-0.5 text-xs text-slate-500">Go to Chat and try one of these prompts:</p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {QUICK_ACTIONS.map((action) => (
+            <Link
+              key={action.label}
+              to="/chat"
+              className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 hover:border-blue-400 hover:text-blue-600"
+            >
+              {action.label}
+            </Link>
+          ))}
+        </div>
       </div>
 
       <div>
