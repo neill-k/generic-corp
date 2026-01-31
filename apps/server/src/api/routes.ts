@@ -9,7 +9,7 @@ import { appEventBus } from "../services/app-events.js";
 import type { BoardService } from "../services/board-service.js";
 import type { AgentRuntime } from "../services/agent-lifecycle.js";
 import { generateThreadSummary } from "../services/chat-continuity.js";
-import type { BoardItemType } from "@generic-corp/shared";
+
 
 const createTaskBodySchema = z.object({
   assignee: z.string().optional().describe("Agent name (slug). Defaults to marcus"),
@@ -417,7 +417,7 @@ export function createApiRouter(deps: ApiRouterDeps = {}): express.Router {
 
       const filePath = await deps.boardService.writeBoardItem({
         agentName: author,
-        type: type as BoardItemType,
+        type,
         content,
       });
 
@@ -436,7 +436,7 @@ export function createApiRouter(deps: ApiRouterDeps = {}): express.Router {
         return;
       }
 
-      const type = req.query["type"] as BoardItemType | undefined;
+      const type = (req.query["type"] as string) || undefined;
       const since = req.query["since"] as string | undefined;
 
       const items = await deps.boardService.listBoardItems({

@@ -8,8 +8,6 @@ import { db } from "../db/client.js";
 
 import { enqueueAgentTask } from "../queue/agent-queues.js";
 
-import type { BoardItemType } from "@generic-corp/shared";
-
 import { appEventBus } from "../services/app-events.js";
 import { BoardService } from "../services/board-service.js";
 
@@ -240,7 +238,7 @@ export function createGcMcpServer(agentId: string, taskId: string) {
         "Search the shared board for relevant items",
         {
           scope: z.enum(["team", "department", "org"]).optional(),
-          type: z.enum(["status_update", "blocker", "finding", "request"]).optional(),
+          type: z.string().optional().describe("Filter by board item type (e.g. status_update, blocker, finding, request)"),
           since: z.string().optional(),
         },
         async (args) => {
@@ -249,7 +247,7 @@ export function createGcMcpServer(agentId: string, taskId: string) {
 
             const boardService = getBoardService();
             const items = await boardService.listBoardItems({
-              type: args.type as BoardItemType | undefined,
+              type: args.type,
               since: args.since,
             });
 
@@ -265,7 +263,7 @@ export function createGcMcpServer(agentId: string, taskId: string) {
         "post_board_item",
         "Post a status update, blocker, finding, or request to the shared board",
         {
-          type: z.enum(["status_update", "blocker", "finding", "request"]),
+          type: z.string().describe("Board item type (e.g. status_update, blocker, finding, request)"),
           content: z.string(),
         },
         async (args) => {
@@ -275,7 +273,7 @@ export function createGcMcpServer(agentId: string, taskId: string) {
             const boardService = getBoardService();
             const filePath = await boardService.writeBoardItem({
               agentName,
-              type: args.type as BoardItemType,
+              type: args.type,
               content: args.content,
             });
 
@@ -302,6 +300,7 @@ export function createGcMcpServer(agentId: string, taskId: string) {
           toAgent: z.string().describe("Name (slug) of the recipient agent"),
           body: z.string().describe("Message content"),
           threadId: z.string().optional().describe("Thread ID to continue a conversation"),
+          type: z.string().optional().describe("Message type (default: direct)"),
         },
         async (args) => {
           try {
@@ -322,7 +321,7 @@ export function createGcMcpServer(agentId: string, taskId: string) {
                 toAgentId: recipient.id,
                 threadId,
                 body: args.body,
-                type: "direct",
+                type: args.type ?? "direct",
                 status: "delivered",
               },
               select: { id: true, threadId: true },
@@ -807,7 +806,6 @@ export function createGcMcpServer(agentId: string, taskId: string) {
             const agent = await db.agent.findUnique({ where: { name: args.agentName } });
             if (!agent) return toolText(`Unknown agent: ${args.agentName}`);
 
-            await db.orgNode.deleteMany({ where: { agentId: agent.id } });
             await db.agent.delete({ where: { id: agent.id } });
 
             appEventBus.emit("agent_deleted", { agentId: agent.id });
@@ -827,8 +825,7 @@ export function createGcMcpServer(agentId: string, taskId: string) {
         "Add an agent to the org hierarchy",
         {
           agentName: z.string().describe("Agent name (slug) to place in org"),
-          parentNodeId: z.string().optional().describe("Parent org node ID (direct), omit for root"),
-          parentAgentName: z.string().optional().describe("Parent agent name (slug) — alternative to parentNodeId"),
+          parentNodeId: z.string().optional().describe("Parent org node ID, omit for root"),
           position: z.number().int().optional().describe("Sort position among siblings"),
         },
         async (args) => {
@@ -836,17 +833,8 @@ export function createGcMcpServer(agentId: string, taskId: string) {
             const agent = await db.agent.findUnique({ where: { name: args.agentName }, select: { id: true } });
             if (!agent) return toolText(`Unknown agent: ${args.agentName}`);
 
-            let parentNodeId: string | null = args.parentNodeId ?? null;
-            if (!parentNodeId && args.parentAgentName) {
-              const parentAgent = await db.agent.findUnique({ where: { name: args.parentAgentName }, select: { id: true } });
-              if (!parentAgent) return toolText(`Unknown parent agent: ${args.parentAgentName}`);
-              const parentNode = await db.orgNode.findUnique({ where: { agentId: parentAgent.id }, select: { id: true } });
-              if (!parentNode) return toolText(`Agent ${args.parentAgentName} has no org node`);
-              parentNodeId = parentNode.id;
-            }
-
             const node = await db.orgNode.create({
-              data: { agentId: agent.id, parentNodeId, position: args.position ?? 0 },
+              data: { agentId: agent.id, parentNodeId: args.parentNodeId ?? null, position: args.position ?? 0 },
               select: { id: true },
             });
 
@@ -865,8 +853,7 @@ export function createGcMcpServer(agentId: string, taskId: string) {
         "Move an agent in the org hierarchy",
         {
           agentName: z.string().describe("Agent name (slug) to move"),
-          parentNodeId: z.string().nullable().optional().describe("New parent node ID (direct), null for root"),
-          parentAgentName: z.string().nullable().optional().describe("New parent agent name (slug) — alternative to parentNodeId"),
+          parentNodeId: z.string().nullable().optional().describe("New parent node ID, null for root"),
           position: z.number().int().optional().describe("New sort position"),
         },
         async (args) => {
@@ -878,19 +865,7 @@ export function createGcMcpServer(agentId: string, taskId: string) {
             if (!node) return toolText(`Agent ${args.agentName} has no org node`);
 
             const data: Record<string, unknown> = {};
-            if (args.parentNodeId !== undefined) {
-              data["parentNodeId"] = args.parentNodeId;
-            } else if (args.parentAgentName !== undefined) {
-              if (args.parentAgentName === null) {
-                data["parentNodeId"] = null;
-              } else {
-                const parentAgent = await db.agent.findUnique({ where: { name: args.parentAgentName }, select: { id: true } });
-                if (!parentAgent) return toolText(`Unknown parent agent: ${args.parentAgentName}`);
-                const parentNode = await db.orgNode.findUnique({ where: { agentId: parentAgent.id }, select: { id: true } });
-                if (!parentNode) return toolText(`Agent ${args.parentAgentName} has no org node`);
-                data["parentNodeId"] = parentNode.id;
-              }
-            }
+            if (args.parentNodeId !== undefined) data["parentNodeId"] = args.parentNodeId;
             if (args.position !== undefined) data["position"] = args.position;
 
             if (Object.keys(data).length === 0) return toolText("No fields to update.");

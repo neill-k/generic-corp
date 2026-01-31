@@ -1,15 +1,22 @@
 import { mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { BOARD_TYPE_TO_FOLDER, type BoardItemType } from "@generic-corp/shared";
+import { BOARD_TYPE_TO_FOLDER } from "@generic-corp/shared";
 
 function safeIsoForFilename(date: Date): string {
   return date.toISOString().replace(/[:.]/g, "-");
 }
 
+function typeToFolder(type: string): string {
+  const known = BOARD_TYPE_TO_FOLDER[type as keyof typeof BOARD_TYPE_TO_FOLDER];
+  if (known) return known;
+  // Derive folder for unknown types: e.g. "my_custom_type" → "my-custom-types"
+  return type.replace(/_/g, "-") + "s";
+}
+
 export interface BoardItem {
   author: string;
-  type: BoardItemType;
+  type: string;
   summary: string;
   timestamp: string;
   path: string;
@@ -24,10 +31,10 @@ export class BoardService {
 
   async writeBoardItem(params: {
     agentName: string;
-    type: BoardItemType;
+    type: string;
     content: string;
   }): Promise<string> {
-    const folder = BOARD_TYPE_TO_FOLDER[params.type];
+    const folder = typeToFolder(params.type);
     const dir = path.join(this.root, "board", folder);
     await mkdir(dir, { recursive: true });
 
@@ -41,12 +48,12 @@ export class BoardService {
   }
 
   async listBoardItems(params: {
-    type?: BoardItemType;
+    type?: string;
     since?: string;
   }): Promise<BoardItem[]> {
-    const types: BoardItemType[] = params.type
+    const types: string[] = params.type
       ? [params.type]
-      : (Object.keys(BOARD_TYPE_TO_FOLDER) as BoardItemType[]);
+      : Object.keys(BOARD_TYPE_TO_FOLDER);
 
     const sinceMs = params.since ? Date.parse(params.since) : null;
     if (params.since && Number.isNaN(sinceMs)) {
@@ -56,7 +63,7 @@ export class BoardService {
     const items: BoardItem[] = [];
 
     for (const type of types) {
-      const folder = BOARD_TYPE_TO_FOLDER[type];
+      const folder = typeToFolder(type);
       const dir = path.join(this.root, "board", folder);
 
       let files: string[] = [];
@@ -160,7 +167,7 @@ export class BoardService {
 
       // Infer type from header line
       const headerLine = text.split("\n").map((l) => l.trim()).find((l) => l.startsWith("# "));
-      const type = (headerLine?.replace("# ", "") ?? "status_update") as BoardItemType;
+      const type = headerLine?.replace("# ", "") ?? "status_update";
 
       items.push({ author, type, summary: summaryLine, timestamp, path: filePath });
     }
