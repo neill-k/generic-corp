@@ -71,10 +71,12 @@ export class AgentSdkRuntime implements AgentRuntime {
       systemPrompt: params.systemPrompt,
       cwd: params.cwd,
       mcpServers: {
-        "generic-corp": { type: "sdk", instance: params.mcpServer },
+        "generic-corp": params.mcpServer,
       },
       permissionMode: "bypassPermissions",
+      allowDangerouslySkipPermissions: true,
       model: params.model ?? "sonnet",
+      maxTurns: params.maxTurns ?? 10,
     };
 
     if (params.allowedTools) {

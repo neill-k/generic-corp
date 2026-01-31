@@ -364,9 +364,9 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
 
       tool(
         "send_message",
-        "Send a message to another agent",
+        "Send a message to another agent or reply to a human user. Use toAgent='human' when replying to a human chat message.",
         {
-          toAgent: z.string().describe("Name (slug) of the recipient agent"),
+          toAgent: z.string().describe("Name (slug) of the recipient agent, or 'human' for chat replies to users"),
           body: z.string().describe("Message content"),
           threadId: z.string().optional().describe("Thread ID to continue a conversation"),
           type: z.string().optional().describe("Message type (default: direct)"),
@@ -376,21 +376,31 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
             const sender = await getAgentByIdOrName(agentId);
             if (!sender) return toolText(`Unknown caller agent: ${agentId}`);
 
-            const recipient = await db.agent.findUnique({
-              where: { name: args.toAgent },
-              select: { id: true, name: true },
-            });
-            if (!recipient) return toolText(`Unknown agent: ${args.toAgent}`);
-
             const threadId = args.threadId ?? crypto.randomUUID();
+
+            // "human" is a special recipient — means replying to a human user in chat
+            const isHumanReply = args.toAgent === "human";
+            let recipientId: string;
+
+            if (isHumanReply) {
+              // For human replies, set recipient to self (the thread is what matters)
+              recipientId = sender.id;
+            } else {
+              const recipient = await db.agent.findUnique({
+                where: { name: args.toAgent },
+                select: { id: true, name: true },
+              });
+              if (!recipient) return toolText(`Unknown agent: ${args.toAgent}`);
+              recipientId = recipient.id;
+            }
 
             const message = await db.message.create({
               data: {
                 fromAgentId: sender.id,
-                toAgentId: recipient.id,
+                toAgentId: recipientId,
                 threadId,
                 body: args.body,
-                type: args.type ?? "direct",
+                type: isHumanReply ? "chat" : (args.type ?? "direct"),
                 status: "delivered",
               },
               select: { id: true, threadId: true },
@@ -400,7 +410,7 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
               messageId: message.id,
               threadId,
               fromAgentId: sender.id,
-              toAgentId: recipient.id,
+              toAgentId: recipientId,
             });
 
             return toolText(JSON.stringify({ messageId: message.id, threadId }, null, 2));

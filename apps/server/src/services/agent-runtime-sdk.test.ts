@@ -50,10 +50,10 @@ describe("AgentSdkRuntime", () => {
     expect(call?.options["model"]).toBe("sonnet");
     expect(call?.options["allowedTools"]).toEqual(["Read"]);
 
+    expect(call?.options["allowDangerouslySkipPermissions"]).toBe(true);
+
     const mcpServers = call?.options["mcpServers"] as Record<string, unknown>;
-    const server = mcpServers["generic-corp"] as Record<string, unknown>;
-    expect(server["type"]).toBe("sdk");
-    expect(server["instance"]).toEqual({ any: "thing" });
+    expect(mcpServers["generic-corp"]).toEqual({ any: "thing" });
 
     expect(events).toEqual([
       {

@@ -28,6 +28,7 @@ export type AgentInvocation = {
   mcpServer: McpServerInstance;
   allowedTools?: string[];
   model?: string;
+  maxTurns?: number;
 };
 
 export interface AgentRuntime {

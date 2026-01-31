@@ -1,4 +1,5 @@
 import { Worker } from "bullmq";
+import crypto from "node:crypto";
 
 import type { Agent, Task } from "@prisma/client";
 
@@ -299,6 +300,7 @@ async function runTask(task: Task & { assignee: Agent }) {
   const mcpServer = createGcMcpServer(task.assignee.name, task.id, runtime);
 
   let lastResult: { output: string; costUsd: number; durationMs: number; numTurns: number; status: string } | null = null;
+  let usedSendMessage = false;
 
   for await (const event of runtime.invoke({
     agentId: task.assignee.name,
@@ -317,6 +319,9 @@ async function runTask(task: Task & { assignee: Agent }) {
     if (event.type === "message") {
       console.log(`[Agent:${task.assignee.name}] ${event.content}`);
     }
+    if (event.type === "tool_use" && event.tool === "send_message") {
+      usedSendMessage = true;
+    }
     if (event.type === "result") {
       lastResult = event.result;
     }
@@ -332,9 +337,39 @@ async function runTask(task: Task & { assignee: Agent }) {
       },
     });
 
-    await maybeFinalizeTask(task.id, {
-      output: lastResult.output,
-    });
+    // Fallback: if this was a chat task and agent didn't use send_message,
+    // capture the text output as a chat reply
+    const chatThreadMatch = task.context?.match(/thread "([^"]+)"/);
+    if (chatThreadMatch && !usedSendMessage && lastResult.output.length > 0) {
+      const threadId = chatThreadMatch[1];
+      console.log(`[Agent:${task.assignee.name}] Fallback: creating chat reply from text output`);
+      await db.message.create({
+        data: {
+          fromAgentId: task.assignee.id,
+          toAgentId: task.assignee.id, // self (reply to thread)
+          threadId,
+          body: lastResult.output,
+          type: "chat",
+          status: "delivered",
+        },
+      });
+      appEventBus.emit("message_created", {
+        messageId: crypto.randomUUID(),
+        threadId: threadId!,
+        fromAgentId: task.assignee.id,
+        toAgentId: task.assignee.id,
+      });
+      // Mark task as completed since the agent did respond
+      await db.task.update({
+        where: { id: task.id },
+        data: { status: "completed", result: "Chat reply sent (fallback)", completedAt: new Date() },
+      });
+      appEventBus.emit("task_status_changed", { taskId: task.id, status: "completed" });
+    } else {
+      await maybeFinalizeTask(task.id, {
+        output: lastResult.output,
+      });
+    }
   }
 
   // Post-run: notify parent task if this was a delegated child task

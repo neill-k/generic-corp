@@ -275,6 +275,38 @@ export function createApiRouter(deps: ApiRouterDeps = {}): express.Router {
         toAgentId: agent.id,
       });
 
+      // Create a task so the agent actually processes this message
+      const agentRecord = await db.agent.findUnique({
+        where: { id: agent.id },
+        select: { id: true, name: true },
+      });
+
+      if (agentRecord) {
+        const task = await db.task.create({
+          data: {
+            assigneeId: agentRecord.id,
+            delegatorId: null,
+            prompt: body.body,
+            context: `IMPORTANT: This is a chat message in thread "${threadId}" from a human user. You MUST respond by calling the send_message tool with toAgent set to the sender (use "human" if unknown) and threadId "${threadId}". After sending your reply, call finish_task with status "completed". Do NOT just output text — you must use the tools.`,
+            priority: 0,
+            status: "pending",
+          },
+          select: { id: true },
+        });
+
+        await enqueueAgentTask({
+          agentName: agentRecord.name,
+          taskId: task.id,
+          priority: 0,
+        });
+
+        appEventBus.emit("task_created", {
+          taskId: task.id,
+          assignee: agentRecord.name,
+          delegator: null,
+        });
+      }
+
       res.status(201).json({ message });
     } catch (error) {
       if (error instanceof z.ZodError) {
