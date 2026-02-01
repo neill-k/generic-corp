@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Colors from Pencil design */
+  --bg-page: #FFFFFF;
+  --bg-sidebar: #000000;
+  --bg-surface: #F5F5F5;
+  --black-primary: #000000;
+  --border-light: #EEEEEE;
+  --gray-300: #DDDDDD;
+  --gray-500: #999999;
+  --gray-600: #666666;
+  --gray-dark: #222222;
+  --gray-mid: #444444;
+  --red-primary: #E53935;
+
+  color-scheme: light;
+}
+
+@layer base {
+  html, body {
+    height: 100%;
+  }
+
+  #root {
+    height: 100%;
+  }
+
+  .font-ui {
+    font-family: "Inter", sans-serif;
+  }
+
+  .font-mono {
+    font-family: "JetBrains Mono", monospace;
+  }
+}
