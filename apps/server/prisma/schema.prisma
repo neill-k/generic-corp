@@ -41,7 +41,7 @@ model OrgNode {
 model Task {
   id           String   @id @default(uuid())
   parentTaskId String?
-  assigneeId   String
+  assigneeId   String?
   delegatorId  String?
   prompt       String   @db.Text
   context      String?  @db.Text
@@ -56,10 +56,14 @@ model Task {
   startedAt    DateTime?
   completedAt  DateTime?
 
-  assignee   Agent  @relation("assignee", fields: [assigneeId], references: [id])
-  delegator  Agent? @relation("delegator", fields: [delegatorId], references: [id])
+  assignee   Agent? @relation("assignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  delegator  Agent? @relation("delegator", fields: [delegatorId], references: [id], onDelete: SetNull)
   parentTask Task?  @relation("subtasks", fields: [parentTaskId], references: [id])
   subtasks   Task[] @relation("subtasks")
+
+  @@index([assigneeId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model Message {
@@ -76,4 +80,9 @@ model Message {
 
   sender    Agent? @relation("sender", fields: [fromAgentId], references: [id])
   recipient Agent  @relation("recipient", fields: [toAgentId], references: [id])
+
+  @@index([threadId])
+  @@index([fromAgentId])
+  @@index([toAgentId])
+  @@index([createdAt])
 }
