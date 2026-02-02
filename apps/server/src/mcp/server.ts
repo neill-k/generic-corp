@@ -782,14 +782,28 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
         },
         async (args) => {
           try {
-            const count = await db.message.count({ where: { threadId: args.threadId } });
-            if (count === 0) return toolText(`Thread not found: ${args.threadId}`);
+            const self = await getAgentByIdOrName(agentId);
+            if (!self) return toolText(`Unknown caller agent: ${agentId}`);
 
-            await db.message.deleteMany({ where: { threadId: args.threadId } });
+            const exists = await db.message.findFirst({
+              where: { threadId: args.threadId },
+              select: { id: true },
+            });
+            if (!exists) return toolText(`Thread not found: ${args.threadId}`);
 
-            appEventBus.emit("message_deleted", { messageId: args.threadId });
+            const isParticipant = await db.message.findFirst({
+              where: {
+                threadId: args.threadId,
+                OR: [{ fromAgentId: self.id }, { toAgentId: self.id }],
+              },
+              select: { id: true },
+            });
+            if (!isParticipant) return toolText(`Not allowed to delete thread: ${args.threadId}`);
 
-            return toolText(`Thread ${args.threadId} deleted (${count} messages removed).`);
+            const result = await db.message.deleteMany({ where: { threadId: args.threadId } });
+            appEventBus.emit("thread_deleted", { threadId: args.threadId, messagesRemoved: result.count });
+
+            return toolText(`Thread ${args.threadId} deleted (${result.count} messages removed).`);
           } catch (error) {
             const msg = error instanceof Error ? error.message : "Unknown error";
             return toolText(`delete_thread failed: ${msg}`);

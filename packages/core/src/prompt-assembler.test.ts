@@ -73,6 +73,11 @@ describe("buildSystemPrompt", () => {
     expect(result).toContain("Context is getting large");
   });
 
+  it("includes delete_thread tool", () => {
+    const result = buildSystemPrompt(baseParams);
+    expect(result).toContain("`delete_thread` — Delete a thread and all its messages");
+  });
+
   it("handles empty context", () => {
     const result = buildSystemPrompt({
       ...baseParams,

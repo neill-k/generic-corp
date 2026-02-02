@@ -230,6 +230,12 @@ export interface WsMessageDeleted extends WsEventBase {
   messageId: string;
 }
 
+export interface WsThreadDeleted extends WsEventBase {
+  type: "thread_deleted";
+  threadId: string;
+  messagesRemoved: number;
+}
+
 export interface WsTaskUpdated extends WsEventBase {
   type: "task_updated";
   taskId: string;
@@ -252,6 +258,7 @@ export type WsOutboundEvent =
   | WsAgentDeleted
   | WsMessageUpdated
   | WsMessageDeleted
+  | WsThreadDeleted
   | WsTaskUpdated
   | WsOrgChanged;
 

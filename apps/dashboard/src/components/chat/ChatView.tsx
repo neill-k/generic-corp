@@ -7,7 +7,7 @@ import { useSocketEvent } from "../../hooks/use-socket.js";
 import { ThreadList } from "./ThreadList.js";
 import { MessageList } from "./MessageList.js";
 import { ChatInput } from "./ChatInput.js";
-import type { ApiThread, ApiMessage, WsAgentEvent } from "@generic-corp/shared";
+import type { ApiThread, ApiMessage, WsAgentEvent, WsThreadDeleted } from "@generic-corp/shared";
 
 export function ChatView() {
   const {
@@ -48,6 +48,14 @@ export function ChatView() {
     queryClient.invalidateQueries({ queryKey: ["threads"] });
     if (activeThreadId) {
       queryClient.invalidateQueries({ queryKey: ["messages", activeThreadId] });
+    }
+  });
+
+  useSocketEvent<WsThreadDeleted>("thread_deleted", (event) => {
+    queryClient.invalidateQueries({ queryKey: ["threads"] });
+    queryClient.invalidateQueries({ queryKey: ["messages", event.threadId] });
+    if (event.threadId === activeThreadId) {
+      setActiveThread(null);
     }
   });
 
@@ -153,6 +161,7 @@ export function ChatView() {
       try {
         await api.delete<unknown>(`/threads/${threadId}`);
         queryClient.invalidateQueries({ queryKey: ["threads"] });
+        queryClient.invalidateQueries({ queryKey: ["messages", threadId] });
         if (threadId === activeThreadId) {
           setActiveThread(null);
         }

@@ -70,16 +70,29 @@ export function createThreadRouter(deps: ThreadRouterDeps): express.Router {
   router.delete("/threads/:id", async (req, res, next) => {
     try {
       const threadId = req.params["id"] ?? "";
-      const count = await db.message.count({ where: { threadId } });
-      if (count === 0) {
+
+      const hasAnyMessages = await db.message.findFirst({
+        where: { threadId },
+        select: { id: true },
+      });
+      if (!hasAnyMessages) {
         res.status(404).json({ error: "Thread not found" });
         return;
       }
 
-      await db.message.deleteMany({ where: { threadId } });
-      appEventBus.emit("message_deleted", { messageId: threadId });
+      const hasHumanMessages = await db.message.findFirst({
+        where: { threadId, fromAgentId: null },
+        select: { id: true },
+      });
+      if (!hasHumanMessages) {
+        res.status(403).json({ error: "Not allowed" });
+        return;
+      }
 
-      res.json({ deleted: true, messagesRemoved: count });
+      const result = await db.message.deleteMany({ where: { threadId } });
+      appEventBus.emit("thread_deleted", { threadId, messagesRemoved: result.count });
+
+      res.json({ deleted: true, messagesRemoved: result.count });
     } catch (error) {
       next(error);
     }

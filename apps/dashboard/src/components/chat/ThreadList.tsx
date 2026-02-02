@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { FileText, Loader2, Trash2 } from "lucide-react";
+import type { MouseEvent } from "react";
 
 import { api } from "../../lib/api-client.js";
 import type { ApiThread } from "@generic-corp/shared";
@@ -23,7 +24,7 @@ export function ThreadList({
 }: ThreadListProps) {
   const [loadingSummary, setLoadingSummary] = useState<string | null>(null);
 
-  const handleGetSummary = async (e: React.MouseEvent, threadId: string) => {
+  const handleGetSummary = async (e: MouseEvent<HTMLButtonElement>, threadId: string) => {
     e.stopPropagation();
     setLoadingSummary(threadId);
     try {
@@ -38,7 +39,7 @@ export function ThreadList({
     }
   };
 
-  const handleDelete = (e: React.MouseEvent, threadId: string) => {
+  const handleDelete = (e: MouseEvent<HTMLButtonElement>, threadId: string) => {
     e.stopPropagation();
     if (window.confirm("Delete this thread and all its messages?")) {
       onDeleteThread?.(threadId);

@@ -8,6 +8,7 @@ export type AppEventMap = {
   task_status_changed: { taskId: string; status: string };
   task_created: { taskId: string; assignee: string; delegator: string | null };
   message_created: { messageId: string; threadId: string; fromAgentId: string | null; toAgentId: string };
+  thread_deleted: { threadId: string; messagesRemoved: number };
   board_item_created: { type: string; author: string; path: string };
   board_item_updated: { type: string; author: string; path: string };
   board_item_archived: { path: string; archivedPath: string };
