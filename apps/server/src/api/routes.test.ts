@@ -335,6 +335,12 @@ describe("routes", () => {
       expect(res.body.threads[0].threadId).toBe("thread-1");
       expect(res.body.threads[0].agentName).toBe("marcus");
       expect(res.body.threads[0].preview).toBe("Latest message");
+
+      expect(mockDb.message.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ type: "chat" }),
+        }),
+      );
     });
   });
 

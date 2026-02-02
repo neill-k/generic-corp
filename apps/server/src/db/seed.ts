@@ -1,5 +1,6 @@
 import { db } from "./client.js";
 import { AGENT_SEED, TOOL_PERMISSION_SEED, DEFAULT_WORKSPACE } from "./seed-data.js";
+import { MAIN_AGENT_NAME } from "@generic-corp/shared";
 
 const X_SPACING = 250;
 const Y_SPACING = 150;
@@ -105,11 +106,14 @@ async function main() {
   }
   console.log(`[Seed] Upserted ${AGENT_SEED.length} agents`);
 
-  // 4) Compute tree-layout positions
-  const treePositions = computeTreePositions(AGENT_SEED);
+  // 4) Upsert org nodes (skip main agent — it has no org position)
+  const orgAgents = AGENT_SEED.filter((a) => a.name !== MAIN_AGENT_NAME);
 
-  // 5) Upsert org nodes with positions
-  const root = AGENT_SEED.find((a) => a.reportsTo === null);
+  // 5) Compute tree-layout positions
+  const treePositions = computeTreePositions(orgAgents);
+
+  // 6) Upsert org nodes with positions
+  const root = orgAgents.find((a) => a.reportsTo === null);
   if (!root) throw new Error("Seed data missing root agent");
   const rootId = agentsByName.get(root.name)?.id;
   if (!rootId) throw new Error("Root agent missing after upsert");
@@ -125,7 +129,7 @@ async function main() {
   const nodeIdsByAgentName = new Map<string, string>();
   nodeIdsByAgentName.set(root.name, rootNode.id);
 
-  const pending = AGENT_SEED.filter((a) => a.name !== root.name);
+  const pending = orgAgents.filter((a) => a.name !== root.name);
 
   while (pending.length > 0) {
     const nextIndex = pending.findIndex((a) => a.reportsTo !== null && nodeIdsByAgentName.has(a.reportsTo));

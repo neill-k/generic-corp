@@ -1,4 +1,4 @@
-export type AgentLevel = "ic" | "lead" | "manager" | "vp" | "c-suite";
+export type AgentLevel = "ic" | "lead" | "manager" | "vp" | "c-suite" | "system";
 
 export type AgentStatus = "idle" | "running" | "error" | "offline";
 
@@ -161,6 +161,7 @@ export interface WsEventBase {
 export interface WsAgentEvent extends WsEventBase {
   type: "agent_event";
   agentId: string;
+  agentDbId?: string;
   taskId: string;
   event: AgentEvent;
 }

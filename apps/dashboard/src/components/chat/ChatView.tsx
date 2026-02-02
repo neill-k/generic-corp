@@ -8,6 +8,7 @@ import { ThreadList } from "./ThreadList.js";
 import { MessageList } from "./MessageList.js";
 import { ChatInput } from "./ChatInput.js";
 import type { ApiThread, ApiMessage, WsAgentEvent } from "@generic-corp/shared";
+import { MAIN_AGENT_NAME } from "@generic-corp/shared";
 
 export function ChatView() {
   const {
@@ -79,8 +80,8 @@ export function ChatView() {
     ) {
       appendMessage({
         id: crypto.randomUUID(),
-        fromAgentId: event.agentId,
-        toAgentId: event.agentId,
+        fromAgentId: event.agentDbId ?? null,
+        toAgentId: MAIN_AGENT_NAME,
         threadId: activeThreadId,
         body: event.event.content,
         type: "chat",
@@ -130,7 +131,7 @@ export function ChatView() {
       setSending(true);
       try {
         const result = await api.post<{ message: ApiMessage }>("/messages", {
-          agentName: "marcus",
+          agentName: MAIN_AGENT_NAME,
           body,
           threadId: activeThreadId,
         });
