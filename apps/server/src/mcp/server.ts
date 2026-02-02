@@ -775,6 +775,43 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
       // --- Message management tools ---
 
       tool(
+        "delete_thread",
+        "Delete an entire thread and all its messages",
+        {
+          threadId: z.string().describe("Thread ID to delete"),
+        },
+        async (args) => {
+          try {
+            const self = await getAgentByIdOrName(agentId);
+            if (!self) return toolText(`Unknown caller agent: ${agentId}`);
+
+            const exists = await db.message.findFirst({
+              where: { threadId: args.threadId },
+              select: { id: true },
+            });
+            if (!exists) return toolText(`Thread not found: ${args.threadId}`);
+
+            const isParticipant = await db.message.findFirst({
+              where: {
+                threadId: args.threadId,
+                OR: [{ fromAgentId: self.id }, { toAgentId: self.id }],
+              },
+              select: { id: true },
+            });
+            if (!isParticipant) return toolText(`Not allowed to delete thread: ${args.threadId}`);
+
+            const result = await db.message.deleteMany({ where: { threadId: args.threadId } });
+            appEventBus.emit("thread_deleted", { threadId: args.threadId, messagesRemoved: result.count });
+
+            return toolText(`Thread ${args.threadId} deleted (${result.count} messages removed).`);
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`delete_thread failed: ${msg}`);
+          }
+        },
+      ),
+
+      tool(
         "mark_message_read",
         "Mark a message as read",
         {

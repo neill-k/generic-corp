@@ -81,6 +81,19 @@ describe("createWebSocketHub", () => {
     hub.stop();
   });
 
+  it("relays thread_deleted events", () => {
+    const hub = createWebSocketHub(io as never, bus);
+
+    const emitFn = vi.fn();
+    (io as unknown as Record<string, unknown>)["to"] = vi.fn().mockReturnValue({ emit: emitFn });
+
+    bus.emit("thread_deleted", { threadId: "t1", messagesRemoved: 2 });
+
+    expect(emitFn).toHaveBeenCalledWith("thread_deleted", { threadId: "t1", messagesRemoved: 2 });
+
+    hub.stop();
+  });
+
   it("stop() unsubscribes from all events", () => {
     const hub = createWebSocketHub(io as never, bus);
     hub.stop();

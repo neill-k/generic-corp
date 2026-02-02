@@ -19,7 +19,6 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
 
 import { api } from "../../lib/api-client.js";
 import { useSocketEvent } from "../../hooks/use-socket.js";
@@ -166,8 +165,11 @@ function buildFlowElements(
   return { nodes, edges };
 }
 
-export function OrgChart() {
-  const navigate = useNavigate();
+interface OrgChartProps {
+  onClickAgent: (agentId: string) => void;
+}
+
+export function OrgChart({ onClickAgent }: OrgChartProps) {
   const queryClient = useQueryClient();
   const updateAgentStatus = useAgentStore((s) => s.updateAgentStatus);
   const isDraggingRef = useRef(false);
@@ -181,23 +183,16 @@ export function OrgChart() {
     queryFn: () => api.get<OrgResponse>("/org"),
   });
 
-  const handleClickAgent = useCallback(
-    (id: string) => {
-      void navigate({ to: "/agents/$id", params: { id } });
-    },
-    [navigate],
-  );
-
   // Build flow elements from server data
   useEffect(() => {
     if (!orgQuery.data?.org || isDraggingRef.current) return;
     const { nodes: newNodes, edges: newEdges } = buildFlowElements(
       orgQuery.data.org,
-      handleClickAgent,
+      onClickAgent,
     );
     setNodes(newNodes);
     setEdges(newEdges);
-  }, [orgQuery.data, handleClickAgent, setNodes, setEdges]);
+  }, [orgQuery.data, onClickAgent, setNodes, setEdges]);
 
   // WebSocket listeners
   useSocketEvent<WsAgentStatusChanged>("agent_status_changed", (event) => {

@@ -1,0 +1,1882 @@
+{
+  "totalEvents": 631,
+  "byType": {
+    "status": 271,
+    "execution": 97,
+    "failure": 141,
+    "decision": 23,
+    "coordination": 77,
+    "blocker": 22
+  },
+  "byImpact": {
+    "medium": 272,
+    "high": 218,
+    "low": 141
+  },
+  "keyDecisions": [
+    {
+      "timestamp": "2026-01-26T13:48:07.077Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "Executive decision: Approved major initiative",
+      "type": "decision",
+      "impact": "high",
+      "details": "Approved: re: priority 4 action plan - approved & go"
+    },
+    {
+      "timestamp": "2026-01-26T13:49:27.716Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "Executive decision: Approved major initiative",
+      "type": "decision",
+      "impact": "high",
+      "details": "Approved: re: multi-agent platform - green light with focus"
+    },
+    {
+      "timestamp": "2026-01-26T13:54:23.728Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "Executive decision: Approved major initiative",
+      "type": "decision",
+      "impact": "high",
+      "details": "Approved: re: multi-tenant saas - decision & go-ahead"
+    },
+    {
+      "timestamp": "2026-01-26T13:56:33.889Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "Week 1 priorities confirmed and team aligned",
+      "type": "decision",
+      "impact": "high",
+      "details": "Clear roadmap set: Auth → Multi-tenant DB → Rate limiting → Usage tracking"
+    },
+    {
+      "timestamp": "2026-01-26T13:57:39.403Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "Executive decision: Approved major initiative",
+      "type": "decision",
+      "impact": "high",
+      "details": "Approved: re: analytics priority - strategic decision & direction"
+    },
+    {
+      "timestamp": "2026-01-26T13:57:56.585Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "Executive decision: Approved major initiative",
+      "type": "decision",
+      "impact": "high",
+      "details": "Approved: re: analytics requirements - green light for mvp"
+    },
+    {
+      "timestamp": "2026-01-26T13:57:59.702Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "Executive decision: Approved major initiative",
+      "type": "decision",
+      "impact": "high",
+      "details": "Approved: re: analytics requirements - multi-agent platform strategy - approved"
+    },
+    {
+      "timestamp": "2026-01-26T14:01:04.723Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "Week 1 priorities confirmed and team aligned",
+      "type": "decision",
+      "impact": "high",
+      "details": "Clear roadmap set: Auth → Multi-tenant DB → Rate limiting → Usage tracking"
+    },
+    {
+      "timestamp": "2026-01-26T14:01:39.487Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "Week 1 priorities confirmed and team aligned",
+      "type": "decision",
+      "impact": "high",
+      "details": "Clear roadmap set: Auth → Multi-tenant DB → Rate limiting → Usage tracking"
+    },
+    {
+      "timestamp": "2026-01-26T14:02:19.777Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "Week 1 priorities confirmed and team aligned",
+      "type": "decision",
+      "impact": "high",
+      "details": "Clear roadmap set: Auth → Multi-tenant DB → Rate limiting → Usage tracking"
+    },
+    {
+      "timestamp": "2026-01-26T14:03:48.226Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "Week 1 priorities confirmed and team aligned",
+      "type": "decision",
+      "impact": "high",
+      "details": "Clear roadmap set: Auth → Multi-tenant DB → Rate limiting → Usage tracking"
+    },
+    {
+      "timestamp": "2026-01-26T14:04:22.640Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "Executive decision: Approved major initiative",
+      "type": "decision",
+      "impact": "high",
+      "details": "Approved: re: landing page progress - green light to deploy 🚀"
+    },
+    {
+      "timestamp": "2026-01-26T14:04:25.334Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "Executive decision: Approved major initiative",
+      "type": "decision",
+      "impact": "high",
+      "details": "Approved: re: data/analytics angle - approved with week 1 priority"
+    },
+    {
+      "timestamp": "2026-01-26T14:04:39.606Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "Executive decision: Approved major initiative",
+      "type": "decision",
+      "impact": "high",
+      "details": "Approved: landing page deploy approved - architecture support ready?"
+    },
+    {
+      "timestamp": "2026-01-26T14:04:51.028Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "Week 1 priorities confirmed and team aligned",
+      "type": "decision",
+      "impact": "high",
+      "details": "Clear roadmap set: Auth → Multi-tenant DB → Rate limiting → Usage tracking"
+    },
+    {
+      "timestamp": "2026-01-26T14:05:13.010Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "Week 1 priorities confirmed and team aligned",
+      "type": "decision",
+      "impact": "high",
+      "details": "Clear roadmap set: Auth → Multi-tenant DB → Rate limiting → Usage tracking"
+    },
+    {
+      "timestamp": "2026-01-26T14:05:21.007Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "Week 1 priorities confirmed and team aligned",
+      "type": "decision",
+      "impact": "high",
+      "details": "Clear roadmap set: Auth → Multi-tenant DB → Rate limiting → Usage tracking"
+    },
+    {
+      "timestamp": "2026-01-26T14:05:28.379Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "Week 1 priorities confirmed and team aligned",
+      "type": "decision",
+      "impact": "high",
+      "details": "Clear roadmap set: Auth → Multi-tenant DB → Rate limiting → Usage tracking"
+    },
+    {
+      "timestamp": "2026-01-26T14:05:39.442Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "Executive decision: Approved major initiative",
+      "type": "decision",
+      "impact": "high",
+      "details": "Approved: re: infrastructure assessment complete - approved, green light to execute"
+    },
+    {
+      "timestamp": "2026-01-26T14:05:42.730Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "Week 1 priorities confirmed and team aligned",
+      "type": "decision",
+      "impact": "high",
+      "details": "Clear roadmap set: Auth → Multi-tenant DB → Rate limiting → Usage tracking"
+    },
+    {
+      "timestamp": "2026-01-26T14:06:01.559Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "Week 1 priorities confirmed and team aligned",
+      "type": "decision",
+      "impact": "high",
+      "details": "Clear roadmap set: Auth → Multi-tenant DB → Rate limiting → Usage tracking"
+    },
+    {
+      "timestamp": "2026-01-26T14:06:02.384Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "Executive decision: Approved major initiative",
+      "type": "decision",
+      "impact": "high",
+      "details": "Approved: re: production infrastructure assessment - approved with strategic direction"
+    },
+    {
+      "timestamp": "2026-01-26T14:06:05.999Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "Week 1 priorities confirmed and team aligned",
+      "type": "decision",
+      "impact": "high",
+      "details": "Clear roadmap set: Auth → Multi-tenant DB → Rate limiting → Usage tracking"
+    }
+  ],
+  "majorBlockers": [
+    {
+      "timestamp": "2026-01-26T13:50:25.532Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "BLOCKER: DNS access needed for landing page deployment",
+      "type": "blocker",
+      "impact": "high",
+      "details": "Waiting on Marcus for DNS registrar access to genericcorp.com"
+    },
+    {
+      "timestamp": "2026-01-26T13:50:33.060Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "BLOCKER: DNS access needed for landing page deployment",
+      "type": "blocker",
+      "impact": "high",
+      "details": "Waiting on Marcus for DNS registrar access to genericcorp.com"
+    },
+    {
+      "timestamp": "2026-01-26T13:54:13.501Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "BLOCKER: DNS access needed for landing page deployment",
+      "type": "blocker",
+      "impact": "high",
+      "details": "Waiting on Marcus for DNS registrar access to genericcorp.com"
+    },
+    {
+      "timestamp": "2026-01-26T13:56:36.218Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "BLOCKER: DNS access needed for landing page deployment",
+      "type": "blocker",
+      "impact": "high",
+      "details": "Waiting on Marcus for DNS registrar access to genericcorp.com"
+    },
+    {
+      "timestamp": "2026-01-26T13:56:59.538Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "BLOCKER: DNS access needed for landing page deployment",
+      "type": "blocker",
+      "impact": "high",
+      "details": "Waiting on Marcus for DNS registrar access to genericcorp.com"
+    },
+    {
+      "timestamp": "2026-01-26T13:59:28.420Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "BLOCKER: DNS access needed for landing page deployment",
+      "type": "blocker",
+      "impact": "high",
+      "details": "Waiting on Marcus for DNS registrar access to genericcorp.com"
+    },
+    {
+      "timestamp": "2026-01-26T14:01:39.487Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "BLOCKER: DNS access needed for landing page deployment",
+      "type": "blocker",
+      "impact": "high",
+      "details": "Waiting on Marcus for DNS registrar access to genericcorp.com"
+    },
+    {
+      "timestamp": "2026-01-26T14:02:48.323Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "BLOCKER: DNS access needed for landing page deployment",
+      "type": "blocker",
+      "impact": "high",
+      "details": "Waiting on Marcus for DNS registrar access to genericcorp.com"
+    },
+    {
+      "timestamp": "2026-01-26T14:03:13.574Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "BLOCKER: DNS access needed for landing page deployment",
+      "type": "blocker",
+      "impact": "high",
+      "details": "Waiting on Marcus for DNS registrar access to genericcorp.com"
+    },
+    {
+      "timestamp": "2026-01-26T14:03:42.041Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "BLOCKER: DNS access needed for landing page deployment",
+      "type": "blocker",
+      "impact": "high",
+      "details": "Waiting on Marcus for DNS registrar access to genericcorp.com"
+    },
+    {
+      "timestamp": "2026-01-26T14:03:43.480Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "BLOCKER: DNS access needed for landing page deployment",
+      "type": "blocker",
+      "impact": "high",
+      "details": "Waiting on Marcus for DNS registrar access to genericcorp.com"
+    },
+    {
+      "timestamp": "2026-01-26T14:03:46.844Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "BLOCKER: DNS access needed for landing page deployment",
+      "type": "blocker",
+      "impact": "high",
+      "details": "Waiting on Marcus for DNS registrar access to genericcorp.com"
+    },
+    {
+      "timestamp": "2026-01-26T14:04:24.201Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "BLOCKER: DNS access needed for landing page deployment",
+      "type": "blocker",
+      "impact": "high",
+      "details": "Waiting on Marcus for DNS registrar access to genericcorp.com"
+    },
+    {
+      "timestamp": "2026-01-26T14:04:24.673Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "BLOCKER: DNS access needed for landing page deployment",
+      "type": "blocker",
+      "impact": "high",
+      "details": "Waiting on Marcus for DNS registrar access to genericcorp.com"
+    },
+    {
+      "timestamp": "2026-01-26T14:04:58.912Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "BLOCKER: DNS access needed for landing page deployment",
+      "type": "blocker",
+      "impact": "high",
+      "details": "Waiting on Marcus for DNS registrar access to genericcorp.com"
+    },
+    {
+      "timestamp": "2026-01-26T14:05:04.620Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "BLOCKER: DNS access needed for landing page deployment",
+      "type": "blocker",
+      "impact": "high",
+      "details": "Waiting on Marcus for DNS registrar access to genericcorp.com"
+    },
+    {
+      "timestamp": "2026-01-26T14:05:12.023Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "BLOCKER: DNS access needed for landing page deployment",
+      "type": "blocker",
+      "impact": "high",
+      "details": "Waiting on Marcus for DNS registrar access to genericcorp.com"
+    },
+    {
+      "timestamp": "2026-01-26T14:05:12.719Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "BLOCKER: DNS access needed for landing page deployment",
+      "type": "blocker",
+      "impact": "high",
+      "details": "Waiting on Marcus for DNS registrar access to genericcorp.com"
+    },
+    {
+      "timestamp": "2026-01-26T14:05:21.048Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "BLOCKER: DNS access needed for landing page deployment",
+      "type": "blocker",
+      "impact": "high",
+      "details": "Waiting on Marcus for DNS registrar access to genericcorp.com"
+    },
+    {
+      "timestamp": "2026-01-26T14:05:32.073Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "BLOCKER: DNS access needed for landing page deployment",
+      "type": "blocker",
+      "impact": "high",
+      "details": "Waiting on Marcus for DNS registrar access to genericcorp.com"
+    },
+    {
+      "timestamp": "2026-01-26T14:05:33.347Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "BLOCKER: DNS access needed for landing page deployment",
+      "type": "blocker",
+      "impact": "high",
+      "details": "Waiting on Marcus for DNS registrar access to genericcorp.com"
+    },
+    {
+      "timestamp": "2026-01-26T14:05:39.442Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "BLOCKER: DNS access needed for landing page deployment",
+      "type": "blocker",
+      "impact": "high",
+      "details": "Waiting on Marcus for DNS registrar access to genericcorp.com"
+    }
+  ],
+  "criticalFailures": [
+    {
+      "timestamp": "2026-01-26T13:46:27.227Z",
+      "actors": [
+        "DeVonte Jackson"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "DeVonte Jackson reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:46:28.080Z",
+      "actors": [
+        "Sable Chen"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Sable Chen reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:46:28.980Z",
+      "actors": [
+        "Graham Sutton"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Graham Sutton reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:46:30.425Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Yuki Tanaka reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:46:32.408Z",
+      "actors": [
+        "Sable Chen"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Sable Chen reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:46:32.807Z",
+      "actors": [
+        "Graham Sutton"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Graham Sutton reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:46:46.260Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Graham Sutton"
+    },
+    {
+      "timestamp": "2026-01-26T13:46:51.710Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Sable Chen"
+    },
+    {
+      "timestamp": "2026-01-26T13:47:01.364Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Yuki Tanaka reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:47:06.611Z",
+      "actors": [
+        "Sable Chen"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Sable Chen reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:47:12.262Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Yuki Tanaka reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:47:23.170Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Sable Chen"
+    },
+    {
+      "timestamp": "2026-01-26T13:47:42.465Z",
+      "actors": [
+        "Sable Chen"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Sable Chen reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:47:48.531Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Graham Sutton"
+    },
+    {
+      "timestamp": "2026-01-26T13:47:50.355Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from DeVonte Jackson"
+    },
+    {
+      "timestamp": "2026-01-26T13:47:55.183Z",
+      "actors": [
+        "Sable Chen"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Sable Chen reporting missing message from DeVonte Jackson"
+    },
+    {
+      "timestamp": "2026-01-26T13:47:56.156Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Yuki Tanaka reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:48:03.050Z",
+      "actors": [
+        "Graham Sutton"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Graham Sutton reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:48:05.090Z",
+      "actors": [
+        "DeVonte Jackson"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "DeVonte Jackson reporting missing message from Sable Chen"
+    },
+    {
+      "timestamp": "2026-01-26T13:48:07.569Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Sable Chen"
+    },
+    {
+      "timestamp": "2026-01-26T13:48:14.138Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Sable Chen"
+    },
+    {
+      "timestamp": "2026-01-26T13:48:25.051Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Yuki Tanaka"
+    },
+    {
+      "timestamp": "2026-01-26T13:48:25.649Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Yuki Tanaka"
+    },
+    {
+      "timestamp": "2026-01-26T13:48:25.904Z",
+      "actors": [
+        "DeVonte Jackson"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "DeVonte Jackson reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:48:28.689Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Graham Sutton"
+    },
+    {
+      "timestamp": "2026-01-26T13:48:30.180Z",
+      "actors": [
+        "DeVonte Jackson"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "DeVonte Jackson reporting missing message from Sable Chen"
+    },
+    {
+      "timestamp": "2026-01-26T13:48:32.905Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Sable Chen"
+    },
+    {
+      "timestamp": "2026-01-26T13:48:40.293Z",
+      "actors": [
+        "DeVonte Jackson"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "DeVonte Jackson reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:48:48.849Z",
+      "actors": [
+        "Sable Chen"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Sable Chen reporting missing message from DeVonte Jackson"
+    },
+    {
+      "timestamp": "2026-01-26T13:48:52.458Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from DeVonte Jackson"
+    },
+    {
+      "timestamp": "2026-01-26T13:48:59.229Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Yuki Tanaka"
+    },
+    {
+      "timestamp": "2026-01-26T13:49:19.899Z",
+      "actors": [
+        "Sable Chen"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Sable Chen reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:49:20.449Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Yuki Tanaka reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:49:21.776Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Yuki Tanaka reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:49:22.502Z",
+      "actors": [
+        "Sable Chen"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Sable Chen reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:49:24.152Z",
+      "actors": [
+        "Sable Chen"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Sable Chen reporting missing message from DeVonte Jackson"
+    },
+    {
+      "timestamp": "2026-01-26T13:49:25.108Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Graham Sutton"
+    },
+    {
+      "timestamp": "2026-01-26T13:49:26.791Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from DeVonte Jackson"
+    },
+    {
+      "timestamp": "2026-01-26T13:49:27.246Z",
+      "actors": [
+        "DeVonte Jackson"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "DeVonte Jackson reporting missing message from Yuki Tanaka"
+    },
+    {
+      "timestamp": "2026-01-26T13:49:40.511Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Yuki Tanaka reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:49:41.074Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from DeVonte Jackson"
+    },
+    {
+      "timestamp": "2026-01-26T13:49:54.039Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Yuki Tanaka"
+    },
+    {
+      "timestamp": "2026-01-26T13:50:13.004Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Sable Chen"
+    },
+    {
+      "timestamp": "2026-01-26T13:50:13.345Z",
+      "actors": [
+        "Graham Sutton"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Graham Sutton reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:50:18.935Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from DeVonte Jackson"
+    },
+    {
+      "timestamp": "2026-01-26T13:50:21.470Z",
+      "actors": [
+        "Graham Sutton"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Graham Sutton reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:50:23.042Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Graham Sutton"
+    },
+    {
+      "timestamp": "2026-01-26T13:50:30.307Z",
+      "actors": [
+        "Graham Sutton"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Graham Sutton reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:50:36.847Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Yuki Tanaka reporting missing message from DeVonte Jackson"
+    },
+    {
+      "timestamp": "2026-01-26T13:50:36.949Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Yuki Tanaka reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:50:59.580Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Sable Chen"
+    },
+    {
+      "timestamp": "2026-01-26T13:52:59.311Z",
+      "actors": [
+        "Graham Sutton"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Graham Sutton reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:52:59.394Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Yuki Tanaka"
+    },
+    {
+      "timestamp": "2026-01-26T13:53:14.458Z",
+      "actors": [
+        "Graham Sutton"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Graham Sutton reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:53:19.013Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Graham Sutton"
+    },
+    {
+      "timestamp": "2026-01-26T13:53:19.573Z",
+      "actors": [
+        "Graham Sutton"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Graham Sutton reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:53:19.848Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Yuki Tanaka reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:53:21.192Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Yuki Tanaka"
+    },
+    {
+      "timestamp": "2026-01-26T13:53:34.712Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from DeVonte Jackson"
+    },
+    {
+      "timestamp": "2026-01-26T13:53:39.712Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Graham Sutton"
+    },
+    {
+      "timestamp": "2026-01-26T13:53:45.218Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from DeVonte Jackson"
+    },
+    {
+      "timestamp": "2026-01-26T13:53:45.992Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Yuki Tanaka"
+    },
+    {
+      "timestamp": "2026-01-26T13:53:48.743Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from DeVonte Jackson"
+    },
+    {
+      "timestamp": "2026-01-26T13:53:54.215Z",
+      "actors": [
+        "Graham Sutton"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Graham Sutton reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:53:57.312Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Yuki Tanaka reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:54:04.154Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from DeVonte Jackson"
+    },
+    {
+      "timestamp": "2026-01-26T13:54:06.410Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Graham Sutton"
+    },
+    {
+      "timestamp": "2026-01-26T13:54:12.232Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Sable Chen"
+    },
+    {
+      "timestamp": "2026-01-26T13:54:17.436Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Graham Sutton"
+    },
+    {
+      "timestamp": "2026-01-26T13:55:26.328Z",
+      "actors": [
+        "Graham Sutton"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Graham Sutton reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:55:30.360Z",
+      "actors": [
+        "Graham Sutton"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Graham Sutton reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:55:30.792Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Yuki Tanaka reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:55:32.710Z",
+      "actors": [
+        "Graham Sutton"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Graham Sutton reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:55:34.110Z",
+      "actors": [
+        "Graham Sutton"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Graham Sutton reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:55:34.825Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Yuki Tanaka reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:55:34.980Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Yuki Tanaka reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:55:35.478Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Yuki Tanaka reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:55:55.302Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Graham Sutton"
+    },
+    {
+      "timestamp": "2026-01-26T13:56:00.375Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Yuki Tanaka"
+    },
+    {
+      "timestamp": "2026-01-26T13:56:08.592Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Graham Sutton"
+    },
+    {
+      "timestamp": "2026-01-26T13:56:19.287Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Yuki Tanaka reporting missing message from Graham Sutton"
+    },
+    {
+      "timestamp": "2026-01-26T13:56:46.779Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Yuki Tanaka reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:56:56.425Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Yuki Tanaka reporting missing message from Graham Sutton"
+    },
+    {
+      "timestamp": "2026-01-26T13:57:07.260Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Graham Sutton"
+    },
+    {
+      "timestamp": "2026-01-26T13:57:27.186Z",
+      "actors": [
+        "Graham Sutton"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Graham Sutton reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:57:27.593Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Yuki Tanaka reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:57:32.285Z",
+      "actors": [
+        "Graham Sutton"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Graham Sutton reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:57:34.466Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Graham Sutton"
+    },
+    {
+      "timestamp": "2026-01-26T13:57:34.580Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Yuki Tanaka"
+    },
+    {
+      "timestamp": "2026-01-26T13:57:39.019Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Yuki Tanaka reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:57:39.145Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Graham Sutton"
+    },
+    {
+      "timestamp": "2026-01-26T13:57:39.220Z",
+      "actors": [
+        "Graham Sutton"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Graham Sutton reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:57:39.671Z",
+      "actors": [
+        "Graham Sutton"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Graham Sutton reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:57:40.018Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Graham Sutton"
+    },
+    {
+      "timestamp": "2026-01-26T13:57:41.030Z",
+      "actors": [
+        "Graham Sutton"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Graham Sutton reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:57:52.884Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Graham Sutton"
+    },
+    {
+      "timestamp": "2026-01-26T13:58:35.119Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Graham Sutton"
+    },
+    {
+      "timestamp": "2026-01-26T13:58:40.103Z",
+      "actors": [
+        "DeVonte Jackson"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "DeVonte Jackson reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:58:46.563Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Yuki Tanaka reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:58:56.409Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Graham Sutton"
+    },
+    {
+      "timestamp": "2026-01-26T13:59:00.205Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Graham Sutton"
+    },
+    {
+      "timestamp": "2026-01-26T13:59:02.291Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Yuki Tanaka reporting missing message from DeVonte Jackson"
+    },
+    {
+      "timestamp": "2026-01-26T13:59:05.759Z",
+      "actors": [
+        "DeVonte Jackson"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "DeVonte Jackson reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:59:08.756Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Yuki Tanaka reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:59:08.985Z",
+      "actors": [
+        "DeVonte Jackson"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "DeVonte Jackson reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:59:09.595Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Sable Chen"
+    },
+    {
+      "timestamp": "2026-01-26T13:59:10.209Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Yuki Tanaka"
+    },
+    {
+      "timestamp": "2026-01-26T13:59:10.711Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Yuki Tanaka"
+    },
+    {
+      "timestamp": "2026-01-26T13:59:10.871Z",
+      "actors": [
+        "Graham Sutton"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Graham Sutton reporting missing message from Yuki Tanaka"
+    },
+    {
+      "timestamp": "2026-01-26T13:59:11.486Z",
+      "actors": [
+        "DeVonte Jackson"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "DeVonte Jackson reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:59:11.844Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Yuki Tanaka reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T13:59:16.000Z",
+      "actors": [
+        "Graham Sutton"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Graham Sutton reporting missing message from Yuki Tanaka"
+    },
+    {
+      "timestamp": "2026-01-26T13:59:16.071Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Yuki Tanaka reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T14:01:41.381Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Yuki Tanaka reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T14:01:48.527Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Yuki Tanaka reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T14:01:50.506Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from DeVonte Jackson"
+    },
+    {
+      "timestamp": "2026-01-26T14:01:55.228Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Yuki Tanaka reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T14:01:55.384Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Graham Sutton"
+    },
+    {
+      "timestamp": "2026-01-26T14:01:56.793Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Yuki Tanaka reporting missing message from DeVonte Jackson"
+    },
+    {
+      "timestamp": "2026-01-26T14:01:59.326Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Yuki Tanaka reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T14:01:59.419Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Yuki Tanaka reporting missing message from DeVonte Jackson"
+    },
+    {
+      "timestamp": "2026-01-26T14:02:02.319Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Yuki Tanaka reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T14:02:05.245Z",
+      "actors": [
+        "Graham Sutton"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Graham Sutton reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T14:02:05.864Z",
+      "actors": [
+        "Graham Sutton"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Graham Sutton reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T14:02:07.946Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Sable Chen"
+    },
+    {
+      "timestamp": "2026-01-26T14:02:09.217Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from DeVonte Jackson"
+    },
+    {
+      "timestamp": "2026-01-26T14:03:35.334Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from DeVonte Jackson"
+    },
+    {
+      "timestamp": "2026-01-26T14:03:39.363Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Sable Chen"
+    },
+    {
+      "timestamp": "2026-01-26T14:03:39.864Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Sable Chen"
+    },
+    {
+      "timestamp": "2026-01-26T14:03:41.523Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from DeVonte Jackson"
+    },
+    {
+      "timestamp": "2026-01-26T14:03:42.751Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Sable Chen"
+    },
+    {
+      "timestamp": "2026-01-26T14:03:47.114Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from DeVonte Jackson"
+    },
+    {
+      "timestamp": "2026-01-26T14:03:57.613Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Yuki Tanaka reporting missing message from DeVonte Jackson"
+    },
+    {
+      "timestamp": "2026-01-26T14:05:23.690Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from DeVonte Jackson"
+    },
+    {
+      "timestamp": "2026-01-26T14:05:26.280Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Yuki Tanaka reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T14:05:29.239Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Yuki Tanaka reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T14:05:29.992Z",
+      "actors": [
+        "Graham Sutton"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Graham Sutton reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T14:05:30.000Z",
+      "actors": [
+        "Yuki Tanaka"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Yuki Tanaka reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T14:05:30.480Z",
+      "actors": [
+        "Graham Sutton"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Graham Sutton reporting missing message from Marcus Bell"
+    },
+    {
+      "timestamp": "2026-01-26T14:05:31.294Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from Graham Sutton"
+    },
+    {
+      "timestamp": "2026-01-26T14:05:38.679Z",
+      "actors": [
+        "Marcus Bell"
+      ],
+      "event": "FAILURE: Message delivery failure - had to resend",
+      "type": "failure",
+      "impact": "low",
+      "details": "Marcus Bell reporting missing message from DeVonte Jackson"
+    }
+  ]
+}

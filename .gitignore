@@ -52,3 +52,9 @@ video/out/
 # Local workspace (agent worktrees, board, docs)
 workspace/
 **/.gc/
+
+# Playwright MCP artifacts
+.playwright-mcp/
+
+# Local todos
+todos/

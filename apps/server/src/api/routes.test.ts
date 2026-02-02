@@ -23,9 +23,11 @@ vi.mock("../db/client.js", () => {
     message: {
       create: vi.fn(),
       findMany: vi.fn(),
+      findFirst: vi.fn(),
       findUnique: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
+      deleteMany: vi.fn(),
     },
     orgNode: {
       findMany: vi.fn(),
@@ -86,9 +88,11 @@ const mockDb = db as unknown as {
   message: {
     create: ReturnType<typeof vi.fn>;
     findMany: ReturnType<typeof vi.fn>;
+    findFirst: ReturnType<typeof vi.fn>;
     findUnique: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
     delete: ReturnType<typeof vi.fn>;
+    deleteMany: ReturnType<typeof vi.fn>;
   };
   orgNode: {
     findMany: ReturnType<typeof vi.fn>;
@@ -341,6 +345,39 @@ describe("routes", () => {
           where: expect.objectContaining({ type: "chat" }),
         }),
       );
+    });
+  });
+
+  describe("DELETE /api/threads/:id", () => {
+    it("returns 404 when thread does not exist", async () => {
+      mockDb.message.findFirst.mockResolvedValueOnce(null);
+
+      const res = await request(createApp()).delete("/api/threads/t1");
+
+      expect(res.status).toBe(404);
+    });
+
+    it("returns 403 when thread has no human messages", async () => {
+      mockDb.message.findFirst
+        .mockResolvedValueOnce({ id: "m1" }) // has any messages
+        .mockResolvedValueOnce(null); // no human messages
+
+      const res = await request(createApp()).delete("/api/threads/t1");
+
+      expect(res.status).toBe(403);
+    });
+
+    it("deletes thread when it has human messages", async () => {
+      mockDb.message.findFirst
+        .mockResolvedValueOnce({ id: "m1" }) // has any messages
+        .mockResolvedValueOnce({ id: "m1" }); // has human messages
+      mockDb.message.deleteMany.mockResolvedValue({ count: 3 });
+
+      const res = await request(createApp()).delete("/api/threads/t1");
+
+      expect(res.status).toBe(200);
+      expect(res.body.deleted).toBe(true);
+      expect(res.body.messagesRemoved).toBe(3);
     });
   });
 

@@ -355,6 +355,7 @@ Common workflows:
 - **Report status**: \`post_board_item\` with type "status_update" to share progress
 - **Escalate blocker**: \`post_board_item\` type "blocker" → then \`finish_task\` status "blocked"
 - **Check messages**: \`list_threads\` → \`read_messages\` → \`mark_message_read\`
+- **Delete a thread**: \`list_threads\` → pick one → \`delete_thread\`
 - **Find colleagues**: \`list_agents\` with department filter → \`get_agent_status\` for details
 - **Move org nodes**: \`list_agents\` to find agent → \`get_agent_status\` to find node ID → \`update_org_node\` with parentNodeId
 
@@ -405,6 +406,7 @@ All standard Claude Code tools (file I/O, bash, git, grep, etc.) plus Generic Co
 - \`get_thread_summary\` — Get a summary of new messages in a thread since a given time
 - \`mark_message_read\` — Mark a message as read
 - \`delete_message\` — Delete a message
+- \`delete_thread\` — Delete a thread and all its messages
 
 ---
 

@@ -104,6 +104,12 @@ export function createWebSocketHub(
   );
 
   unsubs.push(
+    eventBus.on("thread_deleted", (payload) => {
+      io.to("broadcast").emit("thread_deleted", payload);
+    }),
+  );
+
+  unsubs.push(
     eventBus.on("task_updated", (payload) => {
       io.to("broadcast").emit("task_updated", payload);
     }),
