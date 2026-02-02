@@ -1,0 +1,88 @@
+{
+  "totalMessages": 788,
+  "messagesByCategory": {
+    "Request": 227,
+    "Status Update": 202,
+    "Task Assignment": 248,
+    "Approval/Review": 34,
+    "Error/Issue": 38,
+    "Other": 28,
+    "Notification": 11
+  },
+  "messagesByType": {
+    "direct": 788
+  },
+  "messagesByStatus": {
+    "pending": 74,
+    "read": 714
+  },
+  "agentStats": {
+    "Marcus Bell": {
+      "sent": 433,
+      "received": 270,
+      "categories": {
+        "Request": 151,
+        "Status Update": 130,
+        "Error/Issue": 18,
+        "Task Assignment": 84,
+        "Approval/Review": 25,
+        "Other": 17,
+        "Notification": 8
+      }
+    },
+    "Yuki Tanaka": {
+      "sent": 126,
+      "received": 139,
+      "categories": {
+        "Task Assignment": 46,
+        "Approval/Review": 4,
+        "Status Update": 31,
+        "Request": 33,
+        "Other": 3,
+        "Error/Issue": 8,
+        "Notification": 1
+      }
+    },
+    "Sable Chen": {
+      "sent": 49,
+      "received": 119,
+      "categories": {
+        "Task Assignment": 34,
+        "Approval/Review": 2,
+        "Request": 6,
+        "Status Update": 4,
+        "Error/Issue": 2,
+        "Other": 1
+      }
+    },
+    "Graham Sutton": {
+      "sent": 114,
+      "received": 136,
+      "categories": {
+        "Task Assignment": 55,
+        "Status Update": 26,
+        "Error/Issue": 8,
+        "Request": 19,
+        "Other": 2,
+        "Approval/Review": 3,
+        "Notification": 1
+      }
+    },
+    "DeVonte Jackson": {
+      "sent": 66,
+      "received": 124,
+      "categories": {
+        "Task Assignment": 29,
+        "Status Update": 11,
+        "Request": 18,
+        "Error/Issue": 2,
+        "Other": 5,
+        "Notification": 1
+      }
+    }
+  },
+  "dateRange": {
+    "earliest": 1769434883019,
+    "latest": 1769436366031
+  }
+}
