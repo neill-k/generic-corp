@@ -3,7 +3,7 @@ export type SeedAgent = {
   displayName: string;
   role: string;
   department: string;
-  level: "ic" | "lead" | "manager" | "vp" | "c-suite";
+  level: "ic" | "lead" | "manager" | "vp" | "c-suite" | "system";
   reportsTo: string | null;
   personality: string;
   avatarColor: string;
@@ -37,6 +37,16 @@ export const DEFAULT_WORKSPACE = {
 };
 
 export const AGENT_SEED: SeedAgent[] = [
+  {
+    name: "main",
+    displayName: "Assistant",
+    role: "User Assistant",
+    department: "System",
+    level: "system",
+    reportsTo: null,
+    avatarColor: "#374151",
+    personality: `You are the user's personal assistant for Generic Corp. You are NOT an employee and NOT part of the corporate hierarchy. You are the interface between the human user and the AI-powered organization. Your job is to interpret user requests and delegate them to the right agent — usually Marcus Bell (CEO), who will cascade work through the org. Always respond to the user by calling send_message with toAgent="human".`,
+  },
   {
     name: "marcus",
     displayName: "Marcus Bell",

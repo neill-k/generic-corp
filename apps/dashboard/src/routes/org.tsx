@@ -8,6 +8,7 @@ import { AgentDetailModal } from "../components/agent/AgentDetailModal.js";
 import { api } from "../lib/api-client.js";
 import { queryKeys } from "../lib/query-keys.js";
 import type { ApiAgentSummary, ApiOrgNode } from "@generic-corp/shared";
+import { MAIN_AGENT_NAME } from "@generic-corp/shared";
 
 interface OrgResponse {
   org: ApiOrgNode[];
@@ -45,7 +46,7 @@ export function OrgPage() {
   // Agents not yet in the org chart
   const agentsInOrg = new Set(allOrgNodes.map((n) => n.agent.id));
   const availableAgents = agentsQuery.data?.agents.filter(
-    (a) => !agentsInOrg.has(a.id),
+    (a) => !agentsInOrg.has(a.id) && a.name !== MAIN_AGENT_NAME,
   ) ?? [];
 
   const addNodeMutation = useMutation({

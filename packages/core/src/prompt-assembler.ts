@@ -2,6 +2,7 @@ import type { SkillId } from "./skills.js";
 import { SKILL_PROMPTS } from "./skills.js";
 import type { HookRunner } from "./hook-runner.js";
 import type { BeforePromptBuildContext, AfterPromptBuildContext } from "@generic-corp/sdk";
+import { MAIN_AGENT_NAME } from "@generic-corp/shared";
 
 interface PendingResult {
   childTaskId: string;
@@ -75,6 +76,17 @@ interface UnreadMessagePreview {
   receivedAt: string;
 }
 
+export interface OrgOverviewEntry {
+  name: string;
+  displayName: string;
+  role: string;
+  department: string;
+  level: string;
+  status: string;
+  currentTask: string | null;
+  reportsTo: string | null;
+}
+
 interface AgentInfo {
   role: string;
   department: string;
@@ -112,6 +124,7 @@ export type BuildSystemPromptParams = {
   departmentSummary?: DepartmentSummary | null;
   activeBlockers?: ActiveBlocker[];
   unreadMessagePreviews?: UnreadMessagePreview[];
+  orgOverview?: OrgOverviewEntry[];
 };
 
 function asIso(date: Date): string {
@@ -161,7 +174,115 @@ export class SystemPromptAssembler {
   }
 }
 
+function buildMainAgentPrompt(params: BuildSystemPromptParams): string {
+  const generatedAt = params.generatedAt ?? new Date();
+  const context = params.task.context?.trim() ? params.task.context.trim() : "(none provided)";
+
+  const orgSection = params.orgOverview && params.orgOverview.length > 0
+    ? params.orgOverview.map((a) =>
+      `- **${a.displayName}** (${a.name}) — ${a.role}, ${a.department}, ${a.level}${a.reportsTo ? `, reports to ${a.reportsTo}` : ""} [${a.status}]${a.currentTask ? ` — working on: ${a.currentTask}` : ""}`
+    ).join("\n")
+    : "No agents found. The organization may not be seeded yet.";
+
+  return `# Identity
+
+You are the user's personal assistant for Generic Corp. You are **not** an employee and **not** part of the corporate hierarchy.
+
+You are the interface between the human user and the AI-powered organization. Your job is to:
+1. Interpret what the user wants
+2. Delegate work to the right agent (usually Marcus Bell, the CEO)
+3. Report back to the user with results
+
+## Communication Rules
+- Always respond to the user by calling \`send_message\` with \`toAgent="human"\`
+- You can delegate to **any** agent — you are not bound by chain-of-command
+- For most requests, delegate to the CEO (marcus) who will cascade through the org
+- For targeted requests (e.g., "ask Sable to review"), delegate directly
+
+## Organization Roster
+${orgSection}
+
+## Available Tools
+All standard Claude Code tools (file I/O, bash, git, grep, etc.) plus Generic Corp tools:
+
+**Task Management**
+- \`delegate_task\` — Assign work to an agent
+- \`finish_task\` — Mark your task as completed, blocked, or failed (provide status + result)
+- \`get_task\` — Look up any task by ID
+- \`list_tasks\` — List tasks with filters (assignee, status)
+- \`update_task\` — Update a task's priority or context
+- \`cancel_task\` — Cancel a pending task
+- \`delete_task\` — Delete a task permanently
+
+**Organization**
+- \`get_my_org\` — See your direct reports and their status
+- \`list_org_nodes\` — List all org hierarchy nodes with agent info
+- \`get_agent_status\` — Check any agent's current status
+- \`list_agents\` — List all agents in the org (filter by department/status)
+- \`create_agent\` — Create a new agent
+- \`update_agent\` — Update an agent's properties
+- \`delete_agent\` — Remove an agent
+
+**Org Structure**
+- \`create_org_node\` — Add an agent to the org hierarchy
+- \`update_org_node\` — Move an agent in the org hierarchy
+- \`delete_org_node\` — Remove an agent from the org hierarchy
+
+**Board**
+- \`query_board\` — Search the shared board
+- \`post_board_item\` — Post a status update, blocker, finding, or request
+- \`update_board_item\` — Edit an existing board item's content
+- \`archive_board_item\` — Archive a resolved board item
+- \`list_archived_items\` — See archived board items
+
+**Messaging**
+- \`send_message\` — Send a message to another agent (or \`toAgent="human"\` to reply to the user)
+- \`read_messages\` — Read messages in a thread
+- \`list_threads\` — List your message threads
+- \`get_thread_summary\` — Get a summary of new messages in a thread since a given time
+- \`mark_message_read\` — Mark a message as read
+- \`delete_message\` — Delete a message
+
+---
+
+# System Briefing
+Generated: ${asIso(generatedAt)}
+
+## Your Current Task
+**Task ID**: ${params.task.id}
+**Priority**: ${params.task.priority}
+**Prompt**: ${params.task.prompt}
+
+## Context
+${context}
+${params.pendingResults && params.pendingResults.length > 0 ? `
+## Pending Results from Delegated Work
+${params.pendingResults.map((r) => `### Child Task ${r.childTaskId}\n${r.result}`).join("\n\n")}
+` : ""}${params.recentBoardItems && params.recentBoardItems.length > 0 ? `
+## Recent Board Activity
+${params.recentBoardItems.map((item) => `- **[${item.type}]** ${item.author}: ${item.summary} (${item.timestamp})`).join("\n")}
+` : ""}${params.activeBlockers && params.activeBlockers.length > 0 ? `
+## Active Blockers
+${params.activeBlockers.map((b) => `- **${b.author}** (${b.timestamp}): ${b.summary}`).join("\n")}
+` : ""}${params.unreadMessageCount && params.unreadMessageCount > 0 ? `
+## Unread Messages (${params.unreadMessageCount})
+${params.unreadMessagePreviews && params.unreadMessagePreviews.length > 0 ? params.unreadMessagePreviews.map((m) => `- **${m.from}** (thread ${m.threadId.slice(0, 8)}): ${m.preview}`).join("\n") : `Use \`list_threads\` and \`read_messages\` to catch up.`}
+` : ""}${params.skills && params.skills.length > 0 ? `
+---
+
+# Available Skills
+
+Apply whichever of these skill guides are relevant to your current task:
+
+${params.skills.map((id) => SKILL_PROMPTS[id]).join("\n\n")}
+` : ""}`;
+}
+
 export function buildSystemPrompt(params: BuildSystemPromptParams): string {
+  if (params.agent.name === MAIN_AGENT_NAME) {
+    return buildMainAgentPrompt(params);
+  }
+
   const generatedAt = params.generatedAt ?? new Date();
   const from = params.delegatorDisplayName ?? (params.task.delegatorId ? "Another agent" : "Human (via chat)");
   const context = params.task.context?.trim() ? params.task.context.trim() : "(none provided)";

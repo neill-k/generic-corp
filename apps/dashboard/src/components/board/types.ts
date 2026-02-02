@@ -15,7 +15,7 @@ export interface BoardTask {
   id: string;
   prompt: string;
   status: string;
-  priority: string;
+  priority: number;
   tags: BoardTag[];
   assigneeId?: string;
   assignee?: BoardAssignee;

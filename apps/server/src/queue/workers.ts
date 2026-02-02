@@ -1,7 +1,7 @@
 import { Worker } from "bullmq";
-import crypto from "node:crypto";
 
 import type { Agent, Task } from "@prisma/client";
+import { MAIN_AGENT_NAME } from "@generic-corp/shared";
 
 import { db } from "../db/client.js";
 import { createGcMcpServer } from "../mcp/server.js";
@@ -239,6 +239,46 @@ async function loadUnreadMessagePreviews(agentDbId: string) {
   }));
 }
 
+async function loadOrgOverview() {
+  const agents = await db.agent.findMany({
+    where: { name: { not: MAIN_AGENT_NAME } },
+    select: {
+      name: true,
+      displayName: true,
+      role: true,
+      department: true,
+      level: true,
+      status: true,
+      currentTaskId: true,
+      orgNode: {
+        select: {
+          parent: {
+            select: { agent: { select: { name: true } } },
+          },
+        },
+      },
+    },
+  });
+
+  return Promise.all(agents.map(async (a) => {
+    let currentTask: string | null = null;
+    if (a.currentTaskId) {
+      const t = await db.task.findUnique({ where: { id: a.currentTaskId }, select: { prompt: true } });
+      currentTask = t?.prompt?.slice(0, 80) ?? null;
+    }
+    return {
+      name: a.name,
+      displayName: a.displayName,
+      role: a.role,
+      department: a.department,
+      level: a.level,
+      status: a.status,
+      currentTask,
+      reportsTo: a.orgNode?.parent?.agent.name ?? null,
+    };
+  }));
+}
+
 async function loadPendingResults(agentName: string) {
   const root = process.env["GC_WORKSPACE_ROOT"];
   if (!root) return [];
@@ -262,21 +302,23 @@ async function runTask(task: Task & { assignee: Agent }) {
   const wm = getWorkspaceManager();
   const cwd = await wm.ensureAgentWorkspace(task.assignee.name);
   const runtime = createRuntime();
+  const isMainAgent = task.assignee.name === MAIN_AGENT_NAME;
 
-  const [orgReports, recentBoardItems, pendingResults, manager, peers, unreadMessageCount, parentTask, taskHistory, contextHealthWarning, reportWorkloads, departmentSummary, activeBlockers, unreadMessagePreviews] = await Promise.all([
-    loadOrgReports(task.assignee.id),
+  const [orgReports, recentBoardItems, pendingResults, manager, peers, unreadMessageCount, parentTask, taskHistory, contextHealthWarning, reportWorkloads, departmentSummary, activeBlockers, unreadMessagePreviews, orgOverview] = await Promise.all([
+    isMainAgent ? Promise.resolve([]) : loadOrgReports(task.assignee.id),
     loadRecentBoardItems(),
     loadPendingResults(task.assignee.name),
-    loadManager(task.assignee.id),
-    loadPeers(task.assignee.id, task.assignee.department),
+    isMainAgent ? Promise.resolve(null) : loadManager(task.assignee.id),
+    isMainAgent ? Promise.resolve([]) : loadPeers(task.assignee.id, task.assignee.department),
     loadUnreadCount(task.assignee.id),
-    loadParentTask(task.parentTaskId),
+    isMainAgent ? Promise.resolve(null) : loadParentTask(task.parentTaskId),
     loadTaskHistory(task.assignee.id),
     checkContextHealth(cwd),
-    loadReportWorkloads(task.assignee.id),
-    loadDepartmentSummary(task.assignee.department),
+    isMainAgent ? Promise.resolve([]) : loadReportWorkloads(task.assignee.id),
+    isMainAgent ? Promise.resolve(null) : loadDepartmentSummary(task.assignee.department),
     loadActiveBlockers(),
     loadUnreadMessagePreviews(task.assignee.id),
+    isMainAgent ? loadOrgOverview() : Promise.resolve(undefined),
   ]);
 
   const systemPrompt = buildSystemPrompt({
@@ -295,6 +337,7 @@ async function runTask(task: Task & { assignee: Agent }) {
     departmentSummary,
     activeBlockers,
     unreadMessagePreviews,
+    orgOverview,
     skills: ALL_SKILL_IDS,
   });
   const mcpServer = createGcMcpServer(task.assignee.name, task.id, runtime);
@@ -312,6 +355,7 @@ async function runTask(task: Task & { assignee: Agent }) {
   })) {
     appEventBus.emit("agent_event", {
       agentId: task.assignee.name,
+      agentDbId: task.assignee.id,
       taskId: task.id,
       event,
     });
@@ -343,7 +387,7 @@ async function runTask(task: Task & { assignee: Agent }) {
     if (chatThreadMatch && !usedSendMessage && lastResult.output && lastResult.output.length > 0) {
       const threadId = chatThreadMatch[1];
       console.log(`[Agent:${task.assignee.name}] Fallback: creating chat reply from text output`);
-      await db.message.create({
+      const message = await db.message.create({
         data: {
           fromAgentId: task.assignee.id,
           toAgentId: task.assignee.id, // self (reply to thread)
@@ -352,9 +396,10 @@ async function runTask(task: Task & { assignee: Agent }) {
           type: "chat",
           status: "delivered",
         },
+        select: { id: true },
       });
       appEventBus.emit("message_created", {
-        messageId: crypto.randomUUID(),
+        messageId: message.id,
         threadId: threadId!,
         fromAgentId: task.assignee.id,
         toAgentId: task.assignee.id,

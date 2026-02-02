@@ -87,6 +87,67 @@ describe("buildSystemPrompt", () => {
   });
 });
 
+describe("buildSystemPrompt (main agent)", () => {
+  const mainParams: BuildSystemPromptParams = {
+    agent: {
+      role: "User Assistant",
+      department: "System",
+      personality: "You are the user's personal assistant for Generic Corp.",
+      displayName: "Assistant",
+      name: "main",
+      level: "system",
+    },
+    task: {
+      id: "task-main-1",
+      prompt: "Review the deployment",
+      priority: 1,
+      context: "User asked to review deployment",
+      delegatorId: null,
+      parentTaskId: null,
+    },
+    generatedAt: new Date("2025-01-01T00:00:00Z"),
+  };
+
+  it("produces main agent identity (not corporate framing)", () => {
+    const result = buildSystemPrompt(mainParams);
+    expect(result).toContain("personal assistant");
+    expect(result).not.toContain("Agent Identity");
+    expect(result).not.toContain("Communication & Delegation Rules");
+    expect(result).not.toContain("follow corporate chain-of-command");
+  });
+
+  it("includes org overview when provided", () => {
+    const result = buildSystemPrompt({
+      ...mainParams,
+      orgOverview: [
+        {
+          name: "marcus",
+          displayName: "Marcus Bell",
+          role: "CEO",
+          department: "Executive",
+          level: "c-suite",
+          status: "idle",
+          currentTask: null,
+          reportsTo: null,
+        },
+      ],
+    });
+    expect(result).toContain("Marcus Bell");
+    expect(result).toContain("CEO");
+  });
+
+  it("can delegate to any agent", () => {
+    const result = buildSystemPrompt(mainParams);
+    expect(result).toContain("delegate to **any** agent");
+  });
+
+  it("includes tools documentation", () => {
+    const result = buildSystemPrompt(mainParams);
+    expect(result).toContain("delegate_task");
+    expect(result).toContain("send_message");
+  });
+});
+
 describe("SystemPromptAssembler", () => {
   it("builds prompt without hook runner", async () => {
     const assembler = new SystemPromptAssembler();

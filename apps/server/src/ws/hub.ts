@@ -30,6 +30,9 @@ export function createWebSocketHub(
   unsubs.push(
     eventBus.on("agent_event", (payload) => {
       io.to(`agent:${payload.agentId}`).emit("agent_event", payload);
+      if ("agentDbId" in payload && typeof payload.agentDbId === "string") {
+        io.to(`agent:${payload.agentDbId}`).emit("agent_event", payload);
+      }
     }),
   );
 

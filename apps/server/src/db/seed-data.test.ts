@@ -10,7 +10,8 @@ describe("seed-data", () => {
 
   it("has exactly one root agent", () => {
     const roots = AGENT_SEED.filter((a) => a.reportsTo === null);
-    expect(roots).toHaveLength(1);
+    const orgRoots = roots.filter((a) => a.level !== "system");
+    expect(orgRoots).toHaveLength(1);
   });
 
   it("only references valid managers", () => {
