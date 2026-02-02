@@ -4,6 +4,7 @@ import { Plus, Users, MessageSquare, Lightbulb } from "lucide-react";
 
 import { OrgChart } from "../components/org/OrgChart.js";
 import { AddAgentOverlay } from "../components/org/AddAgentOverlay.js";
+import { AgentDetailModal } from "../components/agent/AgentDetailModal.js";
 import { api } from "../lib/api-client.js";
 import { queryKeys } from "../lib/query-keys.js";
 import type { ApiAgentSummary, ApiOrgNode } from "@generic-corp/shared";
@@ -24,6 +25,7 @@ function flattenNodes(nodes: ApiOrgNode[]): ApiOrgNode[] {
 
 export function OrgPage() {
   const [showAddForm, setShowAddForm] = useState(false);
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const agentsQuery = useQuery({
@@ -110,7 +112,7 @@ export function OrgPage() {
       {/* Org Chart Visualization (full remaining height) */}
       {!isEmpty && (
         <div className="relative mx-8 mb-4 flex-1">
-          <OrgChart />
+          <OrgChart onClickAgent={setSelectedAgentId} />
           {showAddForm && (
             <AddAgentOverlay
               availableAgents={availableAgents}
@@ -130,6 +132,13 @@ export function OrgPage() {
             />
           )}
         </div>
+      )}
+
+      {selectedAgentId && (
+        <AgentDetailModal
+          agentId={selectedAgentId}
+          onClose={() => setSelectedAgentId(null)}
+        />
       )}
     </div>
   );
