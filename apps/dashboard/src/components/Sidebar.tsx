@@ -8,6 +8,7 @@ const BUILTIN_NAV_ITEMS = [
   { to: "/org", label: "Org Chart", hint: "Agent hierarchy and live status" },
   { to: "/board", label: "Board", hint: "Updates, blockers, findings" },
   { to: "/help", label: "Help", hint: "Docs, tools, and workflows" },
+  { to: "/settings", label: "Settings", hint: "Workspace configuration" },
 ] as const;
 
 export function Sidebar() {
@@ -16,48 +17,64 @@ export function Sidebar() {
   const pluginNavItems = usePluginStore((s) => s.getNavItems());
 
   return (
-    <aside className="flex w-56 flex-col border-r border-slate-200 bg-white">
-      <div className="border-b border-slate-200 px-4 py-4">
-        <h1 className="text-lg font-semibold">Generic Corp</h1>
-        <p className="text-xs text-slate-500">Agent orchestration</p>
+    <aside className="flex w-60 flex-col bg-black">
+      {/* Logo */}
+      <div className="flex h-16 items-center gap-2 border-b border-[#222] px-6">
+        <span className="font-mono text-sm font-semibold tracking-wide text-white">
+          GENERIC CORP
+        </span>
+        <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#E53935]" />
       </div>
 
-      <nav className="flex-1 space-y-1 px-2 py-3">
+      {/* Nav */}
+      <nav className="flex-1 flex flex-col gap-1 px-3 py-4">
         {BUILTIN_NAV_ITEMS.map((item) => {
-          const active = location.pathname === item.to;
+          const active =
+            item.to === "/"
+              ? location.pathname === "/"
+              : location.pathname.startsWith(item.to);
           return (
             <Link
               key={item.to}
               to={item.to}
               title={item.hint}
-              className={`block rounded px-3 py-2 text-sm ${
+              className={`flex items-center gap-3 rounded-md px-3 py-2.5 text-[13px] transition-colors ${
                 active
-                  ? "bg-blue-50 font-medium text-blue-700"
-                  : "text-slate-700 hover:bg-slate-100"
+                  ? "font-medium text-white"
+                  : "text-[#666] hover:text-[#999]"
               }`}
             >
-              <span>{item.label}</span>
-              <span className="ml-1 text-xs text-slate-400">{item.hint}</span>
+              <span
+                className={`inline-block h-1.5 w-1.5 rounded-full ${
+                  active ? "bg-[#E53935]" : "bg-[#444]"
+                }`}
+              />
+              {item.label}
             </Link>
           );
         })}
 
         {pluginNavItems.length > 0 && (
           <>
-            <div className="my-2 border-t border-slate-100" />
+            <div className="my-2 border-t border-[#222]" />
             {pluginNavItems.map((item) => {
               const active = location.pathname === item.path;
               return (
                 <Link
                   key={item.id}
                   to={item.path}
-                  className={`block rounded px-3 py-2 text-sm ${
+                  className={`flex items-center gap-3 rounded-md px-3 py-2.5 text-[13px] transition-colors ${
                     active
-                      ? "bg-blue-50 font-medium text-blue-700"
-                      : "text-slate-700 hover:bg-slate-100"
+                      ? "font-medium text-white"
+                      : "text-[#666] hover:text-[#999]"
                   }`}
                 >
-                  <span>{item.label}</span>
+                  <span
+                    className={`inline-block h-1.5 w-1.5 rounded-full ${
+                      active ? "bg-[#E53935]" : "bg-[#444]"
+                    }`}
+                  />
+                  {item.label}
                 </Link>
               );
             })}
@@ -65,15 +82,21 @@ export function Sidebar() {
         )}
       </nav>
 
-      <div className="border-t border-slate-200 px-4 py-3">
-        <div className="flex items-center gap-2 text-xs text-slate-500">
+      {/* Connection Status */}
+      <div className="border-t border-[#222] px-6 py-4">
+        <div className="flex items-center gap-2">
           <span
-            className={`inline-block h-2 w-2 rounded-full ${
-              connected ? "bg-green-500" : "bg-red-400"
+            className={`inline-block h-1.5 w-1.5 rounded-full ${
+              connected ? "bg-[#E53935]" : "bg-[#666]"
             }`}
           />
-          {connected ? "Connected" : "Disconnected"}
+          <span className="text-xs font-medium text-white">
+            {connected ? "Connected" : "Disconnected"}
+          </span>
         </div>
+        <p className="mt-1 pl-[14px] text-[11px] text-[#666]">
+          WebSocket {connected ? "active" : "inactive"}
+        </p>
       </div>
     </aside>
   );

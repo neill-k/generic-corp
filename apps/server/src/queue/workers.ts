@@ -396,25 +396,29 @@ function startWorkerForAgent(agentName: string) {
       });
 
       if (!task) return;
+      if (!task.assignee) return;
       if (task.assignee.name !== agentName) return;
       if (task.status !== "pending") return;
 
-      await markTaskRunning(task.assignee, taskId);
+      const assignee = task.assignee;
+      const assigneeId = task.assigneeId!;
+
+      await markTaskRunning(assignee, taskId);
 
       let failed = false;
       try {
-        await runTask(task);
+        await runTask(task as typeof task & { assignee: NonNullable<typeof task.assignee> });
       } catch (error) {
         failed = true;
         const message = error instanceof Error ? error.message : "Unknown error";
         await db.task.update({ where: { id: taskId }, data: { status: "failed", result: message } });
-        await db.agent.update({ where: { id: task.assigneeId }, data: { status: "error" } });
+        await db.agent.update({ where: { id: assigneeId }, data: { status: "error" } });
         appEventBus.emit("agent_status_changed", { agentId: agentName, status: "error" });
         appEventBus.emit("task_status_changed", { taskId, status: "failed" });
         throw error;
       } finally {
         if (!failed) {
-          await markAgentIdle(task.assigneeId);
+          await markAgentIdle(assigneeId);
         }
       }
     },

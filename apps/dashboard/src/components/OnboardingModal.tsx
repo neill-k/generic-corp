@@ -62,7 +62,7 @@ export function OnboardingModal() {
           <h2 className="text-lg font-semibold">Welcome to Generic Corp</h2>
           <button
             onClick={dismiss}
-            className="text-sm text-slate-400 hover:text-slate-600"
+            className="text-sm text-[#999] hover:text-[#666]"
           >
             Skip
           </button>
@@ -74,7 +74,7 @@ export function OnboardingModal() {
             <div
               key={i}
               className={`h-1 flex-1 rounded-full ${
-                i <= step ? "bg-blue-500" : "bg-slate-200"
+                i <= step ? "bg-[#E53935]" : "bg-[#EEE]"
               }`}
             />
           ))}
@@ -83,16 +83,16 @@ export function OnboardingModal() {
         {/* Step content */}
         {currentStep && (
           <div className="mb-6">
-            <h3 className="text-sm font-semibold text-slate-800">
+            <h3 className="text-sm font-semibold text-black">
               {currentStep.title}
             </h3>
-            <p className="mt-1 text-sm text-slate-600">
+            <p className="mt-1 text-sm text-[#666]">
               {currentStep.description}
             </p>
             <Link
               to={currentStep.link}
               onClick={dismiss}
-              className="mt-2 inline-block text-sm text-blue-600 hover:underline"
+              className="mt-2 inline-block text-sm text-[#E53935] hover:underline"
             >
               {currentStep.linkLabel}
             </Link>
@@ -104,21 +104,21 @@ export function OnboardingModal() {
           <button
             onClick={() => setStep((s) => Math.max(0, s - 1))}
             disabled={step === 0}
-            className="rounded px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 disabled:invisible"
+            className="rounded px-3 py-1.5 text-sm text-[#666] hover:bg-[#F5F5F5] disabled:invisible"
           >
             Back
           </button>
           {isLast ? (
             <button
               onClick={dismiss}
-              className="rounded bg-blue-600 px-4 py-1.5 text-sm text-white hover:bg-blue-700"
+              className="rounded bg-black px-4 py-1.5 text-sm text-white hover:bg-[#222]"
             >
               Get Started
             </button>
           ) : (
             <button
               onClick={() => setStep((s) => s + 1)}
-              className="rounded bg-blue-600 px-4 py-1.5 text-sm text-white hover:bg-blue-700"
+              className="rounded bg-black px-4 py-1.5 text-sm text-white hover:bg-[#222]"
             >
               Next
             </button>

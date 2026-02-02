@@ -26,41 +26,63 @@ const QUICK_ACTIONS = [
   { label: "Delegate review", prompt: "Delegate a code review to the engineering lead" },
 ];
 
+const NAV_CARDS = [
+  { to: "/chat", title: "Chat", description: "Talk to agents, delegate work, and get answers" },
+  { to: "/org", title: "Org Chart", description: "View the agent hierarchy and live status" },
+  { to: "/board", title: "Board", description: "Track status updates, blockers, findings, and requests" },
+  { to: "/settings", title: "Settings", description: "Configure workspace, agents, and integrations" },
+];
+
 export function IndexPage() {
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold">Welcome to Generic Corp</h2>
-        <p className="mt-1 text-sm text-slate-600">
+    <div className="flex flex-col gap-10 px-10 py-10">
+      {/* Title */}
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-1 rounded-sm bg-[#E53935]" />
+          <h1 className="text-[32px] font-semibold text-black">
+            Welcome to Generic Corp
+          </h1>
+        </div>
+        <p className="pl-[16px] text-sm text-[#666]">
           An agent orchestration platform where Claude Code instances work as a team.
           Chat with agents, delegate tasks, and monitor progress in real-time.
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <Link to="/chat" className="block rounded-lg border border-slate-200 bg-white p-4 hover:border-blue-400">
-          <h3 className="font-medium">Chat</h3>
-          <p className="text-sm text-slate-500">Talk to agents, delegate work, and get answers</p>
-        </Link>
-        <Link to="/org" className="block rounded-lg border border-slate-200 bg-white p-4 hover:border-blue-400">
-          <h3 className="font-medium">Org Chart</h3>
-          <p className="text-sm text-slate-500">View the agent hierarchy and live status</p>
-        </Link>
-        <Link to="/board" className="block rounded-lg border border-slate-200 bg-white p-4 hover:border-blue-400">
-          <h3 className="font-medium">Board</h3>
-          <p className="text-sm text-slate-500">Track status updates, blockers, findings, and requests</p>
-        </Link>
+      {/* Navigation Cards */}
+      <div>
+        <div className="mb-4 flex items-center gap-2">
+          <div className="h-4 w-1 rounded-sm bg-[#E53935]" />
+          <h2 className="text-sm font-medium text-black">Get Started</h2>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          {NAV_CARDS.map((card) => (
+            <Link
+              key={card.to}
+              to={card.to}
+              className="flex h-[140px] flex-col justify-between rounded-lg border border-[#EEE] p-6 transition-colors hover:border-[#DDD] hover:bg-[#FAFAFA]"
+            >
+              <h3 className="text-sm font-medium text-black">{card.title}</h3>
+              <p className="text-xs text-[#666]">{card.description}</p>
+            </Link>
+          ))}
+        </div>
       </div>
 
+      {/* Quick Actions */}
       <div>
-        <h3 className="text-sm font-semibold text-slate-700">Quick actions</h3>
-        <p className="mt-0.5 text-xs text-slate-500">Go to Chat and try one of these prompts:</p>
-        <div className="mt-2 flex flex-wrap gap-2">
+        <div className="mb-4 flex items-center gap-2">
+          <div className="h-4 w-1 rounded-sm bg-[#E53935]" />
+          <h2 className="text-sm font-medium text-black">Quick Actions</h2>
+        </div>
+        <p className="mb-3 text-xs text-[#999]">Go to Chat and try one of these prompts:</p>
+        <div className="flex flex-wrap gap-2">
           {QUICK_ACTIONS.map((action) => (
             <Link
               key={action.label}
               to="/chat"
-              className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 hover:border-blue-400 hover:text-blue-600"
+              className="flex h-10 items-center rounded-full border border-[#EEE] px-6 text-xs text-[#666] transition-colors hover:border-[#DDD] hover:text-black"
             >
               {action.label}
             </Link>
@@ -68,13 +90,17 @@ export function IndexPage() {
         </div>
       </div>
 
+      {/* Capabilities */}
       <div>
-        <h3 className="text-sm font-semibold text-slate-700">What agents can do</h3>
-        <div className="mt-2 grid grid-cols-2 gap-3">
+        <div className="mb-4 flex items-center gap-2">
+          <div className="h-4 w-1 rounded-sm bg-[#E53935]" />
+          <h2 className="text-sm font-medium text-black">What Agents Can Do</h2>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
           {CAPABILITIES.map((cap) => (
-            <div key={cap.title} className="rounded border border-slate-100 bg-slate-50 p-3">
-              <p className="text-sm font-medium text-slate-700">{cap.title}</p>
-              <p className="mt-0.5 text-xs text-slate-500">{cap.description}</p>
+            <div key={cap.title} className="flex h-[120px] flex-col justify-between rounded-lg border border-[#EEE] p-6">
+              <p className="text-sm font-medium text-black">{cap.title}</p>
+              <p className="text-xs text-[#666]">{cap.description}</p>
             </div>
           ))}
         </div>

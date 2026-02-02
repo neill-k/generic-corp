@@ -43,18 +43,18 @@ function PluginWidget({ widget }: { widget: WidgetExtension }) {
 
   if (isLoading) {
     return (
-      <div className="rounded border border-slate-200 bg-white p-4">
-        <h3 className="text-sm font-medium text-slate-700">{widget.title}</h3>
-        <p className="mt-2 text-xs text-slate-400">Loading...</p>
+      <div className="rounded border border-[#EEE] bg-white p-4">
+        <h3 className="text-sm font-medium text-black">{widget.title}</h3>
+        <p className="mt-2 text-xs text-[#999]">Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="rounded border border-slate-200 bg-white p-4">
-      <h3 className="text-sm font-medium text-slate-700">{widget.title}</h3>
+    <div className="rounded border border-[#EEE] bg-white p-4">
+      <h3 className="text-sm font-medium text-black">{widget.title}</h3>
       <div className="mt-2">
-        <pre className="overflow-auto text-xs text-slate-600">
+        <pre className="overflow-auto text-xs text-[#666]">
           {JSON.stringify(data, null, 2)}
         </pre>
       </div>

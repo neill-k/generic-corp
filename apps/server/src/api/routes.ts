@@ -7,7 +7,10 @@ import { createBoardRouter } from "./routes/board.js";
 import { createMessageRouter } from "./routes/messages.js";
 import { createOrgRouter } from "./routes/org-nodes.js";
 import { createTaskRouter } from "./routes/tasks.js";
+import { createMcpServerRouter } from "./routes/mcp-servers.js";
 import { createThreadRouter } from "./routes/threads.js";
+import { createToolPermissionRouter } from "./routes/tool-permissions.js";
+import { createWorkspaceRouter } from "./routes/workspace.js";
 
 export interface ApiRouterDeps {
   boardService?: BoardService;
@@ -23,6 +26,9 @@ export function createApiRouter(deps: ApiRouterDeps = {}): express.Router {
   router.use("/", createThreadRouter({ runtime: deps.runtime }));
   router.use("/", createOrgRouter());
   router.use("/", createBoardRouter({ boardService: deps.boardService }));
+  router.use("/", createWorkspaceRouter());
+  router.use("/", createMcpServerRouter());
+  router.use("/", createToolPermissionRouter());
 
   return router;
 }

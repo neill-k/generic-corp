@@ -23,8 +23,8 @@ export function PluginPage() {
   if (!page) {
     return (
       <div className="p-8">
-        <h2 className="text-lg font-semibold text-slate-800">Plugin not found</h2>
-        <p className="mt-2 text-sm text-slate-500">
+        <h2 className="text-lg font-semibold text-black">Plugin not found</h2>
+        <p className="mt-2 text-sm text-[#666]">
           No plugin page registered for &quot;{pluginId}&quot;.
         </p>
       </div>
@@ -34,8 +34,8 @@ export function PluginPage() {
   if (isLoading) {
     return (
       <div className="p-8">
-        <h2 className="text-lg font-semibold text-slate-800">{page.title}</h2>
-        <p className="mt-4 text-sm text-slate-500">Loading...</p>
+        <h2 className="text-lg font-semibold text-black">{page.title}</h2>
+        <p className="mt-4 text-sm text-[#666]">Loading...</p>
       </div>
     );
   }
@@ -43,7 +43,7 @@ export function PluginPage() {
   if (error) {
     return (
       <div className="p-8">
-        <h2 className="text-lg font-semibold text-slate-800">{page.title}</h2>
+        <h2 className="text-lg font-semibold text-black">{page.title}</h2>
         <p className="mt-4 text-sm text-red-500">
           Failed to load: {error instanceof Error ? error.message : "Unknown error"}
         </p>
@@ -53,7 +53,7 @@ export function PluginPage() {
 
   return (
     <div className="p-8">
-      <h2 className="text-lg font-semibold text-slate-800">{page.title}</h2>
+      <h2 className="text-lg font-semibold text-black">{page.title}</h2>
       <div className="mt-4">
         <PluginContent data={data} />
       </div>
@@ -63,7 +63,7 @@ export function PluginPage() {
 
 function PluginContent({ data }: { data?: PluginPageData }) {
   if (!data) {
-    return <p className="text-sm text-slate-500">No data available.</p>;
+    return <p className="text-sm text-[#666]">No data available.</p>;
   }
 
   // If response has html field, render in a sandboxed container
@@ -80,12 +80,12 @@ function PluginContent({ data }: { data?: PluginPageData }) {
   if (data.data && data.layout === "key-value") {
     const entries = Object.entries(data.data as Record<string, unknown>);
     return (
-      <table className="min-w-full divide-y divide-slate-200">
-        <tbody className="divide-y divide-slate-200">
+      <table className="min-w-full divide-y divide-[#EEE]">
+        <tbody className="divide-y divide-[#EEE]">
           {entries.map(([key, value]) => (
             <tr key={key}>
-              <td className="py-2 pr-4 text-sm font-medium text-slate-700">{key}</td>
-              <td className="py-2 text-sm text-slate-500">{String(value)}</td>
+              <td className="py-2 pr-4 text-sm font-medium text-black">{key}</td>
+              <td className="py-2 text-sm text-[#666]">{String(value)}</td>
             </tr>
           ))}
         </tbody>
@@ -95,7 +95,7 @@ function PluginContent({ data }: { data?: PluginPageData }) {
 
   // Fallback: render raw JSON
   return (
-    <pre className="overflow-auto rounded bg-slate-50 p-4 text-xs text-slate-700">
+    <pre className="overflow-auto rounded bg-[#F5F5F5] p-4 text-xs text-black">
       {JSON.stringify(data.data ?? data, null, 2)}
     </pre>
   );

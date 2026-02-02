@@ -19,23 +19,30 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex gap-2 border-t border-slate-200 bg-white p-3"
+      className="flex flex-col gap-1.5 border-t border-[#EEE] bg-white px-4 py-3"
     >
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        placeholder="Type a message or /help..."
-        disabled={disabled}
-        className="flex-1 rounded border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
-      />
-      <button
-        type="submit"
-        disabled={disabled || !value.trim()}
-        className="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
-      >
-        Send
-      </button>
+      <div className="flex items-center gap-2">
+        <div className="flex flex-1 items-center rounded border border-[#EEE] px-4">
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder="Type a message or /help..."
+            disabled={disabled}
+            className="h-12 flex-1 bg-transparent text-sm text-black outline-none placeholder:text-[#999]"
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={disabled || !value.trim()}
+          className="h-12 rounded-md bg-black px-5 text-sm font-medium text-white transition-colors hover:bg-[#222] disabled:opacity-50"
+        >
+          Send
+        </button>
+      </div>
+      <span className="pl-1 font-mono text-[10px] text-[#999]">
+        Press Enter to send
+      </span>
     </form>
   );
 }

@@ -10,7 +10,7 @@ const STATUS_COLORS: Record<string, string> = {
   idle: "bg-green-500",
   running: "bg-yellow-500",
   error: "bg-red-500",
-  offline: "bg-slate-400",
+  offline: "bg-[#999]",
 };
 
 export function AgentNode({ data }: { data: AgentNodeData }) {
@@ -18,21 +18,21 @@ export function AgentNode({ data }: { data: AgentNodeData }) {
 
   return (
     <div
-      className="cursor-pointer rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm hover:shadow-md"
+      className="cursor-pointer rounded-lg border border-[#EEE] bg-white px-4 py-3 shadow-sm hover:shadow-md"
       onClick={() => onClickAgent(agent.id)}
     >
-      <Handle type="target" position={Position.Top} className="!bg-slate-300" />
+      <Handle type="target" position={Position.Top} className="!bg-[#CCC]" />
       <div className="flex items-center gap-2">
         <span
-          className={`inline-block h-2.5 w-2.5 rounded-full ${STATUS_COLORS[agent.status] ?? "bg-slate-400"}`}
+          className={`inline-block h-2.5 w-2.5 rounded-full ${STATUS_COLORS[agent.status] ?? "bg-[#999]"}`}
         />
-        <span className="text-sm font-semibold text-slate-800">
+        <span className="text-sm font-semibold text-black">
           {agent.displayName}
         </span>
       </div>
-      <p className="mt-1 text-xs text-slate-500">{agent.role}</p>
-      <p className="text-xs text-slate-400">{agent.department}</p>
-      <Handle type="source" position={Position.Bottom} className="!bg-slate-300" />
+      <p className="mt-1 text-xs text-[#666]">{agent.role}</p>
+      <p className="text-xs text-[#999]">{agent.department}</p>
+      <Handle type="source" position={Position.Bottom} className="!bg-[#CCC]" />
     </div>
   );
 }

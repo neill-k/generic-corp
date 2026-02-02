@@ -98,7 +98,7 @@ export function ChatView() {
         appendMessage({
           id: crypto.randomUUID(),
           fromAgentId: null,
-          toAgentId: null,
+          toAgentId: "system",
           threadId: activeThreadId,
           body: [
             "**Available commands:**",
@@ -148,15 +148,40 @@ export function ChatView() {
     setActiveThread(crypto.randomUUID());
   }, [setActiveThread]);
 
+  const handleSummaryReceived = useCallback(
+    (threadId: string, summary: string) => {
+      // If the summarized thread is the active one, show the summary as a system message
+      if (threadId === activeThreadId) {
+        appendMessage({
+          id: crypto.randomUUID(),
+          fromAgentId: null,
+          toAgentId: "system",
+          threadId,
+          body: `**Thread Summary:**\n\n${summary}`,
+          type: "system",
+          createdAt: new Date().toISOString(),
+        });
+      }
+    },
+    [activeThreadId, appendMessage],
+  );
+
   return (
-    <div className="flex h-[calc(100vh-3rem)] rounded-lg border border-slate-200 bg-white">
+    <div className="flex h-full bg-white">
       <ThreadList
         threads={threads}
         activeThreadId={activeThreadId}
         onSelectThread={setActiveThread}
         onNewThread={handleNewThread}
+        onSummaryReceived={handleSummaryReceived}
       />
       <div className="flex flex-1 flex-col">
+        {/* Header */}
+        <div className="flex h-16 items-center gap-3 border-b border-[#EEE] px-8">
+          <div className="h-5 w-1 rounded-sm bg-[#E53935]" />
+          <h1 className="text-xl font-semibold text-black">Chat</h1>
+        </div>
+
         {activeThreadId ? (
           <>
             <MessageList messages={messages} />
@@ -172,7 +197,7 @@ export function ChatView() {
                     key={prompt}
                     onClick={() => handleSend(prompt)}
                     disabled={sending}
-                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 hover:border-blue-400 hover:text-blue-600 disabled:opacity-50"
+                    className="rounded-full border border-[#EEE] bg-white px-4 py-2 text-xs text-[#666] transition-colors hover:border-[#DDD] hover:text-black disabled:opacity-50"
                   >
                     {prompt}
                   </button>
@@ -182,11 +207,11 @@ export function ChatView() {
             <ChatInput onSend={handleSend} disabled={sending} />
           </>
         ) : (
-          <div className="flex flex-1 flex-col items-center justify-center gap-3 text-sm text-slate-400">
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 text-sm text-[#999]">
             <p>Select a thread or start a new conversation</p>
-            <p className="text-xs text-slate-300">
+            <p className="text-xs text-[#BBB]">
               Agents can delegate work, post to the board, send messages, and more.
-              Type <code className="rounded bg-slate-100 px-1 text-slate-500">/help</code> in chat for commands.
+              Type <code className="rounded bg-[#F5F5F5] px-1 font-mono text-[#666]">/help</code> in chat for commands.
             </p>
           </div>
         )}

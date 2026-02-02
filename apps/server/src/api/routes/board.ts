@@ -95,7 +95,7 @@ export function createBoardRouter(deps: BoardRouterDeps): express.Router {
       const updated = `${header}\n${content.trim()}\n`;
       await writeFile(filePath, updated, "utf8");
 
-      appEventBus.emit("board_item_created", { type: "updated", author: "human", path: filePath });
+      appEventBus.emit("board_item_updated", { type: "updated", author: "human", path: filePath });
 
       res.json({ updated: true, path: filePath });
     } catch (error) {

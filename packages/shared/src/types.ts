@@ -2,12 +2,69 @@ export type AgentLevel = "ic" | "lead" | "manager" | "vp" | "c-suite";
 
 export type AgentStatus = "idle" | "running" | "error" | "offline";
 
-export type TaskStatus = "pending" | "running" | "completed" | "failed" | "blocked";
+export type TaskStatus = "pending" | "running" | "review" | "completed" | "failed" | "blocked";
+export type KanbanColumn = "backlog" | "in_progress" | "review" | "done";
+
+export const STATUS_TO_COLUMN: Record<TaskStatus, KanbanColumn> = {
+  pending: "backlog",
+  running: "in_progress",
+  review: "review",
+  completed: "done",
+  failed: "done",
+  blocked: "backlog",
+};
 
 export type MessageType = "direct" | "system" | "chat";
 export type MessageStatus = "pending" | "delivered" | "read";
 
 export type BoardItemType = "status_update" | "blocker" | "finding" | "request";
+
+export interface TaskTag {
+  label: string;
+  color: string;
+  bg: string;
+}
+
+export type McpServerProtocol = "stdio" | "sse" | "http";
+export type McpServerStatus = "connected" | "disconnected" | "error";
+
+export interface WorkspaceRecord {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  timezone: string;
+  language: string;
+  llmProvider: string;
+  llmModel: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface McpServerConfigRecord {
+  id: string;
+  name: string;
+  protocol: McpServerProtocol;
+  uri: string;
+  status: McpServerStatus;
+  toolCount: number;
+  lastPingAt: Date | null;
+  errorMessage: string | null;
+  iconName: string | null;
+  iconColor: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ToolPermissionRecord {
+  id: string;
+  name: string;
+  description: string;
+  iconName: string;
+  enabled: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 export interface AgentRecord {
   id: string;
@@ -19,6 +76,8 @@ export interface AgentRecord {
   personality: string;
   status: AgentStatus;
   currentTaskId: string | null;
+  toolPermissions: Record<string, boolean>;
+  avatarColor: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -26,12 +85,13 @@ export interface AgentRecord {
 export interface TaskRecord {
   id: string;
   parentTaskId: string | null;
-  assigneeId: string;
+  assigneeId: string | null;
   delegatorId: string | null;
   prompt: string;
   context: string | null;
   priority: number;
   status: TaskStatus;
+  tags: TaskTag[];
   result: string | null;
   learnings: string | null;
   costUsd: number | null;

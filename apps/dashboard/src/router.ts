@@ -12,6 +12,14 @@ import { BoardPage } from "./routes/board.js";
 import { HelpPage } from "./routes/help.js";
 import { AgentDetailPage } from "./routes/agents.$id.js";
 import { PluginPage } from "./routes/PluginPage.js";
+import { SettingsLayout } from "./components/SettingsLayout.js";
+import { SettingsGeneralPage } from "./routes/settings.index.js";
+import { SettingsAgentsPage } from "./routes/settings.agents.js";
+import { SettingsMcpServersPage } from "./routes/settings.mcp-servers.js";
+import { SettingsSkillsPage } from "./routes/settings.skills.js";
+import { SettingsBillingPage } from "./routes/settings.billing.js";
+import { SettingsSecurityPage } from "./routes/settings.security.js";
+import { SettingsNotificationsPage } from "./routes/settings.notifications.js";
 
 const rootRoute = createRootRoute({
   component: RootLayout,
@@ -59,6 +67,55 @@ const pluginRoute = createRoute({
   component: PluginPage,
 });
 
+// Settings layout route (parent for all settings pages)
+const settingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/settings",
+  component: SettingsLayout,
+});
+
+const settingsIndexRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: "/",
+  component: SettingsGeneralPage,
+});
+
+const settingsAgentsRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: "/agents",
+  component: SettingsAgentsPage,
+});
+
+const settingsMcpServersRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: "/mcp-servers",
+  component: SettingsMcpServersPage,
+});
+
+const settingsSkillsRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: "/skills",
+  component: SettingsSkillsPage,
+});
+
+const settingsBillingRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: "/billing",
+  component: SettingsBillingPage,
+});
+
+const settingsSecurityRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: "/security",
+  component: SettingsSecurityPage,
+});
+
+const settingsNotificationsRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: "/notifications",
+  component: SettingsNotificationsPage,
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   chatRoute,
@@ -67,6 +124,15 @@ const routeTree = rootRoute.addChildren([
   helpRoute,
   agentDetailRoute,
   pluginRoute,
+  settingsRoute.addChildren([
+    settingsIndexRoute,
+    settingsAgentsRoute,
+    settingsMcpServersRoute,
+    settingsSkillsRoute,
+    settingsBillingRoute,
+    settingsSecurityRoute,
+    settingsNotificationsRoute,
+  ]),
 ]);
 
 export const router = createRouter({ routeTree });

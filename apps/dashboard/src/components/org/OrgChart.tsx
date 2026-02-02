@@ -99,7 +99,7 @@ export function OrgChart() {
   }, [orgQuery.data, handleClickAgent]);
 
   if (orgQuery.isLoading) {
-    return <p className="text-sm text-slate-500">Loading org chart...</p>;
+    return <p className="text-sm text-[#999]">Loading org chart...</p>;
   }
 
   if (orgQuery.isError) {
@@ -107,7 +107,7 @@ export function OrgChart() {
   }
 
   return (
-    <div className="relative h-[calc(100vh-8rem)] w-full rounded-lg border border-slate-200 bg-white">
+    <div className="relative h-[calc(100vh-8rem)] w-full rounded-lg border border-[#EEE] bg-white">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -115,12 +115,12 @@ export function OrgChart() {
         fitView
         proOptions={{ hideAttribution: true }}
       />
-      <div className="absolute bottom-3 left-3 flex items-center gap-3 rounded bg-white/90 px-3 py-2 text-xs text-slate-500 shadow-sm">
-        <span className="font-medium text-slate-600">Status:</span>
+      <div className="absolute bottom-3 left-3 flex items-center gap-3 rounded bg-white/90 px-3 py-2 text-xs text-[#666] shadow-sm">
+        <span className="font-medium text-[#666]">Status:</span>
         <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-green-500" /> Idle</span>
         <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-yellow-500" /> Running</span>
         <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-red-500" /> Error</span>
-        <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-slate-400" /> Offline</span>
+        <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-[#999]" /> Offline</span>
       </div>
     </div>
   );

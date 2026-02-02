@@ -44,11 +44,11 @@ export function WhileYouWereAway({ threadId }: WhileYouWereAwayProps) {
   }
 
   return (
-    <div className="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm">
-      <span className="text-blue-800">{summaryQuery.data.summary}</span>
+    <div className="flex items-center justify-between rounded-lg border border-[#EEE] bg-[#F5F5F5] px-4 py-2 text-sm">
+      <span className="text-black">{summaryQuery.data.summary}</span>
       <button
         onClick={() => setDismissed(true)}
-        className="ml-3 text-xs text-blue-600 hover:text-blue-800"
+        className="ml-3 text-xs text-[#666] hover:text-black"
       >
         Dismiss
       </button>

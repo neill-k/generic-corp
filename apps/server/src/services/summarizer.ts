@@ -50,7 +50,7 @@ export async function runSummarizerOnce(
     : "(no new board items)";
 
   const taskSummary = completedTasks.length > 0
-    ? completedTasks.map((t) => `- ${t.assignee.name} (${t.assignee.department}): ${t.prompt} → ${t.result ?? "done"}`).join("\n")
+    ? completedTasks.map((t) => `- ${t.assignee?.name ?? "unassigned"} (${t.assignee?.department ?? "N/A"}): ${t.prompt} → ${t.result ?? "done"}`).join("\n")
     : "(no completed tasks)";
 
   const prompt = `Summarize the following organizational activity into a concise digest.
@@ -86,7 +86,7 @@ Write a markdown digest with sections: Key Accomplishments, Active Blockers, and
 
   // Generate per-department digests
   for (const dept of departments) {
-    const deptTasks = completedTasks.filter((t) => t.assignee.department === dept);
+    const deptTasks = completedTasks.filter((t) => t.assignee?.department === dept);
     const deptBoard = boardItems.filter((item) => {
       const agent = agents.find((a) => a.name === item.author);
       return agent?.department === dept;
@@ -100,7 +100,7 @@ Write a markdown digest with sections: Key Accomplishments, Active Blockers, and
 ${deptBoard.length > 0 ? deptBoard.map((i) => `- [${i.type}] ${i.author}: ${i.summary}`).join("\n") : "(none)"}
 
 ## Tasks
-${deptTasks.length > 0 ? deptTasks.map((t) => `- ${t.assignee.name}: ${t.prompt} → ${t.result ?? "done"}`).join("\n") : "(none)"}
+${deptTasks.length > 0 ? deptTasks.map((t) => `- ${t.assignee?.name ?? "unassigned"}: ${t.prompt} → ${t.result ?? "done"}`).join("\n") : "(none)"}
 
 Write a short markdown team digest. Be concise.`;
 

@@ -15,7 +15,7 @@ export function ActivityStream({ agentId }: { agentId: string }) {
 
   if (entries.length === 0) {
     return (
-      <p className="py-4 text-center text-xs text-slate-400">
+      <p className="py-4 text-center text-xs text-[#999]">
         No live activity yet. Events appear here when the agent is running.
       </p>
     );
@@ -26,17 +26,17 @@ export function ActivityStream({ agentId }: { agentId: string }) {
       {entries.map((entry) => (
         <div
           key={entry.id}
-          className="rounded border border-slate-100 bg-slate-50 px-3 py-2 text-xs"
+          className="rounded border border-[#EEE] bg-[#F5F5F5] px-3 py-2 text-xs"
         >
           <div className="mb-1 flex items-center gap-2">
-            <span className="font-semibold text-slate-600">
+            <span className="font-semibold text-[#666]">
               {EVENT_LABELS[entry.event.type] ?? entry.event.type}
             </span>
-            <span className="text-slate-400">
+            <span className="text-[#999]">
               {new Date(entry.timestamp).toLocaleTimeString()}
             </span>
           </div>
-          <p className="whitespace-pre-wrap text-slate-700">
+          <p className="whitespace-pre-wrap text-black">
             {"content" in entry.event
               ? entry.event.content
               : "tool" in entry.event

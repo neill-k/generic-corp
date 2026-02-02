@@ -1,11 +1,29 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
   color-scheme: light;
+
+  /* Design tokens */
+  --bg-page: #FFFFFF;
+  --bg-sidebar: #000000;
+  --bg-surface: #F5F5F5;
+  --black-primary: #000000;
+  --border-light: #EEEEEE;
+  --gray-300: #DDDDDD;
+  --gray-500: #999999;
+  --gray-600: #666666;
+  --gray-dark: #222222;
+  --gray-mid: #444444;
+  --red-primary: #E53935;
 }
 
 body {
   margin: 0;
+  font-family: "Inter", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }

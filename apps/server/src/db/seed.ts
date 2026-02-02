@@ -1,10 +1,31 @@
 import { db } from "./client.js";
-import { AGENT_SEED } from "./seed-data.js";
+import { AGENT_SEED, TOOL_PERMISSION_SEED, DEFAULT_WORKSPACE } from "./seed-data.js";
 
 async function main() {
+  // 1) Upsert default workspace
+  const existingWorkspace = await db.workspace.findFirst();
+  if (!existingWorkspace) {
+    await db.workspace.create({ data: DEFAULT_WORKSPACE });
+    console.log("[Seed] Created default workspace");
+  }
+
+  // 2) Upsert tool permissions
+  for (const perm of TOOL_PERMISSION_SEED) {
+    await db.toolPermission.upsert({
+      where: { name: perm.name },
+      update: {
+        description: perm.description,
+        iconName: perm.iconName,
+        enabled: perm.enabled,
+      },
+      create: perm,
+    });
+  }
+  console.log(`[Seed] Upserted ${TOOL_PERMISSION_SEED.length} tool permissions`);
+
+  // 3) Upsert agents
   const agentsByName = new Map<string, { id: string }>();
 
-  // 1) Upsert agents
   for (const agent of AGENT_SEED) {
     const row = await db.agent.upsert({
       where: { name: agent.name },
@@ -14,6 +35,7 @@ async function main() {
         department: agent.department,
         level: agent.level,
         personality: agent.personality,
+        avatarColor: agent.avatarColor,
       },
       create: {
         name: agent.name,
@@ -22,14 +44,15 @@ async function main() {
         department: agent.department,
         level: agent.level,
         personality: agent.personality,
+        avatarColor: agent.avatarColor,
       },
       select: { id: true },
     });
     agentsByName.set(agent.name, row);
   }
+  console.log(`[Seed] Upserted ${AGENT_SEED.length} agents`);
 
-  // 2) Upsert org nodes
-  // Create root first for stable linkage.
+  // 4) Upsert org nodes
   const root = AGENT_SEED.find((a) => a.reportsTo === null);
   if (!root) throw new Error("Seed data missing root agent");
   const rootId = agentsByName.get(root.name)?.id;
@@ -45,8 +68,6 @@ async function main() {
   const nodeIdsByAgentName = new Map<string, string>();
   nodeIdsByAgentName.set(root.name, rootNode.id);
 
-  // Insert remaining nodes in topological order.
-  // Since the org is small, a simple loop is fine.
   const pending = AGENT_SEED.filter((a) => a.name !== root.name);
 
   while (pending.length > 0) {
@@ -71,6 +92,7 @@ async function main() {
     });
     nodeIdsByAgentName.set(agent.name, node.id);
   }
+  console.log("[Seed] Upserted org hierarchy");
 }
 
 main()

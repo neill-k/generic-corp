@@ -1,3 +1,7 @@
+import { useState } from "react";
+import { FileText, Loader2 } from "lucide-react";
+
+import { api } from "../../lib/api-client.js";
 import type { ApiThread } from "@generic-corp/shared";
 
 interface ThreadListProps {
@@ -5,6 +9,7 @@ interface ThreadListProps {
   activeThreadId: string | null;
   onSelectThread: (threadId: string) => void;
   onNewThread: () => void;
+  onSummaryReceived?: (threadId: string, summary: string) => void;
 }
 
 export function ThreadList({
@@ -12,39 +17,88 @@ export function ThreadList({
   activeThreadId,
   onSelectThread,
   onNewThread,
+  onSummaryReceived,
 }: ThreadListProps) {
+  const [loadingSummary, setLoadingSummary] = useState<string | null>(null);
+
+  const handleGetSummary = async (e: React.MouseEvent, threadId: string) => {
+    e.stopPropagation();
+    setLoadingSummary(threadId);
+    try {
+      const result = await api.get<{ summary: string }>(
+        `/threads/${threadId}/summary`,
+      );
+      onSummaryReceived?.(threadId, result.summary);
+    } catch (error) {
+      console.error("[Chat] Failed to get thread summary:", error);
+    } finally {
+      setLoadingSummary(null);
+    }
+  };
+
   return (
-    <div className="flex h-full w-64 flex-col border-r border-slate-200 bg-white">
-      <div className="flex items-center justify-between border-b border-slate-200 px-3 py-3">
-        <h3 className="text-sm font-semibold text-slate-700">Threads</h3>
+    <div className="flex h-full w-[300px] flex-col border-r border-[#EEE] bg-white">
+      <div className="flex h-14 items-center justify-between border-b border-[#EEE] px-5">
+        <h3 className="text-[13px] font-medium text-[#666]">Threads</h3>
         <button
           onClick={onNewThread}
-          className="rounded bg-blue-600 px-2 py-1 text-xs text-white hover:bg-blue-700"
+          className="rounded-md bg-black px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#222]"
         >
-          New
+          New Thread
         </button>
       </div>
       <div className="flex-1 overflow-y-auto">
         {threads.length === 0 && (
-          <div className="px-3 py-4 text-xs text-slate-400">
+          <div className="px-5 py-6 text-xs text-[#999]">
             <p>No conversations yet</p>
-            <p className="mt-2 text-slate-300">Click "New" to start a conversation with the CEO agent. Try asking for a standup report or delegating a task.</p>
+            <p className="mt-2 text-[#BBB]">Click "New Thread" to start a conversation with the CEO agent. Try asking for a standup report or delegating a task.</p>
           </div>
         )}
-        {threads.map((thread) => (
-          <button
-            key={thread.threadId}
-            onClick={() => onSelectThread(thread.threadId)}
-            className={`block w-full px-3 py-2 text-left text-sm ${
-              thread.threadId === activeThreadId
-                ? "bg-blue-50 text-blue-700"
-                : "text-slate-700 hover:bg-slate-50"
-            }`}
-          >
-            <span className="block truncate font-medium">{thread.agentName}</span>
-            <span className="block truncate text-xs text-slate-500">{thread.preview}</span>
-          </button>
-        ))}
+        {threads.map((thread) => {
+          const isActive = thread.threadId === activeThreadId;
+          const isSummarizing = loadingSummary === thread.threadId;
+
+          return (
+            <div
+              key={thread.threadId}
+              className={`group relative w-full border-b border-[#EEE] ${
+                isActive ? "bg-[#F5F5F5]" : "hover:bg-[#FAFAFA]"
+              }`}
+            >
+              <button
+                onClick={() => onSelectThread(thread.threadId)}
+                className="block w-full px-5 py-4 text-left text-sm"
+              >
+                <span className={`block truncate font-medium ${isActive ? "text-black" : "text-[#222]"}`}>
+                  {thread.agentName}
+                </span>
+                <span className="block truncate text-xs text-[#999]">{thread.preview}</span>
+              </button>
+
+              {/* Summary button */}
+              <button
+                onClick={(e) => handleGetSummary(e, thread.threadId)}
+                disabled={isSummarizing}
+                className={`absolute right-3 top-3 rounded p-1 transition-opacity ${
+                  isSummarizing
+                    ? "opacity-100"
+                    : "opacity-0 group-hover:opacity-100"
+                } ${
+                  isActive
+                    ? "text-[#999] hover:bg-[#EEE] hover:text-[#666]"
+                    : "text-[#CCC] hover:bg-[#F5F5F5] hover:text-[#999]"
+                }`}
+                title="Get thread summary"
+              >
+                {isSummarizing ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <FileText size={12} />
+                )}
+              </button>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

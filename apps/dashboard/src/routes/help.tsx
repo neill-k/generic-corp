@@ -51,6 +51,40 @@ const TOOL_CATEGORIES = [
       { name: "delete_message", description: "Delete a message" },
     ],
   },
+  {
+    name: "Workspace",
+    tools: [
+      { name: "get_workspace", description: "Get workspace settings (name, LLM provider, model, timezone)" },
+      { name: "update_workspace", description: "Update workspace settings like name, model, or timezone" },
+    ],
+  },
+  {
+    name: "Tool Permissions",
+    tools: [
+      { name: "list_tool_permissions", description: "List all tool permission rules for agents" },
+      { name: "create_tool_permission", description: "Create a new tool permission rule (allow/deny)" },
+      { name: "update_tool_permission", description: "Update an existing tool permission rule" },
+      { name: "delete_tool_permission", description: "Remove a tool permission rule" },
+    ],
+  },
+  {
+    name: "MCP Servers",
+    tools: [
+      { name: "list_mcp_servers", description: "List all registered external MCP servers" },
+      { name: "get_mcp_server", description: "Get details of a specific MCP server" },
+      { name: "register_mcp_server", description: "Register a new external MCP server" },
+      { name: "update_mcp_server", description: "Update MCP server configuration" },
+      { name: "remove_mcp_server", description: "Remove a registered MCP server" },
+      { name: "ping_mcp_server", description: "Trigger a health check for an MCP server" },
+    ],
+  },
+  {
+    name: "Metrics & System",
+    tools: [
+      { name: "get_agent_metrics", description: "Get task counts, cost, and performance stats for an agent" },
+      { name: "get_agent_system_prompt", description: "View the system prompt that will be sent to an agent" },
+    ],
+  },
 ];
 
 const WORKFLOWS = [
@@ -89,113 +123,135 @@ const CHAT_COMMANDS = [
 
 export function HelpPage() {
   return (
-    <div className="mx-auto max-w-3xl space-y-8">
-      <div>
-        <h2 className="text-xl font-semibold">Help & Documentation</h2>
-        <p className="mt-1 text-sm text-slate-600">
-          Everything you need to know about working with Generic Corp agents.
-        </p>
-      </div>
-
-      {/* Getting Started */}
-      <section>
-        <h3 className="text-base font-semibold text-slate-800">Getting Started</h3>
-        <p className="mt-1 text-sm text-slate-600">
-          Generic Corp is an agent orchestration platform. Claude Code instances act as
-          employees in a corporate hierarchy, each with their own role, department, and
-          responsibilities. You interact with agents through{" "}
-          <Link to="/chat" className="text-blue-600 hover:underline">Chat</Link>,
-          monitor them on the{" "}
-          <Link to="/org" className="text-blue-600 hover:underline">Org Chart</Link>,
-          and track progress on the{" "}
-          <Link to="/board" className="text-blue-600 hover:underline">Board</Link>.
-        </p>
-      </section>
-
-      {/* Workflows */}
-      <section>
-        <h3 className="text-base font-semibold text-slate-800">Common Workflows</h3>
-        <div className="mt-3 space-y-4">
-          {WORKFLOWS.map((wf) => (
-            <div key={wf.title} className="rounded border border-slate-200 bg-white p-4">
-              <h4 className="text-sm font-medium text-slate-700">{wf.title}</h4>
-              <ol className="mt-2 space-y-1">
-                {wf.steps.map((step, i) => (
-                  <li key={i} className="flex gap-2 text-xs text-slate-600">
-                    <span className="font-medium text-slate-400">{i + 1}.</span>
-                    {step}
-                  </li>
-                ))}
-              </ol>
-            </div>
-          ))}
+    <div className="mx-auto max-w-3xl px-10 py-10">
+      <div className="flex flex-col gap-10">
+        <div>
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-1 rounded-sm bg-[#E53935]" />
+            <h1 className="text-[32px] font-semibold text-black">
+              Help & Documentation
+            </h1>
+          </div>
+          <p className="mt-2 pl-[16px] text-sm text-[#666]">
+            Everything you need to know about working with Generic Corp agents.
+          </p>
         </div>
-      </section>
 
-      {/* Chat Commands */}
-      <section>
-        <h3 className="text-base font-semibold text-slate-800">Chat Commands</h3>
-        <p className="mt-1 text-sm text-slate-600">
-          Type these commands in the chat input for quick actions:
-        </p>
-        <div className="mt-2 space-y-1">
-          {CHAT_COMMANDS.map((cmd) => (
-            <div key={cmd.command} className="flex items-baseline gap-3 rounded bg-slate-50 px-3 py-2">
-              <code className="text-sm font-medium text-blue-700">{cmd.command}</code>
-              <span className="text-xs text-slate-600">{cmd.description}</span>
-            </div>
-          ))}
-        </div>
-      </section>
+        {/* Getting Started */}
+        <section>
+          <div className="mb-3 flex items-center gap-2">
+            <div className="h-4 w-1 rounded-sm bg-[#E53935]" />
+            <h2 className="text-sm font-medium text-black">Getting Started</h2>
+          </div>
+          <p className="text-sm text-[#666]">
+            Generic Corp is an agent orchestration platform. Claude Code instances act as
+            employees in a corporate hierarchy, each with their own role, department, and
+            responsibilities. You interact with agents through{" "}
+            <Link to="/chat" className="text-[#E53935] hover:underline">Chat</Link>,
+            monitor them on the{" "}
+            <Link to="/org" className="text-[#E53935] hover:underline">Org Chart</Link>,
+            and track progress on the{" "}
+            <Link to="/board" className="text-[#E53935] hover:underline">Board</Link>.
+          </p>
+        </section>
 
-      {/* Agent Tools */}
-      <section>
-        <h3 className="text-base font-semibold text-slate-800">Agent Tools Reference</h3>
-        <p className="mt-1 text-sm text-slate-600">
-          Every tool available to agents is also accessible via the API. Agents use these
-          tools to interact with the platform:
-        </p>
-        <div className="mt-3 space-y-4">
-          {TOOL_CATEGORIES.map((cat) => (
-            <div key={cat.name}>
-              <h4 className="text-sm font-medium text-slate-700">{cat.name}</h4>
-              <div className="mt-1 space-y-0.5">
-                {cat.tools.map((tool) => (
-                  <div key={tool.name} className="flex items-baseline gap-3 py-1">
-                    <code className="text-xs text-slate-500">{tool.name}</code>
-                    <span className="text-xs text-slate-600">{tool.description}</span>
-                  </div>
-                ))}
+        {/* Workflows */}
+        <section>
+          <div className="mb-3 flex items-center gap-2">
+            <div className="h-4 w-1 rounded-sm bg-[#E53935]" />
+            <h2 className="text-sm font-medium text-black">Common Workflows</h2>
+          </div>
+          <div className="mt-3 space-y-4">
+            {WORKFLOWS.map((wf) => (
+              <div key={wf.title} className="rounded-lg border border-[#EEE] bg-white p-5">
+                <h4 className="text-sm font-medium text-black">{wf.title}</h4>
+                <ol className="mt-2 space-y-1">
+                  {wf.steps.map((step, i) => (
+                    <li key={i} className="flex gap-2 text-xs text-[#666]">
+                      <span className="font-medium text-[#999]">{i + 1}.</span>
+                      {step}
+                    </li>
+                  ))}
+                </ol>
               </div>
-            </div>
-          ))}
-        </div>
-      </section>
+            ))}
+          </div>
+        </section>
 
-      {/* Suggested Prompts */}
-      <section>
-        <h3 className="text-base font-semibold text-slate-800">Suggested Prompts</h3>
-        <p className="mt-1 text-sm text-slate-600">
-          Try these in <Link to="/chat" className="text-blue-600 hover:underline">Chat</Link> to get started:
-        </p>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {[
-            "Review the latest code changes",
-            "Give me a standup report",
-            "What blockers does the team have?",
-            "Delegate a code review to the engineering lead",
-            "Who is available to take on work?",
-            "Show me the team's current workload",
-          ].map((prompt) => (
-            <span
-              key={prompt}
-              className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600"
-            >
-              {prompt}
-            </span>
-          ))}
-        </div>
-      </section>
+        {/* Chat Commands */}
+        <section>
+          <div className="mb-3 flex items-center gap-2">
+            <div className="h-4 w-1 rounded-sm bg-[#E53935]" />
+            <h2 className="text-sm font-medium text-black">Chat Commands</h2>
+          </div>
+          <p className="mt-1 text-sm text-[#666]">
+            Type these commands in the chat input for quick actions:
+          </p>
+          <div className="mt-2 space-y-1">
+            {CHAT_COMMANDS.map((cmd) => (
+              <div key={cmd.command} className="flex items-baseline gap-3 rounded-md bg-[#F5F5F5] px-3 py-2">
+                <code className="font-mono text-sm font-medium text-black">{cmd.command}</code>
+                <span className="text-xs text-[#666]">{cmd.description}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Agent Tools */}
+        <section>
+          <div className="mb-3 flex items-center gap-2">
+            <div className="h-4 w-1 rounded-sm bg-[#E53935]" />
+            <h2 className="text-sm font-medium text-black">Agent Tools Reference</h2>
+          </div>
+          <p className="mt-1 text-sm text-[#666]">
+            Every tool available to agents is also accessible via the API. Agents use these
+            tools to interact with the platform:
+          </p>
+          <div className="mt-3 space-y-4">
+            {TOOL_CATEGORIES.map((cat) => (
+              <div key={cat.name}>
+                <h4 className="text-sm font-medium text-black">{cat.name}</h4>
+                <div className="mt-1 space-y-0.5">
+                  {cat.tools.map((tool) => (
+                    <div key={tool.name} className="flex items-baseline gap-3 py-1">
+                      <code className="font-mono text-xs text-[#999]">{tool.name}</code>
+                      <span className="text-xs text-[#666]">{tool.description}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Suggested Prompts */}
+        <section>
+          <div className="mb-3 flex items-center gap-2">
+            <div className="h-4 w-1 rounded-sm bg-[#E53935]" />
+            <h2 className="text-sm font-medium text-black">Suggested Prompts</h2>
+          </div>
+          <p className="mt-1 text-sm text-[#666]">
+            Try these in <Link to="/chat" className="text-[#E53935] hover:underline">Chat</Link> to get started:
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {[
+              "Review the latest code changes",
+              "Give me a standup report",
+              "What blockers does the team have?",
+              "Delegate a code review to the engineering lead",
+              "Who is available to take on work?",
+              "Show me the team's current workload",
+            ].map((prompt) => (
+              <span
+                key={prompt}
+                className="rounded-full border border-[#EEE] bg-white px-4 py-2 text-xs text-[#666]"
+              >
+                {prompt}
+              </span>
+            ))}
+          </div>
+        </section>
+      </div>
     </div>
   );
 }

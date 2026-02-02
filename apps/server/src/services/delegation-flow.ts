@@ -6,7 +6,7 @@ import { db } from "../db/client.js";
 interface CompletedChildTask {
   id: string;
   parentTaskId: string | null;
-  assigneeId: string;
+  assigneeId: string | null;
   result: string | null;
   status: string;
 }
@@ -28,7 +28,7 @@ export async function handleChildCompletion(
   }
 
   const parentAgent = await db.agent.findUnique({
-    where: { id: parentTask.assigneeId },
+    where: { id: parentTask.assigneeId ?? "" },
     select: { id: true, name: true },
   });
 

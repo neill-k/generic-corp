@@ -8,17 +8,19 @@ datasource db {
 }
 
 model Agent {
-  id            String   @id @default(uuid())
-  name          String   @unique
-  displayName   String
-  role          String
-  department    String
-  level         String
-  personality   String   @db.Text
-  status        String   @default("idle")
-  currentTaskId String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id              String   @id @default(uuid())
+  name            String   @unique
+  displayName     String
+  role            String
+  department      String
+  level           String
+  personality     String   @db.Text
+  status          String   @default("idle")
+  currentTaskId   String?
+  toolPermissions Json     @default("{}")
+  avatarColor     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   tasks         Task[]    @relation("assignee")
   delegated     Task[]    @relation("delegator")
@@ -47,6 +49,7 @@ model Task {
   context      String?  @db.Text
   priority     Int      @default(0)
   status       String   @default("pending")
+  tags         Json     @default("[]")
   result       String?  @db.Text
   learnings    String?  @db.Text
   costUsd      Float?
@@ -85,4 +88,50 @@ model Message {
   @@index([fromAgentId])
   @@index([toAgentId])
   @@index([createdAt])
+}
+
+model Workspace {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String   @default("")
+  timezone    String   @default("America/New_York")
+  language    String   @default("en-US")
+
+  llmProvider    String  @default("anthropic")
+  llmModel       String  @default("claude-sonnet-4-20250514")
+  llmApiKeyEnc   String  @default("")
+  llmApiKeyIv    String  @default("")
+  llmApiKeyTag   String  @default("")
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model McpServerConfig {
+  id                  String    @id @default(uuid())
+  name                String
+  protocol            String
+  uri                 String
+  status              String    @default("disconnected")
+  toolCount           Int       @default(0)
+  lastPingAt          DateTime?
+  errorMessage        String?
+  consecutiveFailures Int       @default(0)
+  iconName            String?
+  iconColor           String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([status])
+}
+
+model ToolPermission {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String
+  iconName    String
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

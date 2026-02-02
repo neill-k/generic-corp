@@ -7,7 +7,7 @@ interface MessageListProps {
 export function MessageList({ messages }: MessageListProps) {
   if (messages.length === 0) {
     return (
-      <div className="flex flex-1 items-center justify-center text-sm text-slate-400">
+      <div className="flex flex-1 items-center justify-center text-sm text-[#999]">
         No messages yet. Start the conversation below.
       </div>
     );
@@ -25,8 +25,8 @@ export function MessageList({ messages }: MessageListProps) {
             <div
               className={`max-w-[70%] rounded-lg px-3 py-2 text-sm ${
                 isUser
-                  ? "bg-blue-600 text-white"
-                  : "bg-slate-100 text-slate-800"
+                  ? "bg-black text-white"
+                  : "bg-[#F5F5F5] text-black"
               }`}
             >
               {msg.body}

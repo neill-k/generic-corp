@@ -65,6 +65,12 @@ export function createWebSocketHub(
   );
 
   unsubs.push(
+    eventBus.on("board_item_updated", (payload) => {
+      io.to("broadcast").emit("board_item_updated", payload);
+    }),
+  );
+
+  unsubs.push(
     eventBus.on("board_item_archived", (payload) => {
       io.to("broadcast").emit("board_item_archived", payload);
     }),
@@ -103,6 +109,54 @@ export function createWebSocketHub(
   unsubs.push(
     eventBus.on("org_changed", () => {
       io.to("broadcast").emit("org_changed", {});
+    }),
+  );
+
+  unsubs.push(
+    eventBus.on("workspace_updated", (payload) => {
+      io.to("broadcast").emit("workspace_updated", payload);
+    }),
+  );
+
+  unsubs.push(
+    eventBus.on("tool_permission_created", (payload) => {
+      io.to("broadcast").emit("tool_permission_created", payload);
+    }),
+  );
+
+  unsubs.push(
+    eventBus.on("tool_permission_updated", (payload) => {
+      io.to("broadcast").emit("tool_permission_updated", payload);
+    }),
+  );
+
+  unsubs.push(
+    eventBus.on("tool_permission_deleted", (payload) => {
+      io.to("broadcast").emit("tool_permission_deleted", payload);
+    }),
+  );
+
+  unsubs.push(
+    eventBus.on("mcp_server_created", (payload) => {
+      io.to("broadcast").emit("mcp_server_created", payload);
+    }),
+  );
+
+  unsubs.push(
+    eventBus.on("mcp_server_updated", (payload) => {
+      io.to("broadcast").emit("mcp_server_updated", payload);
+    }),
+  );
+
+  unsubs.push(
+    eventBus.on("mcp_server_deleted", (payload) => {
+      io.to("broadcast").emit("mcp_server_deleted", payload);
+    }),
+  );
+
+  unsubs.push(
+    eventBus.on("mcp_server_status_changed", (payload) => {
+      io.to("broadcast").emit("mcp_server_status_changed", payload);
     }),
   );
 

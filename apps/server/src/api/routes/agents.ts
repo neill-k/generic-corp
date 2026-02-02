@@ -23,6 +23,7 @@ export function createAgentRouter(): express.Router {
           level: true,
           status: true,
           currentTaskId: true,
+          avatarColor: true,
           createdAt: true,
           updatedAt: true,
         },
@@ -173,6 +174,115 @@ export function createAgentRouter(): express.Router {
       } catch {
         res.json({ results: [] });
       }
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // --- Agent Metrics ---
+
+  router.get("/agents/:id/metrics", async (req, res, next) => {
+    try {
+      const agent = await db.agent.findUnique({
+        where: { id: req.params["id"] ?? "" },
+        select: { id: true, createdAt: true, status: true },
+      });
+      if (!agent) {
+        res.status(404).json({ error: "Agent not found" });
+        return;
+      }
+
+      const now = new Date();
+
+      // Tasks completed count
+      const tasksCompleted = await db.task.count({
+        where: { assigneeId: agent.id, status: "completed" },
+      });
+
+      // Spend today (sum of costUsd for tasks completed today)
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const todayTasks = await db.task.findMany({
+        where: {
+          assigneeId: agent.id,
+          status: "completed",
+          completedAt: { gte: startOfDay },
+        },
+        select: { costUsd: true },
+      });
+      const spendToday = todayTasks.reduce((sum, t) => sum + (t.costUsd ?? 0), 0);
+
+      // Current task
+      const currentTask = await db.task.findFirst({
+        where: { assigneeId: agent.id, status: "running" },
+        select: { id: true, prompt: true, status: true, createdAt: true },
+      });
+
+      // Queue depth
+      const queueDepth = await db.task.count({
+        where: { assigneeId: agent.id, status: "pending" },
+      });
+
+      // Uptime (time since creation or could be more sophisticated)
+      const uptimeMs = now.getTime() - agent.createdAt.getTime();
+      const days = Math.floor(uptimeMs / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((uptimeMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((uptimeMs % (1000 * 60 * 60)) / (1000 * 60));
+      const uptime = `${days}d ${hours}h ${minutes}m`;
+
+      res.json({
+        uptime,
+        tasksCompleted,
+        spendToday: `$${spendToday.toFixed(2)}`,
+        currentTask,
+        queueDepth,
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // --- Agent System Prompt (read-only) ---
+
+  router.get("/agents/:id/system-prompt", async (req, res, next) => {
+    try {
+      const agent = await db.agent.findUnique({
+        where: { id: req.params["id"] ?? "" },
+        select: {
+          id: true,
+          name: true,
+          displayName: true,
+          role: true,
+          department: true,
+          personality: true,
+          toolPermissions: true,
+        },
+      });
+      if (!agent) {
+        res.status(404).json({ error: "Agent not found" });
+        return;
+      }
+
+      // Assemble the system prompt as it would be built per invocation
+      const toolPerms = agent.toolPermissions as Record<string, boolean> | null;
+      const enabledTools = toolPerms
+        ? Object.entries(toolPerms).filter(([, v]) => v).map(([k]) => k)
+        : [];
+
+      const systemPrompt = [
+        `You are ${agent.displayName}, ${agent.role} at Generic Corp.`,
+        "",
+        agent.personality,
+        "",
+        "## Available Tools",
+        enabledTools.length > 0
+          ? enabledTools.map((t) => `- ${t}`).join("\n")
+          : "(no tool permissions configured)",
+        "",
+        "## Department",
+        agent.department,
+      ].join("\n");
+
+      res.json({ systemPrompt });
     } catch (error) {
       next(error);
     }

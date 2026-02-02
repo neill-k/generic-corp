@@ -94,6 +94,13 @@ export function createOrgRouter(): express.Router {
   router.post("/org/nodes", async (req, res, next) => {
     try {
       const body = createOrgNodeBodySchema.parse(req.body);
+      if (body.parentNodeId) {
+        const parent = await db.orgNode.findUnique({ where: { id: body.parentNodeId } });
+        if (!parent) {
+          res.status(400).json({ error: "Parent OrgNode not found" });
+          return;
+        }
+      }
       const node = await db.orgNode.create({
         data: {
           agentId: body.agentId,
@@ -116,6 +123,13 @@ export function createOrgRouter(): express.Router {
         return;
       }
       const body = updateOrgNodeBodySchema.parse(req.body);
+      if (body.parentNodeId) {
+        const parent = await db.orgNode.findUnique({ where: { id: body.parentNodeId } });
+        if (!parent) {
+          res.status(400).json({ error: "Parent OrgNode not found" });
+          return;
+        }
+      }
       const data: Record<string, unknown> = {};
       if (body.parentNodeId !== undefined) data["parentNodeId"] = body.parentNodeId;
       if (body.position !== undefined) data["position"] = body.position;

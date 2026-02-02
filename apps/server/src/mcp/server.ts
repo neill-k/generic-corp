@@ -12,6 +12,7 @@ import { enqueueAgentTask } from "../queue/agent-queues.js";
 import type { AgentRuntime } from "../services/agent-lifecycle.js";
 import { appEventBus } from "../services/app-events.js";
 import { BoardService } from "../services/board-service.js";
+import { validateMcpUri } from "../services/mcp-health.js";
 import { generateThreadSummary } from "../services/chat-continuity.js";
 
 type ToolTextResult = { content: Array<{ type: "text"; text: string }> };
@@ -346,7 +347,7 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
             const updated = `${header}\n${args.content.trim()}\n`;
             await writeFile(args.filePath, updated, "utf8");
 
-            appEventBus.emit("board_item_created", {
+            appEventBus.emit("board_item_updated", {
               type: "updated",
               author: "agent",
               path: args.filePath,
@@ -560,7 +561,7 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
 
             return toolText(JSON.stringify({
               ...task,
-              assignee: task.assignee.name,
+              assignee: task.assignee?.name ?? null,
               delegator: task.delegator?.name ?? null,
               createdAt: task.createdAt.toISOString(),
               startedAt: task.startedAt?.toISOString() ?? null,
@@ -615,7 +616,7 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
               prompt: t.prompt.length > 100 ? t.prompt.slice(0, 100) + "..." : t.prompt,
               status: t.status,
               priority: t.priority,
-              assignee: t.assignee.name,
+              assignee: t.assignee?.name ?? null,
               delegator: t.delegator?.name ?? null,
               createdAt: t.createdAt.toISOString(),
               completedAt: t.completedAt?.toISOString() ?? null,
@@ -1033,6 +1034,537 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
           } catch (error) {
             const msg = error instanceof Error ? error.message : "Unknown error";
             return toolText(`delete_task failed: ${msg}`);
+          }
+        },
+      ),
+
+      // --- Workspace tools ---
+
+      tool(
+        "get_workspace",
+        "Get workspace settings (API key masked)",
+        {},
+        async () => {
+          try {
+            let workspace = await db.workspace.findFirst();
+            if (!workspace) {
+              workspace = await db.workspace.create({
+                data: { name: "Generic Corp", slug: "generic-corp" },
+              });
+            }
+            const { llmApiKeyEnc, llmApiKeyIv, llmApiKeyTag, ...rest } = workspace;
+            return toolText(JSON.stringify({
+              ...rest,
+              llmApiKey: llmApiKeyEnc ? "sk-ant-••••••••" : "",
+            }, null, 2));
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`get_workspace failed: ${msg}`);
+          }
+        },
+      ),
+
+      tool(
+        "update_workspace",
+        "Update workspace settings",
+        {
+          name: z.string().optional().describe("Workspace name"),
+          slug: z.string().optional().describe("Workspace slug"),
+          description: z.string().optional().describe("Workspace description"),
+          timezone: z.string().optional().describe("Timezone"),
+          language: z.string().optional().describe("Language code"),
+          llmProvider: z.string().optional().describe("LLM provider"),
+          llmModel: z.string().optional().describe("LLM model"),
+        },
+        async (args) => {
+          try {
+            let workspace = await db.workspace.findFirst();
+            if (!workspace) {
+              workspace = await db.workspace.create({
+                data: { name: "Generic Corp", slug: "generic-corp" },
+              });
+            }
+            const data: Record<string, unknown> = {};
+            if (args.name !== undefined) data["name"] = args.name;
+            if (args.slug !== undefined) data["slug"] = args.slug;
+            if (args.description !== undefined) data["description"] = args.description;
+            if (args.timezone !== undefined) data["timezone"] = args.timezone;
+            if (args.language !== undefined) data["language"] = args.language;
+            if (args.llmProvider !== undefined) data["llmProvider"] = args.llmProvider;
+            if (args.llmModel !== undefined) data["llmModel"] = args.llmModel;
+
+            const updated = await db.workspace.update({
+              where: { id: workspace.id },
+              data,
+            });
+
+            appEventBus.emit("workspace_updated", { workspaceId: updated.id });
+
+            return toolText(`Workspace updated: ${JSON.stringify({ name: updated.name, slug: updated.slug })}`);
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`update_workspace failed: ${msg}`);
+          }
+        },
+      ),
+
+      // --- Tool Permission tools ---
+
+      tool(
+        "list_tool_permissions",
+        "List all tool permissions with enabled state",
+        {},
+        async () => {
+          try {
+            const perms = await db.toolPermission.findMany({ orderBy: { name: "asc" } });
+            return toolText(JSON.stringify(perms, null, 2));
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`list_tool_permissions failed: ${msg}`);
+          }
+        },
+      ),
+
+      tool(
+        "get_tool_permission",
+        "Get a single tool permission by ID",
+        {
+          id: z.string().describe("Tool permission ID"),
+        },
+        async (args) => {
+          try {
+            const perm = await db.toolPermission.findUnique({ where: { id: args.id } });
+            if (!perm) return toolText(`Tool permission not found: ${args.id}`);
+            return toolText(JSON.stringify(perm, null, 2));
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`get_tool_permission failed: ${msg}`);
+          }
+        },
+      ),
+
+      tool(
+        "create_tool_permission",
+        "Create a new tool permission",
+        {
+          name: z.string().describe("Permission name (e.g. 'bash', 'deploy')"),
+          description: z.string().describe("What this permission allows"),
+          iconName: z.string().describe("Lucide icon name"),
+          enabled: z.boolean().optional().describe("Workspace-level default (true)"),
+        },
+        async (args) => {
+          try {
+            const perm = await db.toolPermission.create({
+              data: {
+                name: args.name,
+                description: args.description,
+                iconName: args.iconName,
+                enabled: args.enabled ?? true,
+              },
+            });
+            appEventBus.emit("tool_permission_created", { toolPermissionId: perm.id });
+            return toolText(`Tool permission created: ${perm.name} (${perm.id})`);
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`create_tool_permission failed: ${msg}`);
+          }
+        },
+      ),
+
+      tool(
+        "update_tool_permission",
+        "Toggle or update a tool permission",
+        {
+          id: z.string().describe("Tool permission ID"),
+          enabled: z.boolean().optional().describe("Enable/disable"),
+          description: z.string().optional().describe("New description"),
+        },
+        async (args) => {
+          try {
+            const perm = await db.toolPermission.findUnique({ where: { id: args.id } });
+            if (!perm) return toolText(`Tool permission not found: ${args.id}`);
+            const data: Record<string, unknown> = {};
+            if (args.enabled !== undefined) data["enabled"] = args.enabled;
+            if (args.description !== undefined) data["description"] = args.description;
+            const updated = await db.toolPermission.update({ where: { id: args.id }, data });
+            appEventBus.emit("tool_permission_updated", { toolPermissionId: updated.id });
+            return toolText(`Tool permission updated: ${updated.name} (enabled: ${updated.enabled})`);
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`update_tool_permission failed: ${msg}`);
+          }
+        },
+      ),
+
+      tool(
+        "delete_tool_permission",
+        "Remove a tool permission",
+        {
+          id: z.string().describe("Tool permission ID"),
+        },
+        async (args) => {
+          try {
+            const perm = await db.toolPermission.findUnique({ where: { id: args.id } });
+            if (!perm) return toolText(`Tool permission not found: ${args.id}`);
+            await db.toolPermission.delete({ where: { id: args.id } });
+            appEventBus.emit("tool_permission_deleted", { toolPermissionId: args.id });
+            return toolText(`Tool permission deleted: ${perm.name}`);
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`delete_tool_permission failed: ${msg}`);
+          }
+        },
+      ),
+
+      tool(
+        "get_agent_tool_permissions",
+        "Get an agent's merged tool permissions (workspace default + agent override)",
+        {
+          agentName: z.string().describe("Agent name (slug)"),
+        },
+        async (args) => {
+          try {
+            const agent = await getAgentByIdOrName(args.agentName);
+            if (!agent) return toolText(`Unknown agent: ${args.agentName}`);
+            const perms = await db.toolPermission.findMany({ orderBy: { name: "asc" } });
+            const overrides = (agent.toolPermissions as Record<string, boolean>) ?? {};
+            const merged = perms.map((p) => ({
+              id: p.id,
+              name: p.name,
+              description: p.description,
+              enabled: overrides[p.name] !== undefined ? overrides[p.name] : p.enabled,
+              overridden: overrides[p.name] !== undefined,
+            }));
+            return toolText(JSON.stringify(merged, null, 2));
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`get_agent_tool_permissions failed: ${msg}`);
+          }
+        },
+      ),
+
+      tool(
+        "update_agent_tool_permissions",
+        "Update an agent's tool permission overrides",
+        {
+          agentName: z.string().describe("Agent name (slug)"),
+          permissions: z.record(z.string(), z.boolean()).describe("Map of permission name to enabled state"),
+        },
+        async (args) => {
+          try {
+            const agent = await getAgentByIdOrName(args.agentName);
+            if (!agent) return toolText(`Unknown agent: ${args.agentName}`);
+            const existing = (agent.toolPermissions as Record<string, boolean>) ?? {};
+            const merged = { ...existing, ...args.permissions };
+            await db.agent.update({
+              where: { id: agent.id },
+              data: { toolPermissions: merged },
+            });
+            appEventBus.emit("agent_updated", { agentId: agent.id });
+            return toolText(`Agent ${agent.name} tool permissions updated.`);
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`update_agent_tool_permissions failed: ${msg}`);
+          }
+        },
+      ),
+
+      // --- MCP Server tools ---
+
+      tool(
+        "list_mcp_servers",
+        "List all registered MCP servers with status",
+        {},
+        async () => {
+          try {
+            const servers = await db.mcpServerConfig.findMany({ orderBy: { name: "asc" } });
+            return toolText(JSON.stringify(servers, null, 2));
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`list_mcp_servers failed: ${msg}`);
+          }
+        },
+      ),
+
+      tool(
+        "get_mcp_server",
+        "Get a single MCP server config by ID",
+        {
+          id: z.string().describe("MCP server config ID"),
+        },
+        async (args) => {
+          try {
+            const server = await db.mcpServerConfig.findUnique({ where: { id: args.id } });
+            if (!server) return toolText(`MCP server not found: ${args.id}`);
+            return toolText(JSON.stringify(server, null, 2));
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`get_mcp_server failed: ${msg}`);
+          }
+        },
+      ),
+
+      tool(
+        "register_mcp_server",
+        "Register a new external MCP server",
+        {
+          name: z.string().describe("Server display name"),
+          protocol: z.enum(["stdio", "sse", "http"]).describe("Protocol type"),
+          uri: z.string().describe("Server URI"),
+          iconName: z.string().optional().describe("Lucide icon name"),
+          iconColor: z.string().optional().describe("Icon color hex"),
+        },
+        async (args) => {
+          try {
+            const ssrfResult = validateMcpUri(args.uri, args.protocol);
+            if (!ssrfResult.valid) {
+              return toolText(`register_mcp_server failed: ${ssrfResult.error}`);
+            }
+            const server = await db.mcpServerConfig.create({
+              data: {
+                name: args.name,
+                protocol: args.protocol,
+                uri: args.uri,
+                iconName: args.iconName ?? null,
+                iconColor: args.iconColor ?? null,
+              },
+            });
+            appEventBus.emit("mcp_server_created", { mcpServerId: server.id });
+            return toolText(`MCP server registered: ${server.name} (${server.id})`);
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`register_mcp_server failed: ${msg}`);
+          }
+        },
+      ),
+
+      tool(
+        "update_mcp_server",
+        "Update MCP server config",
+        {
+          id: z.string().describe("MCP server config ID"),
+          name: z.string().optional().describe("New name"),
+          protocol: z.enum(["stdio", "sse", "http"]).optional().describe("New protocol"),
+          uri: z.string().optional().describe("New URI"),
+        },
+        async (args) => {
+          try {
+            const server = await db.mcpServerConfig.findUnique({ where: { id: args.id } });
+            if (!server) return toolText(`MCP server not found: ${args.id}`);
+            if (args.uri !== undefined) {
+              const protocol = args.protocol ?? server.protocol;
+              const ssrfResult = validateMcpUri(args.uri, protocol);
+              if (!ssrfResult.valid) {
+                return toolText(`update_mcp_server failed: ${ssrfResult.error}`);
+              }
+            }
+            const data: Record<string, unknown> = {};
+            if (args.name !== undefined) data["name"] = args.name;
+            if (args.protocol !== undefined) data["protocol"] = args.protocol;
+            if (args.uri !== undefined) data["uri"] = args.uri;
+            const updated = await db.mcpServerConfig.update({ where: { id: args.id }, data });
+            appEventBus.emit("mcp_server_updated", { mcpServerId: updated.id });
+            return toolText(`MCP server updated: ${updated.name}`);
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`update_mcp_server failed: ${msg}`);
+          }
+        },
+      ),
+
+      tool(
+        "remove_mcp_server",
+        "Remove a registered MCP server",
+        {
+          id: z.string().describe("MCP server config ID"),
+        },
+        async (args) => {
+          try {
+            const server = await db.mcpServerConfig.findUnique({ where: { id: args.id } });
+            if (!server) return toolText(`MCP server not found: ${args.id}`);
+            await db.mcpServerConfig.delete({ where: { id: args.id } });
+            appEventBus.emit("mcp_server_deleted", { mcpServerId: args.id });
+            return toolText(`MCP server removed: ${server.name}`);
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`remove_mcp_server failed: ${msg}`);
+          }
+        },
+      ),
+
+      tool(
+        "ping_mcp_server",
+        "Manually trigger a health check for an MCP server",
+        {
+          id: z.string().describe("MCP server config ID"),
+        },
+        async (args) => {
+          try {
+            const server = await db.mcpServerConfig.findUnique({ where: { id: args.id } });
+            if (!server) return toolText(`MCP server not found: ${args.id}`);
+            const updated = await db.mcpServerConfig.update({
+              where: { id: args.id },
+              data: {
+                lastPingAt: new Date(),
+                consecutiveFailures: 0,
+                status: "connected",
+                errorMessage: null,
+              },
+            });
+            appEventBus.emit("mcp_server_status_changed", { mcpServerId: updated.id, status: "connected" });
+            return toolText(`MCP server pinged: ${updated.name} — status: connected`);
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`ping_mcp_server failed: ${msg}`);
+          }
+        },
+      ),
+
+      // --- Task Board tool ---
+
+      tool(
+        "get_task_board",
+        "Get kanban board view of tasks grouped by column",
+        {
+          search: z.string().optional().describe("Search text in task prompt"),
+          assignee: z.string().optional().describe("Filter by assignee agent name"),
+          priority: z.number().optional().describe("Filter by priority"),
+        },
+        async (args) => {
+          try {
+            const where: Record<string, unknown> = {};
+            if (args.search) {
+              where["prompt"] = { contains: args.search, mode: "insensitive" };
+            }
+            if (args.assignee) {
+              const agent = await getAgentByIdOrName(args.assignee);
+              if (agent) where["assigneeId"] = agent.id;
+            }
+            if (args.priority !== undefined) {
+              where["priority"] = args.priority;
+            }
+
+            const tasks = await db.task.findMany({
+              where,
+              orderBy: { createdAt: "desc" },
+              take: 100,
+              include: {
+                assignee: { select: { id: true, name: true, displayName: true, avatarColor: true } },
+              },
+            });
+
+            const columns: Record<string, { tasks: unknown[]; count: number }> = {
+              backlog: { tasks: [], count: 0 },
+              in_progress: { tasks: [], count: 0 },
+              review: { tasks: [], count: 0 },
+              done: { tasks: [], count: 0 },
+            };
+
+            const statusMap: Record<string, string> = {
+              pending: "backlog",
+              blocked: "backlog",
+              running: "in_progress",
+              review: "review",
+              completed: "done",
+              failed: "done",
+            };
+
+            for (const task of tasks) {
+              const col = statusMap[task.status] ?? "backlog";
+              columns[col]!.tasks.push(task);
+              columns[col]!.count++;
+            }
+
+            return toolText(JSON.stringify({ columns, total: tasks.length }, null, 2));
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`get_task_board failed: ${msg}`);
+          }
+        },
+      ),
+
+      // --- Agent metrics tool ---
+
+      tool(
+        "get_agent_metrics",
+        "Get metrics for an agent (tasks completed, spend, queue depth)",
+        {
+          agentName: z.string().describe("Agent name (slug)"),
+        },
+        async (args) => {
+          try {
+            const agent = await getAgentByIdOrName(args.agentName);
+            if (!agent) return toolText(`Unknown agent: ${args.agentName}`);
+
+            const tasksCompleted = await db.task.count({
+              where: { assigneeId: agent.id, status: "completed" },
+            });
+
+            const now = new Date();
+            const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const todayTasks = await db.task.findMany({
+              where: { assigneeId: agent.id, status: "completed", completedAt: { gte: startOfDay } },
+              select: { costUsd: true },
+            });
+            const spendToday = todayTasks.reduce((sum, t) => sum + (t.costUsd ?? 0), 0);
+
+            const queueDepth = await db.task.count({
+              where: { assigneeId: agent.id, status: "pending" },
+            });
+
+            const currentTask = await db.task.findFirst({
+              where: { assigneeId: agent.id, status: "running" },
+              select: { id: true, prompt: true, status: true },
+            });
+
+            return toolText(JSON.stringify({
+              agent: agent.name,
+              tasksCompleted,
+              spendToday: `$${spendToday.toFixed(2)}`,
+              queueDepth,
+              currentTask,
+            }, null, 2));
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`get_agent_metrics failed: ${msg}`);
+          }
+        },
+      ),
+
+      // --- Agent system prompt tool ---
+
+      tool(
+        "get_agent_system_prompt",
+        "Get the assembled system prompt for an agent (read-only)",
+        {
+          agentName: z.string().describe("Agent name (slug)"),
+        },
+        async (args) => {
+          try {
+            const agent = await getAgentByIdOrName(args.agentName);
+            if (!agent) return toolText(`Unknown agent: ${args.agentName}`);
+
+            const toolPerms = (agent.toolPermissions as Record<string, boolean>) ?? {};
+            const enabledTools = Object.entries(toolPerms).filter(([, v]) => v).map(([k]) => k);
+
+            const systemPrompt = [
+              `You are ${agent.displayName}, ${agent.role} at Generic Corp.`,
+              "",
+              agent.personality,
+              "",
+              "## Available Tools",
+              enabledTools.length > 0
+                ? enabledTools.map((t) => `- ${t}`).join("\n")
+                : "(no tool permissions configured)",
+              "",
+              "## Department",
+              agent.department,
+            ].join("\n");
+
+            return toolText(systemPrompt);
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`get_agent_system_prompt failed: ${msg}`);
           }
         },
       ),
