@@ -17,7 +17,6 @@ import SettingsAgents from "./pages/settings/SettingsAgents";
 import SettingsBilling from "./pages/settings/SettingsBilling";
 import SettingsSecurity from "./pages/settings/SettingsSecurity";
 import SettingsNotifications from "./pages/settings/SettingsNotifications";
-import LandingPage from "./pages/LandingPage";
 
 export default function App() {
   return (
@@ -41,7 +40,6 @@ export default function App() {
       <Route path="/settings/billing" element={<SettingsBilling />} />
       <Route path="/settings/security" element={<SettingsSecurity />} />
       <Route path="/settings/notifications" element={<SettingsNotifications />} />
-      <Route path="/landing" element={<LandingPage />} />
     </Routes>
   );
 }

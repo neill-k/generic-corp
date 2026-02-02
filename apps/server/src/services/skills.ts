@@ -1,40 +1,10 @@
-export type SkillId = "review" | "standup" | "learning";
-
-export const SKILL_PROMPTS: Record<SkillId, string> = {
-  review: `## Skill: Code Review
-
-When reviewing code, follow these practices:
-- Check for correctness, security, and maintainability
-- Verify tests cover the changed behavior
-- Look for edge cases and error handling gaps
-- Ensure the change is consistent with existing patterns
-- Provide specific, actionable feedback with line references
-- Approve only when all critical issues are resolved
-- Post a board item of type "finding" if you discover a significant issue`,
-
-  standup: `## Skill: Standup Report
-
-When preparing a standup update:
-- Summarize what you accomplished since the last update
-- List what you plan to work on next
-- Call out any blockers or dependencies
-- Keep it concise (3-5 bullet points max)
-- Post the update as a "status_update" board item
-- Tag relevant people if you need their help`,
-
-  learning: `## Skill: Compound Learning
-
-When documenting learnings:
-- Capture the specific problem or situation
-- Explain what was tried and what worked (or didn't)
-- Extract the generalizable lesson
-- Suggest how this knowledge should influence future work
-- Write it to docs/learnings/ as a timestamped markdown file
-- Post a "finding" board item summarizing the insight`,
-};
-
-export const ALL_SKILL_IDS: SkillId[] = Object.keys(SKILL_PROMPTS) as SkillId[];
-
-export function getAllSkillPrompts(): string {
-  return ALL_SKILL_IDS.map((id) => SKILL_PROMPTS[id]).join("\n\n");
-}
+// Re-export from core — skills are now in @generic-corp/core
+export {
+  SKILL_PROMPTS,
+  ALL_SKILL_IDS,
+  getAllSkillPrompts,
+  registerSkill,
+  unregisterSkill,
+  getRegisteredSkillIds,
+} from "@generic-corp/core";
+export type { SkillId } from "@generic-corp/core";

@@ -1,7 +1,8 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useSocketStore } from "../store/socket-store.js";
+import { usePluginStore } from "../store/plugin-store.js";
 
-const NAV_ITEMS = [
+const BUILTIN_NAV_ITEMS = [
   { to: "/", label: "Dashboard", hint: "Overview and capabilities" },
   { to: "/chat", label: "Chat", hint: "Talk to agents and delegate work" },
   { to: "/org", label: "Org Chart", hint: "Agent hierarchy and live status" },
@@ -12,6 +13,7 @@ const NAV_ITEMS = [
 export function Sidebar() {
   const connected = useSocketStore((s) => s.connected);
   const location = useRouterState({ select: (s) => s.location });
+  const pluginNavItems = usePluginStore((s) => s.getNavItems());
 
   return (
     <aside className="flex w-56 flex-col border-r border-slate-200 bg-white">
@@ -21,7 +23,7 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 space-y-1 px-2 py-3">
-        {NAV_ITEMS.map((item) => {
+        {BUILTIN_NAV_ITEMS.map((item) => {
           const active = location.pathname === item.to;
           return (
             <Link
@@ -39,6 +41,28 @@ export function Sidebar() {
             </Link>
           );
         })}
+
+        {pluginNavItems.length > 0 && (
+          <>
+            <div className="my-2 border-t border-slate-100" />
+            {pluginNavItems.map((item) => {
+              const active = location.pathname === item.path;
+              return (
+                <Link
+                  key={item.id}
+                  to={item.path}
+                  className={`block rounded px-3 py-2 text-sm ${
+                    active
+                      ? "bg-blue-50 font-medium text-blue-700"
+                      : "text-slate-700 hover:bg-slate-100"
+                  }`}
+                >
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </>
+        )}
       </nav>
 
       <div className="border-t border-slate-200 px-4 py-3">

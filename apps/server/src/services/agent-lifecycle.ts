@@ -1,35 +1,18 @@
-export type AgentResultStatus = "success" | "error" | "max_turns";
+// Re-export from core — agent lifecycle types are now in @generic-corp/core
+export type {
+  AgentResultStatus,
+  McpServerInstance,
+  LegacyMcpServerFactory as McpServerFactory,
+  AgentResult,
+  AgentEvent,
+  AgentInvocation,
+} from "@generic-corp/core";
+export { RuntimeProvider } from "@generic-corp/core";
 
-export type AgentResult = {
-  output: string;
-  costUsd: number;
-  durationMs: number;
-  numTurns: number;
-  status: AgentResultStatus;
-};
+// Import locally for use in the backward-compat interface below
+import type { AgentInvocation as _AgentInvocation, AgentEvent as _AgentEvent } from "@generic-corp/core";
 
-export type AgentEvent =
-  | { type: "thinking"; content: string }
-  | { type: "tool_use"; tool: string; input: unknown }
-  | { type: "tool_result"; tool: string; output: string }
-  | { type: "message"; content: string }
-  | { type: "result"; result: AgentResult };
-
-export type McpServerInstance = unknown;
-
-export type McpServerFactory = (agentId: string, taskId: string) => McpServerInstance;
-
-export type AgentInvocation = {
-  agentId: string;
-  taskId: string;
-  prompt: string;
-  systemPrompt: string;
-  cwd: string;
-  mcpServer: McpServerInstance;
-  allowedTools?: string[];
-  model?: string;
-};
-
+// Backward-compat: keep the AgentRuntime interface
 export interface AgentRuntime {
-  invoke(params: AgentInvocation): AsyncGenerator<AgentEvent>;
+  invoke(params: _AgentInvocation): AsyncGenerator<_AgentEvent>;
 }

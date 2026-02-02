@@ -11,6 +11,7 @@ import { OrgPage } from "./routes/org.js";
 import { BoardPage } from "./routes/board.js";
 import { HelpPage } from "./routes/help.js";
 import { AgentDetailPage } from "./routes/agents.$id.js";
+import { PluginPage } from "./routes/PluginPage.js";
 
 const rootRoute = createRootRoute({
   component: RootLayout,
@@ -52,6 +53,12 @@ const agentDetailRoute = createRoute({
   component: AgentDetailPage,
 });
 
+const pluginRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/plugins/$pluginId",
+  component: PluginPage,
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   chatRoute,
@@ -59,6 +66,7 @@ const routeTree = rootRoute.addChildren([
   boardRoute,
   helpRoute,
   agentDetailRoute,
+  pluginRoute,
 ]);
 
 export const router = createRouter({ routeTree });
