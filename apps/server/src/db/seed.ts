@@ -2,6 +2,59 @@ import { db } from "./client.js";
 import { AGENT_SEED, TOOL_PERMISSION_SEED, DEFAULT_WORKSPACE } from "./seed-data.js";
 import { MAIN_AGENT_NAME } from "@generic-corp/shared";
 
+const X_SPACING = 250;
+const Y_SPACING = 150;
+
+/**
+ * Compute tree-layout positions for seed org nodes so the canvas
+ * isn't all stacked at (0,0).
+ */
+function computeTreePositions(agents: typeof AGENT_SEED): Map<string, { x: number; y: number }> {
+  const positions = new Map<string, { x: number; y: number }>();
+
+  // Build adjacency list
+  const childrenOf = new Map<string | null, string[]>();
+  for (const agent of agents) {
+    const parent = agent.reportsTo;
+    if (!childrenOf.has(parent)) childrenOf.set(parent, []);
+    childrenOf.get(parent)!.push(agent.name);
+  }
+
+  let nextX = 0;
+
+  function layout(name: string, depth: number): number {
+    const children = childrenOf.get(name) ?? [];
+
+    if (children.length === 0) {
+      // Leaf: assign the next available x slot
+      positions.set(name, { x: nextX * X_SPACING, y: depth * Y_SPACING });
+      nextX++;
+      return positions.get(name)!.x;
+    }
+
+    // Layout children first
+    const childXPositions: number[] = [];
+    for (const child of children) {
+      childXPositions.push(layout(child, depth + 1));
+    }
+
+    // Center this node above its children
+    const minX = Math.min(...childXPositions);
+    const maxX = Math.max(...childXPositions);
+    const centerX = (minX + maxX) / 2;
+    positions.set(name, { x: centerX, y: depth * Y_SPACING });
+    return centerX;
+  }
+
+  // Find roots and lay them out
+  const roots = agents.filter((a) => a.reportsTo === null);
+  for (const root of roots) {
+    layout(root.name, 0);
+  }
+
+  return positions;
+}
+
 async function main() {
   // 1) Upsert default workspace
   const existingWorkspace = await db.workspace.findFirst();
@@ -55,15 +108,21 @@ async function main() {
 
   // 4) Upsert org nodes (skip main agent — it has no org position)
   const orgAgents = AGENT_SEED.filter((a) => a.name !== MAIN_AGENT_NAME);
+
+  // 5) Compute tree-layout positions
+  const treePositions = computeTreePositions(orgAgents);
+
+  // 6) Upsert org nodes with positions
   const root = orgAgents.find((a) => a.reportsTo === null);
   if (!root) throw new Error("Seed data missing root agent");
   const rootId = agentsByName.get(root.name)?.id;
   if (!rootId) throw new Error("Root agent missing after upsert");
 
+  const rootPos = treePositions.get(root.name) ?? { x: 0, y: 0 };
   const rootNode = await db.orgNode.upsert({
     where: { agentId: rootId },
-    update: { parentNodeId: null, position: 0 },
-    create: { agentId: rootId, parentNodeId: null, position: 0 },
+    update: { parentNodeId: null, position: 0, positionX: rootPos.x, positionY: rootPos.y },
+    create: { agentId: rootId, parentNodeId: null, position: 0, positionX: rootPos.x, positionY: rootPos.y },
     select: { id: true },
   });
 
@@ -86,15 +145,16 @@ async function main() {
     const parentNodeId = agent.reportsTo ? nodeIdsByAgentName.get(agent.reportsTo) : rootNode.id;
     if (!parentNodeId) throw new Error(`Parent node missing for ${agent.name}`);
 
+    const pos = treePositions.get(agent.name) ?? { x: 0, y: 0 };
     const node = await db.orgNode.upsert({
       where: { agentId },
-      update: { parentNodeId, position: 0 },
-      create: { agentId, parentNodeId, position: 0 },
+      update: { parentNodeId, position: 0, positionX: pos.x, positionY: pos.y },
+      create: { agentId, parentNodeId, position: 0, positionX: pos.x, positionY: pos.y },
       select: { id: true },
     });
     nodeIdsByAgentName.set(agent.name, node.id);
   }
-  console.log("[Seed] Upserted org hierarchy");
+  console.log("[Seed] Upserted org hierarchy with canvas positions");
 }
 
 main()

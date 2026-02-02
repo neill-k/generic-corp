@@ -120,6 +120,8 @@ export interface OrgNodeRecord {
   agentId: string;
   parentNodeId: string | null;
   position: number;
+  positionX: number;
+  positionY: number;
 }
 
 export interface AgentResult {
@@ -274,8 +276,12 @@ export interface ApiAgentDetail extends ApiAgentSummary {
 }
 
 export interface ApiOrgNode {
+  nodeId: string;
   agent: ApiAgentSummary;
   parentAgentId: string | null;
+  parentNodeId: string | null;
+  positionX: number;
+  positionY: number;
   children: ApiOrgNode[];
 }
 

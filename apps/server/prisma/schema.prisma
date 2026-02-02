@@ -34,6 +34,8 @@ model OrgNode {
   agentId      String   @unique
   parentNodeId String?
   position     Int      @default(0)
+  positionX    Float    @default(0)
+  positionY    Float    @default(0)
 
   agent    Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
   parent   OrgNode? @relation("hierarchy", fields: [parentNodeId], references: [id])
