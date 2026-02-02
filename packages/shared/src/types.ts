@@ -1,4 +1,4 @@
-export type AgentLevel = "ic" | "lead" | "manager" | "vp" | "c-suite";
+export type AgentLevel = "ic" | "lead" | "manager" | "vp" | "c-suite" | "system";
 
 export type AgentStatus = "idle" | "running" | "error" | "offline";
 

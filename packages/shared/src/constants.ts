@@ -7,5 +7,7 @@ export const BOARD_TYPE_TO_FOLDER = {
 
 export const SOFT_CONTEXT_TOKEN_LIMIT = 6_000;
 
+export const MAIN_AGENT_NAME = "main";
+
 export const DEFAULT_AGENT_MODEL = "sonnet";
 export const SUMMARIZER_MODEL = "haiku";
