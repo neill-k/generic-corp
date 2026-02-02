@@ -80,8 +80,8 @@ export function ChatView() {
     ) {
       appendMessage({
         id: crypto.randomUUID(),
-        fromAgentId: event.agentId,
-        toAgentId: event.agentId,
+        fromAgentId: event.agentDbId ?? null,
+        toAgentId: MAIN_AGENT_NAME,
         threadId: activeThreadId,
         body: event.event.content,
         type: "chat",

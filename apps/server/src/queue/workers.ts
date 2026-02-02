@@ -1,5 +1,4 @@
 import { Worker } from "bullmq";
-import crypto from "node:crypto";
 
 import type { Agent, Task } from "@prisma/client";
 import { MAIN_AGENT_NAME } from "@generic-corp/shared";
@@ -253,7 +252,7 @@ async function loadOrgOverview() {
       currentTaskId: true,
       orgNode: {
         select: {
-          parentNode: {
+          parent: {
             select: { agent: { select: { name: true } } },
           },
         },
@@ -275,7 +274,7 @@ async function loadOrgOverview() {
       level: a.level,
       status: a.status,
       currentTask,
-      reportsTo: a.orgNode?.parentNode?.agent.name ?? null,
+      reportsTo: a.orgNode?.parent?.agent.name ?? null,
     };
   }));
 }
@@ -356,6 +355,7 @@ async function runTask(task: Task & { assignee: Agent }) {
   })) {
     appEventBus.emit("agent_event", {
       agentId: task.assignee.name,
+      agentDbId: task.assignee.id,
       taskId: task.id,
       event,
     });
@@ -387,7 +387,7 @@ async function runTask(task: Task & { assignee: Agent }) {
     if (chatThreadMatch && !usedSendMessage && lastResult.output && lastResult.output.length > 0) {
       const threadId = chatThreadMatch[1];
       console.log(`[Agent:${task.assignee.name}] Fallback: creating chat reply from text output`);
-      await db.message.create({
+      const message = await db.message.create({
         data: {
           fromAgentId: task.assignee.id,
           toAgentId: task.assignee.id, // self (reply to thread)
@@ -396,9 +396,10 @@ async function runTask(task: Task & { assignee: Agent }) {
           type: "chat",
           status: "delivered",
         },
+        select: { id: true },
       });
       appEventBus.emit("message_created", {
-        messageId: crypto.randomUUID(),
+        messageId: message.id,
         threadId: threadId!,
         fromAgentId: task.assignee.id,
         toAgentId: task.assignee.id,

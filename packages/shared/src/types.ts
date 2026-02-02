@@ -159,6 +159,7 @@ export interface WsEventBase {
 export interface WsAgentEvent extends WsEventBase {
   type: "agent_event";
   agentId: string;
+  agentDbId?: string;
   taskId: string;
   event: AgentEvent;
 }

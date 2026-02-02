@@ -15,7 +15,7 @@ export function createThreadRouter(deps: ThreadRouterDeps): express.Router {
     try {
       // Get the latest message per thread using distinct + orderBy
       const latestMessages = await db.message.findMany({
-        where: { threadId: { not: null } },
+        where: { threadId: { not: null }, type: "chat" },
         orderBy: { createdAt: "desc" },
         distinct: ["threadId"],
         select: {
