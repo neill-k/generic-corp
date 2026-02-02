@@ -220,6 +220,8 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
                 agentId: true,
                 parentNodeId: true,
                 position: true,
+                positionX: true,
+                positionY: true,
                 agent: { select: { name: true, displayName: true, role: true, department: true, status: true } },
               },
             });
@@ -932,6 +934,8 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
           agentName: z.string().describe("Agent name (slug) to place in org"),
           parentNodeId: z.string().optional().describe("Parent org node ID, omit for root"),
           position: z.number().int().optional().describe("Sort position among siblings"),
+          positionX: z.number().optional().describe("Canvas X position"),
+          positionY: z.number().optional().describe("Canvas Y position"),
         },
         async (args) => {
           try {
@@ -939,7 +943,13 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
             if (!agent) return toolText(`Unknown agent: ${args.agentName}`);
 
             const node = await db.orgNode.create({
-              data: { agentId: agent.id, parentNodeId: args.parentNodeId ?? null, position: args.position ?? 0 },
+              data: {
+                agentId: agent.id,
+                parentNodeId: args.parentNodeId ?? null,
+                position: args.position ?? 0,
+                positionX: args.positionX ?? 0,
+                positionY: args.positionY ?? 0,
+              },
               select: { id: true },
             });
 
@@ -960,6 +970,8 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
           agentName: z.string().describe("Agent name (slug) to move"),
           parentNodeId: z.string().nullable().optional().describe("New parent node ID, null for root"),
           position: z.number().int().optional().describe("New sort position"),
+          positionX: z.number().optional().describe("Canvas X position"),
+          positionY: z.number().optional().describe("Canvas Y position"),
         },
         async (args) => {
           try {
@@ -972,6 +984,8 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
             const data: Record<string, unknown> = {};
             if (args.parentNodeId !== undefined) data["parentNodeId"] = args.parentNodeId;
             if (args.position !== undefined) data["position"] = args.position;
+            if (args.positionX !== undefined) data["positionX"] = args.positionX;
+            if (args.positionY !== undefined) data["positionY"] = args.positionY;
 
             if (Object.keys(data).length === 0) return toolText("No fields to update.");
 
