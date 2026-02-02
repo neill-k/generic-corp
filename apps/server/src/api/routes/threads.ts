@@ -2,6 +2,7 @@ import express from "express";
 
 import { db } from "../../db/client.js";
 import type { AgentRuntime } from "../../services/agent-lifecycle.js";
+import { appEventBus } from "../../services/app-events.js";
 import { generateThreadSummary } from "../../services/chat-continuity.js";
 
 export interface ThreadRouterDeps {
@@ -61,6 +62,24 @@ export function createThreadRouter(deps: ThreadRouterDeps): express.Router {
       });
 
       res.json({ summary });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.delete("/threads/:id", async (req, res, next) => {
+    try {
+      const threadId = req.params["id"] ?? "";
+      const count = await db.message.count({ where: { threadId } });
+      if (count === 0) {
+        res.status(404).json({ error: "Thread not found" });
+        return;
+      }
+
+      await db.message.deleteMany({ where: { threadId } });
+      appEventBus.emit("message_deleted", { messageId: threadId });
+
+      res.json({ deleted: true, messagesRemoved: count });
     } catch (error) {
       next(error);
     }

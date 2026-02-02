@@ -775,6 +775,29 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
       // --- Message management tools ---
 
       tool(
+        "delete_thread",
+        "Delete an entire thread and all its messages",
+        {
+          threadId: z.string().describe("Thread ID to delete"),
+        },
+        async (args) => {
+          try {
+            const count = await db.message.count({ where: { threadId: args.threadId } });
+            if (count === 0) return toolText(`Thread not found: ${args.threadId}`);
+
+            await db.message.deleteMany({ where: { threadId: args.threadId } });
+
+            appEventBus.emit("message_deleted", { messageId: args.threadId });
+
+            return toolText(`Thread ${args.threadId} deleted (${count} messages removed).`);
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`delete_thread failed: ${msg}`);
+          }
+        },
+      ),
+
+      tool(
         "mark_message_read",
         "Mark a message as read",
         {

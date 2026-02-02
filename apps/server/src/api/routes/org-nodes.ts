@@ -176,10 +176,11 @@ export function createOrgRouter(): express.Router {
 
         let currentId: string | null = body.parentNodeId;
         while (currentId) {
-          const ancestor = await db.orgNode.findUnique({
-            where: { id: currentId },
-            select: { parentNodeId: true },
-          });
+          const ancestor: { parentNodeId: string | null } | null =
+            await db.orgNode.findUnique({
+              where: { id: currentId },
+              select: { parentNodeId: true },
+            });
           if (!ancestor) break;
           if (ancestor.parentNodeId === node.id) {
             res.status(400).json({ error: "This change would create a cycle in the org hierarchy" });

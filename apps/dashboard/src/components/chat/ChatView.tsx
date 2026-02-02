@@ -148,6 +148,21 @@ export function ChatView() {
     setActiveThread(crypto.randomUUID());
   }, [setActiveThread]);
 
+  const handleDeleteThread = useCallback(
+    async (threadId: string) => {
+      try {
+        await api.delete<unknown>(`/threads/${threadId}`);
+        queryClient.invalidateQueries({ queryKey: ["threads"] });
+        if (threadId === activeThreadId) {
+          setActiveThread(null);
+        }
+      } catch (error) {
+        console.error("[Chat] Failed to delete thread:", error);
+      }
+    },
+    [activeThreadId, setActiveThread, queryClient],
+  );
+
   const handleSummaryReceived = useCallback(
     (threadId: string, summary: string) => {
       // If the summarized thread is the active one, show the summary as a system message
@@ -173,6 +188,7 @@ export function ChatView() {
         activeThreadId={activeThreadId}
         onSelectThread={setActiveThread}
         onNewThread={handleNewThread}
+        onDeleteThread={handleDeleteThread}
         onSummaryReceived={handleSummaryReceived}
       />
       <div className="flex flex-1 flex-col">

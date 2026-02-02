@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileText, Loader2 } from "lucide-react";
+import { FileText, Loader2, Trash2 } from "lucide-react";
 
 import { api } from "../../lib/api-client.js";
 import type { ApiThread } from "@generic-corp/shared";
@@ -9,6 +9,7 @@ interface ThreadListProps {
   activeThreadId: string | null;
   onSelectThread: (threadId: string) => void;
   onNewThread: () => void;
+  onDeleteThread?: (threadId: string) => void;
   onSummaryReceived?: (threadId: string, summary: string) => void;
 }
 
@@ -17,6 +18,7 @@ export function ThreadList({
   activeThreadId,
   onSelectThread,
   onNewThread,
+  onDeleteThread,
   onSummaryReceived,
 }: ThreadListProps) {
   const [loadingSummary, setLoadingSummary] = useState<string | null>(null);
@@ -33,6 +35,13 @@ export function ThreadList({
       console.error("[Chat] Failed to get thread summary:", error);
     } finally {
       setLoadingSummary(null);
+    }
+  };
+
+  const handleDelete = (e: React.MouseEvent, threadId: string) => {
+    e.stopPropagation();
+    if (window.confirm("Delete this thread and all its messages?")) {
+      onDeleteThread?.(threadId);
     }
   };
 
@@ -67,7 +76,7 @@ export function ThreadList({
             >
               <button
                 onClick={() => onSelectThread(thread.threadId)}
-                className="block w-full px-5 py-4 text-left text-sm"
+                className="block w-full px-5 py-4 pr-16 text-left text-sm"
               >
                 <span className={`block truncate font-medium ${isActive ? "text-black" : "text-[#222]"}`}>
                   {thread.agentName}
@@ -75,27 +84,34 @@ export function ThreadList({
                 <span className="block truncate text-xs text-[#999]">{thread.preview}</span>
               </button>
 
-              {/* Summary button */}
-              <button
-                onClick={(e) => handleGetSummary(e, thread.threadId)}
-                disabled={isSummarizing}
-                className={`absolute right-3 top-3 rounded p-1 transition-opacity ${
-                  isSummarizing
-                    ? "opacity-100"
-                    : "opacity-0 group-hover:opacity-100"
-                } ${
-                  isActive
-                    ? "text-[#999] hover:bg-[#EEE] hover:text-[#666]"
-                    : "text-[#CCC] hover:bg-[#F5F5F5] hover:text-[#999]"
-                }`}
-                title="Get thread summary"
-              >
-                {isSummarizing ? (
-                  <Loader2 size={12} className="animate-spin" />
-                ) : (
-                  <FileText size={12} />
-                )}
-              </button>
+              {/* Action buttons */}
+              <div className={`absolute right-2 top-3 flex items-center gap-0.5 transition-opacity ${
+                isSummarizing ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+              }`}>
+                <button
+                  onClick={(e) => handleGetSummary(e, thread.threadId)}
+                  disabled={isSummarizing}
+                  className={`rounded p-1 ${
+                    isActive
+                      ? "text-[#999] hover:bg-[#EEE] hover:text-[#666]"
+                      : "text-[#CCC] hover:bg-[#F5F5F5] hover:text-[#999]"
+                  }`}
+                  title="Get thread summary"
+                >
+                  {isSummarizing ? (
+                    <Loader2 size={12} className="animate-spin" />
+                  ) : (
+                    <FileText size={12} />
+                  )}
+                </button>
+                <button
+                  onClick={(e) => handleDelete(e, thread.threadId)}
+                  className="rounded p-1 text-[#CCC] hover:bg-red-50 hover:text-red-500"
+                  title="Delete thread"
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
             </div>
           );
         })}
