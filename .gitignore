@@ -46,6 +46,9 @@ prisma/generated/
 tmp/
 temp/
 
+# Video output
+video/out/
+
 # Local workspace (agent worktrees, board, docs)
 workspace/
 **/.gc/
