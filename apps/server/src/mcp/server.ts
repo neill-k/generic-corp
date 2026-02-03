@@ -122,18 +122,19 @@ export function createGcMcpServer(deps: McpServerDeps) {
             const caller = await getAgentByIdOrName(agentId);
             if (!caller) return toolText(`Unknown caller agent: ${agentId}`);
 
-            const parentTask = await prisma.task.findUnique({ where: { id: taskId }, select: { id: true } });
-            if (!parentTask) return toolText(`Unknown parent task: ${taskId}`);
-
             const target = await prisma.agent.findUnique({
               where: { name: args.targetAgent },
               select: { id: true, name: true },
             });
             if (!target) return toolText(`Unknown agent: ${args.targetAgent}`);
 
+            // Check if parent task exists in DB; if not (e.g. main agent's
+            // synthetic stream ID), create a root task instead.
+            const parentTask = await prisma.task.findUnique({ where: { id: taskId }, select: { id: true } });
+
             const task = await prisma.task.create({
               data: {
-                parentTaskId: taskId,
+                parentTaskId: parentTask ? taskId : null,
                 assigneeId: target.id,
                 delegatorId: caller.id,
                 prompt: args.prompt,
