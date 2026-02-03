@@ -3,7 +3,7 @@ import express from "express";
 import type { KanbanColumn } from "@generic-corp/shared";
 import { STATUS_TO_COLUMN } from "@generic-corp/shared";
 
-import { db } from "../../db/client.js";
+import { getTenantPrisma } from "../../middleware/tenant-context.js";
 import { enqueueAgentTask } from "../../queue/agent-queues.js";
 import { appEventBus } from "../../services/app-events.js";
 import {
@@ -22,6 +22,7 @@ export function createTaskRouter(): express.Router {
   // --- List tasks with filters ---
   router.get("/tasks", async (req, res, next) => {
     try {
+      const prisma = getTenantPrisma(req);
       const status = req.query["status"] as string | undefined;
       const priority = req.query["priority"] !== undefined
         ? Number(req.query["priority"])
@@ -40,7 +41,7 @@ export function createTaskRouter(): express.Router {
       if (search) where["prompt"] = { contains: search, mode: "insensitive" };
       if (cursor) where["id"] = { lt: cursor };
 
-      const tasks = await db.task.findMany({
+      const tasks = await prisma.task.findMany({
         where,
         include: { assignee: ASSIGNEE_SELECT },
         orderBy: { createdAt: "desc" },
@@ -56,6 +57,7 @@ export function createTaskRouter(): express.Router {
   // --- Kanban board view ---
   router.get("/tasks/board", async (req, res, next) => {
     try {
+      const prisma = getTenantPrisma(req);
       const query = taskBoardQuerySchema.parse(req.query);
 
       const where: Record<string, unknown> = {};
@@ -65,7 +67,7 @@ export function createTaskRouter(): express.Router {
       if (query.status) where["status"] = query.status;
       if (query.department) where["assignee"] = { ...((where["assignee"] as object) ?? {}), department: query.department };
 
-      const tasks = await db.task.findMany({
+      const tasks = await prisma.task.findMany({
         where,
         include: { assignee: ASSIGNEE_SELECT },
         orderBy: { createdAt: "desc" },
@@ -96,16 +98,17 @@ export function createTaskRouter(): express.Router {
   // --- Create task ---
   router.post("/tasks", async (req, res, next) => {
     try {
+      const prisma = getTenantPrisma(req);
       const body = createTaskBodySchema.parse(req.body);
       const assigneeName = body.assignee ?? "marcus";
 
-      const assignee = await db.agent.findUnique({ where: { name: assigneeName }, select: { id: true, name: true } });
+      const assignee = await prisma.agent.findUnique({ where: { name: assigneeName }, select: { id: true, name: true } });
       if (!assignee) {
         res.status(404).json({ error: `Unknown assignee agent: ${assigneeName}` });
         return;
       }
 
-      const task = await db.task.create({
+      const task = await prisma.task.create({
         data: {
           parentTaskId: null,
           assigneeId: assignee.id,
@@ -119,12 +122,13 @@ export function createTaskRouter(): express.Router {
         select: { id: true },
       });
 
-      await enqueueAgentTask({ agentName: assignee.name, taskId: task.id, priority: body.priority ?? 0 });
+      await enqueueAgentTask({ orgSlug: req.tenant?.slug ?? "default", agentName: assignee.name, taskId: task.id, priority: body.priority ?? 0 });
 
       appEventBus.emit("task_created", {
         taskId: task.id,
         assignee: assignee.name,
         delegator: null,
+        orgSlug: req.tenant?.slug ?? "default",
       });
 
       res.status(201).json({ id: task.id });
@@ -136,7 +140,8 @@ export function createTaskRouter(): express.Router {
   // --- Get single task ---
   router.get("/tasks/:id", async (req, res, next) => {
     try {
-      const task = await db.task.findUnique({ where: { id: req.params["id"] ?? "" } });
+      const prisma = getTenantPrisma(req);
+      const task = await prisma.task.findUnique({ where: { id: req.params["id"] ?? "" } });
       if (!task) {
         res.status(404).json({ error: "Not found" });
         return;
@@ -150,7 +155,8 @@ export function createTaskRouter(): express.Router {
   // --- Update task ---
   router.patch("/tasks/:id", async (req, res, next) => {
     try {
-      const task = await db.task.findUnique({ where: { id: req.params["id"] ?? "" } });
+      const prisma = getTenantPrisma(req);
+      const task = await prisma.task.findUnique({ where: { id: req.params["id"] ?? "" } });
       if (!task) {
         res.status(404).json({ error: "Task not found" });
         return;
@@ -161,11 +167,11 @@ export function createTaskRouter(): express.Router {
       if (body.context !== undefined) data["context"] = body.context;
       if (body.status !== undefined) data["status"] = body.status;
       if (body.tags !== undefined) data["tags"] = body.tags;
-      const updated = await db.task.update({ where: { id: task.id }, data });
+      const updated = await prisma.task.update({ where: { id: task.id }, data });
       if (body.status) {
-        appEventBus.emit("task_status_changed", { taskId: task.id, status: body.status });
+        appEventBus.emit("task_status_changed", { taskId: task.id, status: body.status, orgSlug: req.tenant?.slug ?? "default" });
       }
-      appEventBus.emit("task_updated", { taskId: task.id });
+      appEventBus.emit("task_updated", { taskId: task.id, orgSlug: req.tenant?.slug ?? "default" });
       res.json({ task: updated });
     } catch (error) {
       next(error);
@@ -175,13 +181,14 @@ export function createTaskRouter(): express.Router {
   // --- Delete task ---
   router.delete("/tasks/:id", async (req, res, next) => {
     try {
-      const task = await db.task.findUnique({ where: { id: req.params["id"] ?? "" } });
+      const prisma = getTenantPrisma(req);
+      const task = await prisma.task.findUnique({ where: { id: req.params["id"] ?? "" } });
       if (!task) {
         res.status(404).json({ error: "Task not found" });
         return;
       }
-      await db.task.delete({ where: { id: task.id } });
-      appEventBus.emit("task_status_changed", { taskId: task.id, status: "deleted" });
+      await prisma.task.delete({ where: { id: task.id } });
+      appEventBus.emit("task_status_changed", { taskId: task.id, status: "deleted", orgSlug: req.tenant?.slug ?? "default" });
       res.json({ deleted: true });
     } catch (error) {
       next(error);

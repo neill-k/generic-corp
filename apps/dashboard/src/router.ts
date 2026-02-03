@@ -20,6 +20,7 @@ import { SettingsSkillsPage } from "./routes/settings.skills.js";
 import { SettingsBillingPage } from "./routes/settings.billing.js";
 import { SettingsSecurityPage } from "./routes/settings.security.js";
 import { SettingsNotificationsPage } from "./routes/settings.notifications.js";
+import { SettingsOrganizationPage } from "./routes/settings.organization.js";
 
 const rootRoute = createRootRoute({
   component: RootLayout,
@@ -116,6 +117,12 @@ const settingsNotificationsRoute = createRoute({
   component: SettingsNotificationsPage,
 });
 
+const settingsOrganizationRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: "/organization",
+  component: SettingsOrganizationPage,
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   chatRoute,
@@ -126,6 +133,7 @@ const routeTree = rootRoute.addChildren([
   pluginRoute,
   settingsRoute.addChildren([
     settingsIndexRoute,
+    settingsOrganizationRoute,
     settingsAgentsRoute,
     settingsMcpServersRoute,
     settingsSkillsRoute,

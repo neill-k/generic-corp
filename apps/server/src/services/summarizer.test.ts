@@ -5,25 +5,16 @@ import os from "node:os";
 
 import { runSummarizerOnce, startSummarizer, stopSummarizer } from "./summarizer.js";
 
-vi.mock("../db/client.js", () => {
-  const mockDb = {
-    task: {
-      findMany: vi.fn(),
-    },
-    agent: {
-      findMany: vi.fn(),
-    },
-  };
-  return { db: mockDb };
-});
-
-import { db } from "../db/client.js";
 import type { AgentRuntime, AgentInvocation, AgentEvent } from "./agent-lifecycle.js";
 import type { BoardService } from "./board-service.js";
 
-const mockDb = db as unknown as {
-  task: { findMany: ReturnType<typeof vi.fn> };
-  agent: { findMany: ReturnType<typeof vi.fn> };
+const mockPrisma = {
+  task: {
+    findMany: vi.fn(),
+  },
+  agent: {
+    findMany: vi.fn(),
+  },
 };
 
 function createMockRuntime(output: string): AgentRuntime {
@@ -51,10 +42,10 @@ describe("summarizer", () => {
   });
 
   it("generates org-wide digest from board items and completed tasks", async () => {
-    mockDb.task.findMany.mockResolvedValue([
+    mockPrisma.task.findMany.mockResolvedValue([
       { id: "t1", prompt: "Build feature", status: "completed", result: "Feature built", assignee: { name: "noah", department: "Engineering" } },
     ]);
-    mockDb.agent.findMany.mockResolvedValue([
+    mockPrisma.agent.findMany.mockResolvedValue([
       { name: "noah", department: "Engineering" },
       { name: "viv", department: "Product" },
     ]);
@@ -64,7 +55,7 @@ describe("summarizer", () => {
       { author: "marcus", type: "status_update", summary: "Q1 on track", timestamp: new Date().toISOString(), path: "/ws/board/status.md" },
     ]);
 
-    await runSummarizerOnce(runtime, boardService, workspaceRoot);
+    await runSummarizerOnce(mockPrisma as never, runtime, boardService, workspaceRoot);
 
     const digestPath = path.join(workspaceRoot, "docs", "digests", "org-wide.md");
     const content = await readFile(digestPath, "utf8");
@@ -78,10 +69,10 @@ describe("summarizer", () => {
     const runtime = createMockRuntime("digest");
     const boardService = createMockBoardService([]);
 
-    mockDb.task.findMany.mockResolvedValue([]);
-    mockDb.agent.findMany.mockResolvedValue([]);
+    mockPrisma.task.findMany.mockResolvedValue([]);
+    mockPrisma.agent.findMany.mockResolvedValue([]);
 
-    startSummarizer(runtime, boardService, workspaceRoot);
+    startSummarizer(mockPrisma as never, runtime, boardService, workspaceRoot);
     stopSummarizer();
 
     vi.useRealTimers();

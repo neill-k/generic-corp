@@ -21,6 +21,12 @@ export default tseslint.config(
     },
     rules: {
       "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+      "no-restricted-imports": ["warn", {
+        "patterns": [{
+          "group": ["**/db/client"],
+          "message": "Use dependency-injected prisma client instead of global db"
+        }]
+      }],
     },
   }
 );

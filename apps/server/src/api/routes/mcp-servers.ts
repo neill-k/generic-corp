@@ -1,6 +1,6 @@
 import express from "express";
 
-import { db } from "../../db/client.js";
+import { getTenantPrisma } from "../../middleware/tenant-context.js";
 import { appEventBus } from "../../services/app-events.js";
 import { validateMcpUri } from "../../services/mcp-health.js";
 import {
@@ -12,9 +12,10 @@ export function createMcpServerRouter(): express.Router {
   const router = express.Router();
 
   // List all MCP servers
-  router.get("/mcp-servers", async (_req, res, next) => {
+  router.get("/mcp-servers", async (req, res, next) => {
     try {
-      const servers = await db.mcpServerConfig.findMany({
+      const prisma = getTenantPrisma(req);
+      const servers = await prisma.mcpServerConfig.findMany({
         orderBy: { name: "asc" },
       });
       res.json({ servers });
@@ -26,6 +27,7 @@ export function createMcpServerRouter(): express.Router {
   // Create MCP server
   router.post("/mcp-servers", async (req, res, next) => {
     try {
+      const prisma = getTenantPrisma(req);
       const body = createMcpServerSchema.parse(req.body);
 
       // SSRF validation for non-stdio protocols
@@ -35,7 +37,7 @@ export function createMcpServerRouter(): express.Router {
         return;
       }
 
-      const server = await db.mcpServerConfig.create({
+      const server = await prisma.mcpServerConfig.create({
         data: {
           name: body.name,
           protocol: body.protocol,
@@ -45,7 +47,7 @@ export function createMcpServerRouter(): express.Router {
         },
       });
 
-      appEventBus.emit("mcp_server_created", { mcpServerId: server.id });
+      appEventBus.emit("mcp_server_created", { mcpServerId: server.id, orgSlug: req.tenant?.slug ?? "default" });
       res.status(201).json({ server });
     } catch (error) {
       next(error);
@@ -55,7 +57,8 @@ export function createMcpServerRouter(): express.Router {
   // Update MCP server
   router.patch("/mcp-servers/:id", async (req, res, next) => {
     try {
-      const server = await db.mcpServerConfig.findUnique({
+      const prisma = getTenantPrisma(req);
+      const server = await prisma.mcpServerConfig.findUnique({
         where: { id: req.params["id"] ?? "" },
       });
       if (!server) {
@@ -75,12 +78,12 @@ export function createMcpServerRouter(): express.Router {
         }
       }
 
-      const updated = await db.mcpServerConfig.update({
+      const updated = await prisma.mcpServerConfig.update({
         where: { id: server.id },
         data: body,
       });
 
-      appEventBus.emit("mcp_server_updated", { mcpServerId: server.id });
+      appEventBus.emit("mcp_server_updated", { mcpServerId: server.id, orgSlug: req.tenant?.slug ?? "default" });
       res.json({ server: updated });
     } catch (error) {
       next(error);
@@ -90,7 +93,8 @@ export function createMcpServerRouter(): express.Router {
   // Delete MCP server
   router.delete("/mcp-servers/:id", async (req, res, next) => {
     try {
-      const server = await db.mcpServerConfig.findUnique({
+      const prisma = getTenantPrisma(req);
+      const server = await prisma.mcpServerConfig.findUnique({
         where: { id: req.params["id"] ?? "" },
       });
       if (!server) {
@@ -98,8 +102,8 @@ export function createMcpServerRouter(): express.Router {
         return;
       }
 
-      await db.mcpServerConfig.delete({ where: { id: server.id } });
-      appEventBus.emit("mcp_server_deleted", { mcpServerId: server.id });
+      await prisma.mcpServerConfig.delete({ where: { id: server.id } });
+      appEventBus.emit("mcp_server_deleted", { mcpServerId: server.id, orgSlug: req.tenant?.slug ?? "default" });
       res.json({ deleted: true });
     } catch (error) {
       next(error);
@@ -109,7 +113,8 @@ export function createMcpServerRouter(): express.Router {
   // Ping / manual health check
   router.post("/mcp-servers/:id/ping", async (req, res, next) => {
     try {
-      const server = await db.mcpServerConfig.findUnique({
+      const prisma = getTenantPrisma(req);
+      const server = await prisma.mcpServerConfig.findUnique({
         where: { id: req.params["id"] ?? "" },
       });
       if (!server) {
@@ -117,7 +122,7 @@ export function createMcpServerRouter(): express.Router {
         return;
       }
 
-      const updated = await db.mcpServerConfig.update({
+      const updated = await prisma.mcpServerConfig.update({
         where: { id: server.id },
         data: {
           lastPingAt: new Date(),
@@ -130,6 +135,7 @@ export function createMcpServerRouter(): express.Router {
       appEventBus.emit("mcp_server_status_changed", {
         mcpServerId: server.id,
         status: "connected",
+        orgSlug: req.tenant?.slug ?? "default",
       });
       res.json({ server: updated });
     } catch (error) {

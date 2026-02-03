@@ -1,6 +1,6 @@
 import express from "express";
 
-import { db } from "../../db/client.js";
+import { getTenantPrisma } from "../../middleware/tenant-context.js";
 import { appEventBus } from "../../services/app-events.js";
 import {
   createOrgNodeBodySchema,
@@ -11,9 +11,10 @@ import {
 export function createOrgRouter(): express.Router {
   const router = express.Router();
 
-  router.get("/org", async (_req, res, next) => {
+  router.get("/org", async (req, res, next) => {
     try {
-      const nodes = await db.orgNode.findMany({
+      const prisma = getTenantPrisma(req);
+      const nodes = await prisma.orgNode.findMany({
         orderBy: { position: "asc" },
         include: {
           agent: {
@@ -105,9 +106,10 @@ export function createOrgRouter(): express.Router {
     }
   });
 
-  router.get("/org/nodes", async (_req, res, next) => {
+  router.get("/org/nodes", async (req, res, next) => {
     try {
-      const nodes = await db.orgNode.findMany({
+      const prisma = getTenantPrisma(req);
+      const nodes = await prisma.orgNode.findMany({
         orderBy: { position: "asc" },
         select: {
           id: true,
@@ -127,15 +129,16 @@ export function createOrgRouter(): express.Router {
 
   router.post("/org/nodes", async (req, res, next) => {
     try {
+      const prisma = getTenantPrisma(req);
       const body = createOrgNodeBodySchema.parse(req.body);
       if (body.parentNodeId) {
-        const parent = await db.orgNode.findUnique({ where: { id: body.parentNodeId } });
+        const parent = await prisma.orgNode.findUnique({ where: { id: body.parentNodeId } });
         if (!parent) {
           res.status(400).json({ error: "Parent OrgNode not found" });
           return;
         }
       }
-      const node = await db.orgNode.create({
+      const node = await prisma.orgNode.create({
         data: {
           agentId: body.agentId,
           parentNodeId: body.parentNodeId ?? null,
@@ -144,7 +147,7 @@ export function createOrgRouter(): express.Router {
           positionY: body.positionY ?? 0,
         },
       });
-      appEventBus.emit("org_changed", {});
+      appEventBus.emit("org_changed", { orgSlug: req.tenant?.slug ?? "default" });
       res.status(201).json({ node });
     } catch (error) {
       next(error);
@@ -153,7 +156,8 @@ export function createOrgRouter(): express.Router {
 
   router.patch("/org/nodes/:id", async (req, res, next) => {
     try {
-      const node = await db.orgNode.findUnique({ where: { id: req.params["id"] ?? "" } });
+      const prisma = getTenantPrisma(req);
+      const node = await prisma.orgNode.findUnique({ where: { id: req.params["id"] ?? "" } });
       if (!node) {
         res.status(404).json({ error: "OrgNode not found" });
         return;
@@ -162,7 +166,7 @@ export function createOrgRouter(): express.Router {
 
       // Validate parent exists if changing parentNodeId
       if (body.parentNodeId) {
-        const parent = await db.orgNode.findUnique({ where: { id: body.parentNodeId } });
+        const parent = await prisma.orgNode.findUnique({ where: { id: body.parentNodeId } });
         if (!parent) {
           res.status(400).json({ error: "Parent OrgNode not found" });
           return;
@@ -177,7 +181,7 @@ export function createOrgRouter(): express.Router {
         let currentId: string | null = body.parentNodeId;
         while (currentId) {
           const ancestor: { parentNodeId: string | null } | null =
-            await db.orgNode.findUnique({
+            await prisma.orgNode.findUnique({
               where: { id: currentId },
               select: { parentNodeId: true },
             });
@@ -195,8 +199,8 @@ export function createOrgRouter(): express.Router {
       if (body.position !== undefined) data["position"] = body.position;
       if (body.positionX !== undefined) data["positionX"] = body.positionX;
       if (body.positionY !== undefined) data["positionY"] = body.positionY;
-      const updated = await db.orgNode.update({ where: { id: node.id }, data });
-      appEventBus.emit("org_changed", {});
+      const updated = await prisma.orgNode.update({ where: { id: node.id }, data });
+      appEventBus.emit("org_changed", { orgSlug: req.tenant?.slug ?? "default" });
       res.json({ node: updated });
     } catch (error) {
       next(error);
@@ -205,18 +209,19 @@ export function createOrgRouter(): express.Router {
 
   router.put("/org/nodes/positions", async (req, res, next) => {
     try {
+      const prisma = getTenantPrisma(req);
       const body = batchUpdatePositionsBodySchema.parse(req.body);
 
-      await db.$transaction(
+      await prisma.$transaction(
         body.positions.map((p) =>
-          db.orgNode.update({
+          prisma.orgNode.update({
             where: { id: p.nodeId },
             data: { positionX: p.positionX, positionY: p.positionY },
           }),
         ),
       );
 
-      appEventBus.emit("org_changed", {});
+      appEventBus.emit("org_changed", { orgSlug: req.tenant?.slug ?? "default" });
       res.json({ updated: body.positions.length });
     } catch (error) {
       next(error);
@@ -225,20 +230,21 @@ export function createOrgRouter(): express.Router {
 
   router.delete("/org/nodes/:id", async (req, res, next) => {
     try {
-      const node = await db.orgNode.findUnique({ where: { id: req.params["id"] ?? "" } });
+      const prisma = getTenantPrisma(req);
+      const node = await prisma.orgNode.findUnique({ where: { id: req.params["id"] ?? "" } });
       if (!node) {
         res.status(404).json({ error: "OrgNode not found" });
         return;
       }
 
       // Re-parent children to deleted node's parent
-      await db.orgNode.updateMany({
+      await prisma.orgNode.updateMany({
         where: { parentNodeId: node.id },
         data: { parentNodeId: node.parentNodeId },
       });
 
-      await db.orgNode.delete({ where: { id: node.id } });
-      appEventBus.emit("org_changed", {});
+      await prisma.orgNode.delete({ where: { id: node.id } });
+      appEventBus.emit("org_changed", { orgSlug: req.tenant?.slug ?? "default" });
       res.json({ deleted: true });
     } catch (error) {
       next(error);

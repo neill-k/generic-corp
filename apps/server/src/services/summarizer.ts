@@ -1,7 +1,8 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { db } from "../db/client.js";
+import type { PrismaClient } from "@prisma/client";
+
 import type { AgentRuntime } from "./agent-lifecycle.js";
 import type { BoardService } from "./board-service.js";
 
@@ -11,6 +12,7 @@ let intervalId: ReturnType<typeof setInterval> | null = null;
 let lastRunAt: Date | null = null;
 
 export async function runSummarizerOnce(
+  prisma: PrismaClient,
   runtime: AgentRuntime,
   boardService: BoardService,
   workspaceRoot: string,
@@ -22,7 +24,7 @@ export async function runSummarizerOnce(
   const boardItems = await boardService.listBoardItems({ since });
 
   // Gather completed tasks since last run
-  const completedTasks = await db.task.findMany({
+  const completedTasks = await prisma.task.findMany({
     where: {
       status: "completed",
       ...(since ? { completedAt: { gte: new Date(since) } } : {}),
@@ -39,7 +41,7 @@ export async function runSummarizerOnce(
   });
 
   // Get departments for team digests
-  const agents = await db.agent.findMany({
+  const agents = await prisma.agent.findMany({
     select: { name: true, department: true },
   });
   const departments = [...new Set(agents.map((a) => a.department))];
@@ -125,13 +127,14 @@ Write a short markdown team digest. Be concise.`;
 }
 
 export function startSummarizer(
+  prisma: PrismaClient,
   runtime: AgentRuntime,
   boardService: BoardService,
   workspaceRoot: string,
 ): void {
   if (intervalId) return;
   intervalId = setInterval(() => {
-    void runSummarizerOnce(runtime, boardService, workspaceRoot).catch((error) => {
+    void runSummarizerOnce(prisma, runtime, boardService, workspaceRoot).catch((error) => {
       console.error("[Summarizer] run failed:", error);
     });
   }, INTERVAL_MS);

@@ -48,9 +48,10 @@ describe("createWebSocketHub", () => {
       agentId: "marcus",
       taskId: "t1",
       event: { type: "message", content: "hello" },
+      orgSlug: "default",
     });
 
-    expect(toSpy).toHaveBeenCalledWith("agent:marcus");
+    expect(toSpy).toHaveBeenCalledWith("org:default:agent:marcus");
 
     hub.stop();
   });
@@ -61,9 +62,9 @@ describe("createWebSocketHub", () => {
     const emitFn = vi.fn();
     (io as unknown as Record<string, unknown>)["to"] = vi.fn().mockReturnValue({ emit: emitFn });
 
-    bus.emit("agent_status_changed", { agentId: "sable", status: "running" });
+    bus.emit("agent_status_changed", { agentId: "sable", status: "running", orgSlug: "default" });
 
-    expect(emitFn).toHaveBeenCalledWith("agent_status_changed", { agentId: "sable", status: "running" });
+    expect(emitFn).toHaveBeenCalledWith("agent_status_changed", { agentId: "sable", status: "running", orgSlug: "default" });
 
     hub.stop();
   });
@@ -74,9 +75,9 @@ describe("createWebSocketHub", () => {
     const emitFn = vi.fn();
     (io as unknown as Record<string, unknown>)["to"] = vi.fn().mockReturnValue({ emit: emitFn });
 
-    bus.emit("task_status_changed", { taskId: "t1", status: "completed" });
+    bus.emit("task_status_changed", { taskId: "t1", status: "completed", orgSlug: "default" });
 
-    expect(emitFn).toHaveBeenCalledWith("task_status_changed", { taskId: "t1", status: "completed" });
+    expect(emitFn).toHaveBeenCalledWith("task_status_changed", { taskId: "t1", status: "completed", orgSlug: "default" });
 
     hub.stop();
   });
@@ -87,9 +88,9 @@ describe("createWebSocketHub", () => {
     const emitFn = vi.fn();
     (io as unknown as Record<string, unknown>)["to"] = vi.fn().mockReturnValue({ emit: emitFn });
 
-    bus.emit("thread_deleted", { threadId: "t1", messagesRemoved: 2 });
+    bus.emit("thread_deleted", { threadId: "t1", messagesRemoved: 2, orgSlug: "default" });
 
-    expect(emitFn).toHaveBeenCalledWith("thread_deleted", { threadId: "t1", messagesRemoved: 2 });
+    expect(emitFn).toHaveBeenCalledWith("thread_deleted", { threadId: "t1", messagesRemoved: 2, orgSlug: "default" });
 
     hub.stop();
   });
@@ -105,6 +106,7 @@ describe("createWebSocketHub", () => {
       agentId: "marcus",
       taskId: "t1",
       event: { type: "message", content: "hello" },
+      orgSlug: "default",
     });
 
     expect(emitFn).not.toHaveBeenCalled();

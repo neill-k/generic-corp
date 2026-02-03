@@ -1,4 +1,5 @@
-import { db } from "../db/client.js";
+import type { PrismaClient } from "@prisma/client";
+
 import { appEventBus } from "./app-events.js";
 
 function getStuckTimeoutMs(): number {
@@ -21,8 +22,8 @@ function getCheckIntervalMs(): number {
 
 let intervalId: ReturnType<typeof setInterval> | null = null;
 
-export async function checkStuckAgents(timeoutMs: number = getStuckTimeoutMs()): Promise<number> {
-  const runningAgents = await db.agent.findMany({
+export async function checkStuckAgents(prisma: PrismaClient, timeoutMs: number = getStuckTimeoutMs(), orgSlug: string = "default"): Promise<number> {
+  const runningAgents = await prisma.agent.findMany({
     where: { status: "running" },
     select: { id: true, name: true, currentTaskId: true, updatedAt: true },
   });
@@ -38,12 +39,12 @@ export async function checkStuckAgents(timeoutMs: number = getStuckTimeoutMs()):
 
     console.error(`[ErrorRecovery] Agent ${agent.name} stuck for >${Math.round(timeoutMs / 60_000)}min, resetting`);
 
-    await db.agent.update({
+    await prisma.agent.update({
       where: { id: agent.id },
       data: { status: "idle", currentTaskId: null },
     });
 
-    await db.task.update({
+    await prisma.task.update({
       where: { id: agent.currentTaskId },
       data: {
         status: "failed",
@@ -51,8 +52,8 @@ export async function checkStuckAgents(timeoutMs: number = getStuckTimeoutMs()):
       },
     });
 
-    appEventBus.emit("agent_status_changed", { agentId: agent.name, status: "idle" });
-    appEventBus.emit("task_status_changed", { taskId: agent.currentTaskId, status: "failed" });
+    appEventBus.emit("agent_status_changed", { agentId: agent.name, status: "idle", orgSlug });
+    appEventBus.emit("task_status_changed", { taskId: agent.currentTaskId, status: "failed", orgSlug });
 
     resetCount++;
   }
@@ -60,11 +61,11 @@ export async function checkStuckAgents(timeoutMs: number = getStuckTimeoutMs()):
   return resetCount;
 }
 
-export function startStuckAgentChecker(): void {
+export function startStuckAgentChecker(prisma: PrismaClient): void {
   if (intervalId) return;
   const intervalMs = getCheckIntervalMs();
   intervalId = setInterval(() => {
-    checkStuckAgents().catch((err) => {
+    checkStuckAgents(prisma).catch((err) => {
       console.error("[ErrorRecovery] stuck agent check failed:", err);
     });
   }, intervalMs);

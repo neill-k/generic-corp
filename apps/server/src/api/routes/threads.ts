@@ -1,6 +1,6 @@
 import express from "express";
 
-import { db } from "../../db/client.js";
+import { getTenantPrisma } from "../../middleware/tenant-context.js";
 import type { AgentRuntime } from "../../services/agent-lifecycle.js";
 import { appEventBus } from "../../services/app-events.js";
 import { generateThreadSummary } from "../../services/chat-continuity.js";
@@ -12,10 +12,11 @@ export interface ThreadRouterDeps {
 export function createThreadRouter(deps: ThreadRouterDeps): express.Router {
   const router = express.Router();
 
-  router.get("/threads", async (_req, res, next) => {
+  router.get("/threads", async (req, res, next) => {
     try {
+      const prisma = getTenantPrisma(req);
       // Get the latest message per thread using distinct + orderBy
-      const latestMessages = await db.message.findMany({
+      const latestMessages = await prisma.message.findMany({
         where: { threadId: { not: null }, type: "chat" },
         orderBy: { createdAt: "desc" },
         distinct: ["threadId"],
@@ -44,6 +45,7 @@ export function createThreadRouter(deps: ThreadRouterDeps): express.Router {
 
   router.get("/threads/:id/summary", async (req, res, next) => {
     try {
+      const prisma = getTenantPrisma(req);
       if (!deps.runtime) {
         res.status(503).json({ error: "Runtime not available" });
         return;
@@ -56,6 +58,7 @@ export function createThreadRouter(deps: ThreadRouterDeps): express.Router {
       }
 
       const summary = await generateThreadSummary({
+        prisma,
         threadId: req.params["id"] ?? "",
         since,
         runtime: deps.runtime,
@@ -69,9 +72,10 @@ export function createThreadRouter(deps: ThreadRouterDeps): express.Router {
 
   router.delete("/threads/:id", async (req, res, next) => {
     try {
+      const prisma = getTenantPrisma(req);
       const threadId = req.params["id"] ?? "";
 
-      const hasAnyMessages = await db.message.findFirst({
+      const hasAnyMessages = await prisma.message.findFirst({
         where: { threadId },
         select: { id: true },
       });
@@ -80,7 +84,7 @@ export function createThreadRouter(deps: ThreadRouterDeps): express.Router {
         return;
       }
 
-      const hasHumanMessages = await db.message.findFirst({
+      const hasHumanMessages = await prisma.message.findFirst({
         where: { threadId, fromAgentId: null },
         select: { id: true },
       });
@@ -89,8 +93,8 @@ export function createThreadRouter(deps: ThreadRouterDeps): express.Router {
         return;
       }
 
-      const result = await db.message.deleteMany({ where: { threadId } });
-      appEventBus.emit("thread_deleted", { threadId, messagesRemoved: result.count });
+      const result = await prisma.message.deleteMany({ where: { threadId } });
+      appEventBus.emit("thread_deleted", { threadId, messagesRemoved: result.count, orgSlug: req.tenant?.slug ?? "default" });
 
       res.json({ deleted: true, messagesRemoved: result.count });
     } catch (error) {

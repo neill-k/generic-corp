@@ -5,23 +5,13 @@ import os from "node:os";
 
 import { handleChildCompletion } from "./delegation-flow.js";
 
-vi.mock("../db/client.js", () => {
-  const mockDb = {
-    task: {
-      findUnique: vi.fn(),
-    },
-    agent: {
-      findUnique: vi.fn(),
-    },
-  };
-  return { db: mockDb };
-});
-
-import { db } from "../db/client.js";
-
-const mockDb = db as unknown as {
-  task: { findUnique: ReturnType<typeof vi.fn> };
-  agent: { findUnique: ReturnType<typeof vi.fn> };
+const mockPrisma = {
+  task: {
+    findUnique: vi.fn(),
+  },
+  agent: {
+    findUnique: vi.fn(),
+  },
 };
 
 describe("handleChildCompletion", () => {
@@ -42,17 +32,17 @@ describe("handleChildCompletion", () => {
       status: "completed",
     };
 
-    mockDb.task.findUnique.mockResolvedValue({
+    mockPrisma.task.findUnique.mockResolvedValue({
       id: "parent-1",
       assigneeId: "agent-parent",
     });
 
-    mockDb.agent.findUnique.mockResolvedValue({
+    mockPrisma.agent.findUnique.mockResolvedValue({
       id: "agent-parent",
       name: "marcus",
     });
 
-    await handleChildCompletion(childTask as never, workspaceRoot);
+    await handleChildCompletion(mockPrisma as never, childTask as never, workspaceRoot);
 
     // Check that result file was written
     const resultsDir = path.join(workspaceRoot, "marcus", ".gc", "results");
@@ -74,9 +64,9 @@ describe("handleChildCompletion", () => {
       status: "completed",
     };
 
-    await handleChildCompletion(childTask as never, workspaceRoot);
+    await handleChildCompletion(mockPrisma as never, childTask as never, workspaceRoot);
 
-    expect(mockDb.task.findUnique).not.toHaveBeenCalled();
+    expect(mockPrisma.task.findUnique).not.toHaveBeenCalled();
   });
 
   it("does nothing when parent task is not found", async () => {
@@ -88,8 +78,8 @@ describe("handleChildCompletion", () => {
       status: "completed",
     };
 
-    mockDb.task.findUnique.mockResolvedValue(null);
+    mockPrisma.task.findUnique.mockResolvedValue(null);
 
-    await handleChildCompletion(childTask as never, workspaceRoot);
+    await handleChildCompletion(mockPrisma as never, childTask as never, workspaceRoot);
   });
 });

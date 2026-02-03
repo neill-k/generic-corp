@@ -2,7 +2,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import express from "express";
 import request from "supertest";
 
-vi.mock("../../db/client.js", () => {
+const { mockDb } = vi.hoisted(() => {
   const mockDb = {
     mcpServerConfig: {
       findMany: vi.fn(),
@@ -12,8 +12,20 @@ vi.mock("../../db/client.js", () => {
       delete: vi.fn(),
     },
   };
-  return { db: mockDb };
+  return { mockDb };
 });
+
+vi.mock("../../middleware/tenant-context.js", () => ({
+  getTenantPrisma: () => mockDb,
+}));
+
+vi.mock("../../lib/prisma-tenant.js", () => ({
+  getPrismaForTenant: vi.fn(async () => mockDb),
+  getPublicPrisma: vi.fn(() => mockDb),
+  clearTenantCache: vi.fn(async () => {}),
+  disconnectAll: vi.fn(async () => {}),
+  getTenantCacheStats: vi.fn(() => ({ totalCached: 0, maxSize: 20 })),
+}));
 
 vi.mock("../../services/app-events.js", () => ({
   appEventBus: {
@@ -21,19 +33,8 @@ vi.mock("../../services/app-events.js", () => ({
   },
 }));
 
-import { db } from "../../db/client.js";
 import { appEventBus } from "../../services/app-events.js";
 import { createMcpServerRouter } from "./mcp-servers.js";
-
-const mockDb = db as unknown as {
-  mcpServerConfig: {
-    findMany: ReturnType<typeof vi.fn>;
-    findUnique: ReturnType<typeof vi.fn>;
-    create: ReturnType<typeof vi.fn>;
-    update: ReturnType<typeof vi.fn>;
-    delete: ReturnType<typeof vi.fn>;
-  };
-};
 
 const mockEmit = appEventBus.emit as ReturnType<typeof vi.fn>;
 
@@ -118,6 +119,7 @@ describe("mcp-servers routes", () => {
       });
       expect(mockEmit).toHaveBeenCalledWith("mcp_server_created", {
         mcpServerId: "mcp-1",
+        orgSlug: "default",
       });
     });
 
@@ -291,6 +293,7 @@ describe("mcp-servers routes", () => {
       });
       expect(mockEmit).toHaveBeenCalledWith("mcp_server_updated", {
         mcpServerId: "mcp-1",
+        orgSlug: "default",
       });
     });
 
@@ -359,6 +362,7 @@ describe("mcp-servers routes", () => {
       });
       expect(mockEmit).toHaveBeenCalledWith("mcp_server_deleted", {
         mcpServerId: "mcp-1",
+        orgSlug: "default",
       });
     });
 
@@ -401,6 +405,7 @@ describe("mcp-servers routes", () => {
       expect(mockEmit).toHaveBeenCalledWith("mcp_server_status_changed", {
         mcpServerId: "mcp-1",
         status: "connected",
+        orgSlug: "default",
       });
     });
 
