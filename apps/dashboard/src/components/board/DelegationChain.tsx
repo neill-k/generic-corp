@@ -45,13 +45,16 @@ export function DelegationChain({ parentTaskId }: DelegationChainProps) {
 
       try {
         while (currentParentId) {
-          const task = await api.get<{
-            id: string;
-            prompt: string;
-            status: string;
-            parentTaskId?: string | null;
-            assignee?: { name: string; displayName?: string } | null;
+          const response = await api.get<{
+            task: {
+              id: string;
+              prompt: string;
+              status: string;
+              parentTaskId?: string | null;
+              assignee?: { name: string; displayName?: string } | null;
+            };
           }>(`/tasks/${currentParentId}`);
+          const task = response.task;
 
           if (cancelled) return;
 
