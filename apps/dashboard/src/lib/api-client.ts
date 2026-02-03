@@ -1,9 +1,29 @@
+import { useOrgStore } from "../store/org-store";
+
 const API_BASE = "/api";
 
+/** Routes that do not require the X-Organization-Slug header. */
+const PUBLIC_PREFIXES = ["/organizations", "/health"];
+
+function isPublicRoute(path: string): boolean {
+  return PUBLIC_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
+}
+
+function getOrgHeaders(): Record<string, string> {
+  const slug = useOrgStore.getState().currentOrg?.slug;
+  return slug ? { "X-Organization-Slug": slug } : {};
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const orgHeaders = isPublicRoute(path) ? {} : getOrgHeaders();
+
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
     ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...orgHeaders,
+      ...options?.headers,
+    },
   });
 
   if (!res.ok) {

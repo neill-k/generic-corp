@@ -17,7 +17,11 @@ export interface ApiRouterDeps {
   runtime?: AgentRuntime;
 }
 
-export function createApiRouter(deps: ApiRouterDeps = {}): express.Router {
+/**
+ * Creates the tenant-scoped API router.
+ * All routes here expect tenant context to already be set by tenantContext middleware.
+ */
+export function createTenantApiRouter(deps: ApiRouterDeps = {}): express.Router {
   const router = express.Router();
 
   router.use("/", createAgentRouter());

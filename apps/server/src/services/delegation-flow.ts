@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { db } from "../db/client.js";
+import type { PrismaClient } from "@prisma/client";
 
 interface CompletedChildTask {
   id: string;
@@ -12,12 +12,13 @@ interface CompletedChildTask {
 }
 
 export async function handleChildCompletion(
+  prisma: PrismaClient,
   childTask: CompletedChildTask,
   workspaceRoot: string,
 ): Promise<void> {
   if (!childTask.parentTaskId) return;
 
-  const parentTask = await db.task.findUnique({
+  const parentTask = await prisma.task.findUnique({
     where: { id: childTask.parentTaskId },
     select: { id: true, assigneeId: true },
   });
@@ -27,7 +28,7 @@ export async function handleChildCompletion(
     return;
   }
 
-  const parentAgent = await db.agent.findUnique({
+  const parentAgent = await prisma.agent.findUnique({
     where: { id: parentTask.assigneeId ?? "" },
     select: { id: true, name: true },
   });

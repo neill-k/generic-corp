@@ -1,13 +1,14 @@
 import { createSdkMcpServer, tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 
+import type { PrismaClient } from "@prisma/client";
 import crypto from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { db } from "../db/client.js";
-
 import { enqueueAgentTask } from "../queue/agent-queues.js";
+import { getPublicPrisma, getPrismaForTenant, clearTenantCache } from "../lib/prisma-tenant.js";
+import { provisionOrgSchema, dropOrgSchema } from "../lib/schema-provisioner.js";
 
 import type { AgentRuntime } from "../services/agent-lifecycle.js";
 import { appEventBus } from "../services/app-events.js";
@@ -21,48 +22,12 @@ function toolText(text: string): ToolTextResult {
   return { content: [{ type: "text", text }] };
 }
 
-async function getAgentByIdOrName(agentIdOrName: string) {
-  const byId = await db.agent.findUnique({ where: { id: agentIdOrName } });
-  if (byId) return byId;
-  return db.agent.findUnique({ where: { name: agentIdOrName } });
-}
-
-async function getDirectReportsFor(agentDbId: string) {
-  const myNode = await db.orgNode.findUnique({
-    where: { agentId: agentDbId },
-    select: { id: true },
-  });
-
-  if (!myNode) return [];
-
-  const children = await db.orgNode.findMany({
-    where: { parentNodeId: myNode.id },
-    select: {
-      agent: {
-        select: {
-          id: true,
-          name: true,
-          displayName: true,
-          role: true,
-          department: true,
-          status: true,
-          currentTaskId: true,
-        },
-      },
-    },
-  });
-
-  type Report = {
-    id: string;
-    name: string;
-    displayName: string;
-    role: string;
-    department: string;
-    status: string;
-    currentTaskId: string | null;
-  };
-
-  return (children as Array<{ agent: Report }>).map((child) => child.agent);
+export interface McpServerDeps {
+  prisma: PrismaClient;
+  orgSlug: string;
+  agentId: string;
+  taskId: string;
+  runtime?: AgentRuntime;
 }
 
 function resolveWorkspaceRoot(): string {
@@ -77,7 +42,68 @@ function getBoardService(): BoardService {
   return new BoardService(resolveWorkspaceRoot());
 }
 
-export function createGcMcpServer(agentId: string, taskId: string, runtime?: AgentRuntime) {
+/** Only lowercase letters, digits, underscores; must start with a letter. */
+const SLUG_RE = /^[a-z][a-z0-9_]*$/;
+
+/**
+ * Derive a URL-safe slug from an org display name.
+ * Matches logic in api/routes/organizations.ts.
+ */
+function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/\s+/g, "_")
+    .replace(/[^a-z0-9_]/g, "")
+    .replace(/^(\d)/, "_$1");
+}
+
+export function createGcMcpServer(deps: McpServerDeps) {
+  const { prisma, orgSlug, agentId, taskId, runtime } = deps;
+
+  async function getAgentByIdOrName(agentIdOrName: string) {
+    const byId = await prisma.agent.findUnique({ where: { id: agentIdOrName } });
+    if (byId) return byId;
+    return prisma.agent.findUnique({ where: { name: agentIdOrName } });
+  }
+
+  async function getDirectReportsFor(agentDbId: string) {
+    const myNode = await prisma.orgNode.findUnique({
+      where: { agentId: agentDbId },
+      select: { id: true },
+    });
+
+    if (!myNode) return [];
+
+    const children = await prisma.orgNode.findMany({
+      where: { parentNodeId: myNode.id },
+      select: {
+        agent: {
+          select: {
+            id: true,
+            name: true,
+            displayName: true,
+            role: true,
+            department: true,
+            status: true,
+            currentTaskId: true,
+          },
+        },
+      },
+    });
+
+    type Report = {
+      id: string;
+      name: string;
+      displayName: string;
+      role: string;
+      department: string;
+      status: string;
+      currentTaskId: string | null;
+    };
+
+    return (children as Array<{ agent: Report }>).map((child) => child.agent);
+  }
+
   return createSdkMcpServer({
     name: "generic-corp",
     version: "1.0.0",
@@ -96,16 +122,16 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
             const caller = await getAgentByIdOrName(agentId);
             if (!caller) return toolText(`Unknown caller agent: ${agentId}`);
 
-            const parentTask = await db.task.findUnique({ where: { id: taskId }, select: { id: true } });
+            const parentTask = await prisma.task.findUnique({ where: { id: taskId }, select: { id: true } });
             if (!parentTask) return toolText(`Unknown parent task: ${taskId}`);
 
-            const target = await db.agent.findUnique({
+            const target = await prisma.agent.findUnique({
               where: { name: args.targetAgent },
               select: { id: true, name: true },
             });
             if (!target) return toolText(`Unknown agent: ${args.targetAgent}`);
 
-            const task = await db.task.create({
+            const task = await prisma.task.create({
               data: {
                 parentTaskId: taskId,
                 assigneeId: target.id,
@@ -122,12 +148,14 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
               agentName: target.name,
               taskId: task.id,
               priority: args.priority ?? 0,
+              orgSlug,
             });
 
             appEventBus.emit("task_created", {
               taskId: task.id,
               assignee: target.name,
               delegator: caller.name,
+              orgSlug,
             });
 
             return toolText(
@@ -149,13 +177,13 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
         },
         async (args) => {
           try {
-            const task = await db.task.findUnique({
+            const task = await prisma.task.findUnique({
               where: { id: taskId },
               select: { id: true },
             });
             if (!task) return toolText(`Unknown task: ${taskId}`);
 
-            await db.task.update({
+            await prisma.task.update({
               where: { id: taskId },
               data: {
                 status: args.status,
@@ -164,7 +192,7 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
               },
             });
 
-            appEventBus.emit("task_status_changed", { taskId, status: args.status });
+            appEventBus.emit("task_status_changed", { taskId, status: args.status, orgSlug });
 
             return toolText(`Task ${taskId} marked as ${args.status}.`);
           } catch (error) {
@@ -213,7 +241,7 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
         {},
         async () => {
           try {
-            const nodes = await db.orgNode.findMany({
+            const nodes = await prisma.orgNode.findMany({
               orderBy: { position: "asc" },
               select: {
                 id: true,
@@ -242,7 +270,7 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
         },
         async (args) => {
           try {
-            const agent = await db.agent.findUnique({
+            const agent = await prisma.agent.findUnique({
               where: { name: args.agentName },
               select: {
                 name: true,
@@ -312,6 +340,7 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
               type: args.type,
               author: agentName,
               path: filePath,
+              orgSlug,
             });
 
             return toolText(JSON.stringify({ path: filePath }, null, 2));
@@ -353,6 +382,7 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
               type: "updated",
               author: "agent",
               path: args.filePath,
+              orgSlug,
             });
 
             return toolText(`Board item updated: ${args.filePath}`);
@@ -389,7 +419,7 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
               // For human replies, set recipient to self (the thread is what matters)
               recipientId = sender.id;
             } else {
-              const recipient = await db.agent.findUnique({
+              const recipient = await prisma.agent.findUnique({
                 where: { name: args.toAgent },
                 select: { id: true, name: true },
               });
@@ -397,7 +427,7 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
               recipientId = recipient.id;
             }
 
-            const message = await db.message.create({
+            const message = await prisma.message.create({
               data: {
                 fromAgentId: sender.id,
                 toAgentId: recipientId,
@@ -414,6 +444,7 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
               threadId,
               fromAgentId: sender.id,
               toAgentId: recipientId,
+              orgSlug,
             });
 
             return toolText(JSON.stringify({ messageId: message.id, threadId }, null, 2));
@@ -432,7 +463,7 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
         },
         async (args) => {
           try {
-            const messages = await db.message.findMany({
+            const messages = await prisma.message.findMany({
               where: { threadId: args.threadId },
               orderBy: { createdAt: "asc" },
               select: {
@@ -473,7 +504,7 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
             const self = await getAgentByIdOrName(agentId);
             if (!self) return toolText(`Unknown caller agent: ${agentId}`);
 
-            const latestMessages = await db.message.findMany({
+            const latestMessages = await prisma.message.findMany({
               where: {
                 OR: [
                   { fromAgentId: self.id },
@@ -518,6 +549,7 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
             if (!runtime) return toolText("Runtime not available for summarization.");
 
             const summary = await generateThreadSummary({
+              prisma,
               threadId: args.threadId,
               since: args.since,
               runtime,
@@ -541,7 +573,7 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
         },
         async (args) => {
           try {
-            const task = await db.task.findUnique({
+            const task = await prisma.task.findUnique({
               where: { id: args.taskId },
               select: {
                 id: true,
@@ -588,7 +620,7 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
           try {
             const where: Record<string, unknown> = {};
             if (args.assignee) {
-              const agent = await db.agent.findUnique({
+              const agent = await prisma.agent.findUnique({
                 where: { name: args.assignee },
                 select: { id: true },
               });
@@ -597,7 +629,7 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
             }
             if (args.status) where["status"] = args.status;
 
-            const tasks = await db.task.findMany({
+            const tasks = await prisma.task.findMany({
               where,
               orderBy: { createdAt: "desc" },
               take: args.limit ?? 20,
@@ -642,7 +674,7 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
         },
         async (args) => {
           try {
-            const task = await db.task.findUnique({ where: { id: args.taskId }, select: { id: true } });
+            const task = await prisma.task.findUnique({ where: { id: args.taskId }, select: { id: true } });
             if (!task) return toolText(`Task not found: ${args.taskId}`);
 
             const data: Record<string, unknown> = {};
@@ -651,9 +683,9 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
 
             if (Object.keys(data).length === 0) return toolText("No fields to update.");
 
-            await db.task.update({ where: { id: args.taskId }, data });
+            await prisma.task.update({ where: { id: args.taskId }, data });
 
-            appEventBus.emit("task_updated", { taskId: args.taskId });
+            appEventBus.emit("task_updated", { taskId: args.taskId, orgSlug });
 
             return toolText(`Task ${args.taskId} updated.`);
           } catch (error) {
@@ -672,18 +704,18 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
         },
         async (args) => {
           try {
-            const task = await db.task.findUnique({
+            const task = await prisma.task.findUnique({
               where: { id: args.taskId },
               select: { id: true },
             });
             if (!task) return toolText(`Task not found: ${args.taskId}`);
 
-            await db.task.update({
+            await prisma.task.update({
               where: { id: args.taskId },
               data: { status: "failed", result: args.reason ?? "Cancelled" },
             });
 
-            appEventBus.emit("task_status_changed", { taskId: args.taskId, status: "failed" });
+            appEventBus.emit("task_status_changed", { taskId: args.taskId, status: "failed", orgSlug });
 
             return toolText(`Task ${args.taskId} cancelled.`);
           } catch (error) {
@@ -709,6 +741,7 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
             appEventBus.emit("board_item_archived", {
               path: args.filePath,
               archivedPath,
+              orgSlug,
             });
 
             return toolText(JSON.stringify({ archivedPath }, null, 2));
@@ -750,7 +783,7 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
             if (args.department) where["department"] = args.department;
             if (args.status) where["status"] = args.status;
 
-            const agents = await db.agent.findMany({
+            const agents = await prisma.agent.findMany({
               where,
               orderBy: { name: "asc" },
               select: {
@@ -785,13 +818,13 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
             const self = await getAgentByIdOrName(agentId);
             if (!self) return toolText(`Unknown caller agent: ${agentId}`);
 
-            const exists = await db.message.findFirst({
+            const exists = await prisma.message.findFirst({
               where: { threadId: args.threadId },
               select: { id: true },
             });
             if (!exists) return toolText(`Thread not found: ${args.threadId}`);
 
-            const isParticipant = await db.message.findFirst({
+            const isParticipant = await prisma.message.findFirst({
               where: {
                 threadId: args.threadId,
                 OR: [{ fromAgentId: self.id }, { toAgentId: self.id }],
@@ -800,8 +833,8 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
             });
             if (!isParticipant) return toolText(`Not allowed to delete thread: ${args.threadId}`);
 
-            const result = await db.message.deleteMany({ where: { threadId: args.threadId } });
-            appEventBus.emit("thread_deleted", { threadId: args.threadId, messagesRemoved: result.count });
+            const result = await prisma.message.deleteMany({ where: { threadId: args.threadId } });
+            appEventBus.emit("thread_deleted", { threadId: args.threadId, messagesRemoved: result.count, orgSlug });
 
             return toolText(`Thread ${args.threadId} deleted (${result.count} messages removed).`);
           } catch (error) {
@@ -819,18 +852,18 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
         },
         async (args) => {
           try {
-            const message = await db.message.findUnique({
+            const message = await prisma.message.findUnique({
               where: { id: args.messageId },
               select: { id: true },
             });
             if (!message) return toolText(`Message not found: ${args.messageId}`);
 
-            await db.message.update({
+            await prisma.message.update({
               where: { id: args.messageId },
               data: { status: "read", readAt: new Date() },
             });
 
-            appEventBus.emit("message_updated", { messageId: args.messageId });
+            appEventBus.emit("message_updated", { messageId: args.messageId, orgSlug });
 
             return toolText(`Message ${args.messageId} marked as read.`);
           } catch (error) {
@@ -848,15 +881,15 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
         },
         async (args) => {
           try {
-            const message = await db.message.findUnique({
+            const message = await prisma.message.findUnique({
               where: { id: args.messageId },
               select: { id: true },
             });
             if (!message) return toolText(`Message not found: ${args.messageId}`);
 
-            await db.message.delete({ where: { id: args.messageId } });
+            await prisma.message.delete({ where: { id: args.messageId } });
 
-            appEventBus.emit("message_deleted", { messageId: args.messageId });
+            appEventBus.emit("message_deleted", { messageId: args.messageId, orgSlug });
 
             return toolText(`Message ${args.messageId} deleted.`);
           } catch (error) {
@@ -881,7 +914,7 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
         },
         async (args) => {
           try {
-            const agent = await db.agent.create({
+            const agent = await prisma.agent.create({
               data: {
                 name: args.name,
                 displayName: args.displayName,
@@ -894,7 +927,7 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
               select: { id: true, name: true },
             });
 
-            appEventBus.emit("agent_updated", { agentId: agent.id });
+            appEventBus.emit("agent_updated", { agentId: agent.id, orgSlug });
 
             return toolText(JSON.stringify({ id: agent.id, name: agent.name }, null, 2));
           } catch (error) {
@@ -916,7 +949,7 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
         },
         async (args) => {
           try {
-            const agent = await db.agent.findUnique({ where: { name: args.agentName } });
+            const agent = await prisma.agent.findUnique({ where: { name: args.agentName } });
             if (!agent) return toolText(`Unknown agent: ${args.agentName}`);
 
             const data: Record<string, unknown> = {};
@@ -927,9 +960,9 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
 
             if (Object.keys(data).length === 0) return toolText("No fields to update.");
 
-            await db.agent.update({ where: { id: agent.id }, data });
+            await prisma.agent.update({ where: { id: agent.id }, data });
 
-            appEventBus.emit("agent_updated", { agentId: agent.id });
+            appEventBus.emit("agent_updated", { agentId: agent.id, orgSlug });
 
             return toolText(`Agent ${args.agentName} updated.`);
           } catch (error) {
@@ -947,12 +980,12 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
         },
         async (args) => {
           try {
-            const agent = await db.agent.findUnique({ where: { name: args.agentName } });
+            const agent = await prisma.agent.findUnique({ where: { name: args.agentName } });
             if (!agent) return toolText(`Unknown agent: ${args.agentName}`);
 
-            await db.agent.delete({ where: { id: agent.id } });
+            await prisma.agent.delete({ where: { id: agent.id } });
 
-            appEventBus.emit("agent_deleted", { agentId: agent.id });
+            appEventBus.emit("agent_deleted", { agentId: agent.id, orgSlug });
 
             return toolText(`Agent ${args.agentName} deleted.`);
           } catch (error) {
@@ -976,10 +1009,10 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
         },
         async (args) => {
           try {
-            const agent = await db.agent.findUnique({ where: { name: args.agentName }, select: { id: true } });
+            const agent = await prisma.agent.findUnique({ where: { name: args.agentName }, select: { id: true } });
             if (!agent) return toolText(`Unknown agent: ${args.agentName}`);
 
-            const node = await db.orgNode.create({
+            const node = await prisma.orgNode.create({
               data: {
                 agentId: agent.id,
                 parentNodeId: args.parentNodeId ?? null,
@@ -990,7 +1023,7 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
               select: { id: true },
             });
 
-            appEventBus.emit("org_changed", {});
+            appEventBus.emit("org_changed", { orgSlug });
 
             return toolText(JSON.stringify({ nodeId: node.id }, null, 2));
           } catch (error) {
@@ -1012,10 +1045,10 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
         },
         async (args) => {
           try {
-            const agent = await db.agent.findUnique({ where: { name: args.agentName }, select: { id: true } });
+            const agent = await prisma.agent.findUnique({ where: { name: args.agentName }, select: { id: true } });
             if (!agent) return toolText(`Unknown agent: ${args.agentName}`);
 
-            const node = await db.orgNode.findUnique({ where: { agentId: agent.id }, select: { id: true } });
+            const node = await prisma.orgNode.findUnique({ where: { agentId: agent.id }, select: { id: true } });
             if (!node) return toolText(`Agent ${args.agentName} has no org node`);
 
             const data: Record<string, unknown> = {};
@@ -1026,9 +1059,9 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
 
             if (Object.keys(data).length === 0) return toolText("No fields to update.");
 
-            await db.orgNode.update({ where: { id: node.id }, data });
+            await prisma.orgNode.update({ where: { id: node.id }, data });
 
-            appEventBus.emit("org_changed", {});
+            appEventBus.emit("org_changed", { orgSlug });
 
             return toolText(`Org node for ${args.agentName} updated.`);
           } catch (error) {
@@ -1046,15 +1079,15 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
         },
         async (args) => {
           try {
-            const agent = await db.agent.findUnique({ where: { name: args.agentName }, select: { id: true } });
+            const agent = await prisma.agent.findUnique({ where: { name: args.agentName }, select: { id: true } });
             if (!agent) return toolText(`Unknown agent: ${args.agentName}`);
 
-            const node = await db.orgNode.findUnique({ where: { agentId: agent.id }, select: { id: true } });
+            const node = await prisma.orgNode.findUnique({ where: { agentId: agent.id }, select: { id: true } });
             if (!node) return toolText(`Agent ${args.agentName} has no org node`);
 
-            await db.orgNode.delete({ where: { id: node.id } });
+            await prisma.orgNode.delete({ where: { id: node.id } });
 
-            appEventBus.emit("org_changed", {});
+            appEventBus.emit("org_changed", { orgSlug });
 
             return toolText(`Org node for ${args.agentName} deleted.`);
           } catch (error) {
@@ -1074,12 +1107,12 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
         },
         async (args) => {
           try {
-            const task = await db.task.findUnique({ where: { id: args.taskId }, select: { id: true } });
+            const task = await prisma.task.findUnique({ where: { id: args.taskId }, select: { id: true } });
             if (!task) return toolText(`Task not found: ${args.taskId}`);
 
-            await db.task.delete({ where: { id: args.taskId } });
+            await prisma.task.delete({ where: { id: args.taskId } });
 
-            appEventBus.emit("task_status_changed", { taskId: args.taskId, status: "deleted" });
+            appEventBus.emit("task_status_changed", { taskId: args.taskId, status: "deleted", orgSlug });
 
             return toolText(`Task ${args.taskId} deleted.`);
           } catch (error) {
@@ -1097,9 +1130,9 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
         {},
         async () => {
           try {
-            let workspace = await db.workspace.findFirst();
+            let workspace = await prisma.workspace.findFirst();
             if (!workspace) {
-              workspace = await db.workspace.create({
+              workspace = await prisma.workspace.create({
                 data: { name: "Generic Corp", slug: "generic-corp" },
               });
             }
@@ -1129,9 +1162,9 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
         },
         async (args) => {
           try {
-            let workspace = await db.workspace.findFirst();
+            let workspace = await prisma.workspace.findFirst();
             if (!workspace) {
-              workspace = await db.workspace.create({
+              workspace = await prisma.workspace.create({
                 data: { name: "Generic Corp", slug: "generic-corp" },
               });
             }
@@ -1144,12 +1177,12 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
             if (args.llmProvider !== undefined) data["llmProvider"] = args.llmProvider;
             if (args.llmModel !== undefined) data["llmModel"] = args.llmModel;
 
-            const updated = await db.workspace.update({
+            const updated = await prisma.workspace.update({
               where: { id: workspace.id },
               data,
             });
 
-            appEventBus.emit("workspace_updated", { workspaceId: updated.id });
+            appEventBus.emit("workspace_updated", { workspaceId: updated.id, orgSlug });
 
             return toolText(`Workspace updated: ${JSON.stringify({ name: updated.name, slug: updated.slug })}`);
           } catch (error) {
@@ -1167,7 +1200,7 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
         {},
         async () => {
           try {
-            const perms = await db.toolPermission.findMany({ orderBy: { name: "asc" } });
+            const perms = await prisma.toolPermission.findMany({ orderBy: { name: "asc" } });
             return toolText(JSON.stringify(perms, null, 2));
           } catch (error) {
             const msg = error instanceof Error ? error.message : "Unknown error";
@@ -1184,7 +1217,7 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
         },
         async (args) => {
           try {
-            const perm = await db.toolPermission.findUnique({ where: { id: args.id } });
+            const perm = await prisma.toolPermission.findUnique({ where: { id: args.id } });
             if (!perm) return toolText(`Tool permission not found: ${args.id}`);
             return toolText(JSON.stringify(perm, null, 2));
           } catch (error) {
@@ -1205,7 +1238,7 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
         },
         async (args) => {
           try {
-            const perm = await db.toolPermission.create({
+            const perm = await prisma.toolPermission.create({
               data: {
                 name: args.name,
                 description: args.description,
@@ -1213,7 +1246,7 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
                 enabled: args.enabled ?? true,
               },
             });
-            appEventBus.emit("tool_permission_created", { toolPermissionId: perm.id });
+            appEventBus.emit("tool_permission_created", { toolPermissionId: perm.id, orgSlug });
             return toolText(`Tool permission created: ${perm.name} (${perm.id})`);
           } catch (error) {
             const msg = error instanceof Error ? error.message : "Unknown error";
@@ -1232,13 +1265,13 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
         },
         async (args) => {
           try {
-            const perm = await db.toolPermission.findUnique({ where: { id: args.id } });
+            const perm = await prisma.toolPermission.findUnique({ where: { id: args.id } });
             if (!perm) return toolText(`Tool permission not found: ${args.id}`);
             const data: Record<string, unknown> = {};
             if (args.enabled !== undefined) data["enabled"] = args.enabled;
             if (args.description !== undefined) data["description"] = args.description;
-            const updated = await db.toolPermission.update({ where: { id: args.id }, data });
-            appEventBus.emit("tool_permission_updated", { toolPermissionId: updated.id });
+            const updated = await prisma.toolPermission.update({ where: { id: args.id }, data });
+            appEventBus.emit("tool_permission_updated", { toolPermissionId: updated.id, orgSlug });
             return toolText(`Tool permission updated: ${updated.name} (enabled: ${updated.enabled})`);
           } catch (error) {
             const msg = error instanceof Error ? error.message : "Unknown error";
@@ -1255,10 +1288,10 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
         },
         async (args) => {
           try {
-            const perm = await db.toolPermission.findUnique({ where: { id: args.id } });
+            const perm = await prisma.toolPermission.findUnique({ where: { id: args.id } });
             if (!perm) return toolText(`Tool permission not found: ${args.id}`);
-            await db.toolPermission.delete({ where: { id: args.id } });
-            appEventBus.emit("tool_permission_deleted", { toolPermissionId: args.id });
+            await prisma.toolPermission.delete({ where: { id: args.id } });
+            appEventBus.emit("tool_permission_deleted", { toolPermissionId: args.id, orgSlug });
             return toolText(`Tool permission deleted: ${perm.name}`);
           } catch (error) {
             const msg = error instanceof Error ? error.message : "Unknown error";
@@ -1277,7 +1310,7 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
           try {
             const agent = await getAgentByIdOrName(args.agentName);
             if (!agent) return toolText(`Unknown agent: ${args.agentName}`);
-            const perms = await db.toolPermission.findMany({ orderBy: { name: "asc" } });
+            const perms = await prisma.toolPermission.findMany({ orderBy: { name: "asc" } });
             const overrides = (agent.toolPermissions as Record<string, boolean>) ?? {};
             const merged = perms.map((p) => ({
               id: p.id,
@@ -1307,11 +1340,11 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
             if (!agent) return toolText(`Unknown agent: ${args.agentName}`);
             const existing = (agent.toolPermissions as Record<string, boolean>) ?? {};
             const merged = { ...existing, ...args.permissions };
-            await db.agent.update({
+            await prisma.agent.update({
               where: { id: agent.id },
               data: { toolPermissions: merged },
             });
-            appEventBus.emit("agent_updated", { agentId: agent.id });
+            appEventBus.emit("agent_updated", { agentId: agent.id, orgSlug });
             return toolText(`Agent ${agent.name} tool permissions updated.`);
           } catch (error) {
             const msg = error instanceof Error ? error.message : "Unknown error";
@@ -1328,7 +1361,7 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
         {},
         async () => {
           try {
-            const servers = await db.mcpServerConfig.findMany({ orderBy: { name: "asc" } });
+            const servers = await prisma.mcpServerConfig.findMany({ orderBy: { name: "asc" } });
             return toolText(JSON.stringify(servers, null, 2));
           } catch (error) {
             const msg = error instanceof Error ? error.message : "Unknown error";
@@ -1345,7 +1378,7 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
         },
         async (args) => {
           try {
-            const server = await db.mcpServerConfig.findUnique({ where: { id: args.id } });
+            const server = await prisma.mcpServerConfig.findUnique({ where: { id: args.id } });
             if (!server) return toolText(`MCP server not found: ${args.id}`);
             return toolText(JSON.stringify(server, null, 2));
           } catch (error) {
@@ -1371,7 +1404,7 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
             if (!ssrfResult.valid) {
               return toolText(`register_mcp_server failed: ${ssrfResult.error}`);
             }
-            const server = await db.mcpServerConfig.create({
+            const server = await prisma.mcpServerConfig.create({
               data: {
                 name: args.name,
                 protocol: args.protocol,
@@ -1380,7 +1413,7 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
                 iconColor: args.iconColor ?? null,
               },
             });
-            appEventBus.emit("mcp_server_created", { mcpServerId: server.id });
+            appEventBus.emit("mcp_server_created", { mcpServerId: server.id, orgSlug });
             return toolText(`MCP server registered: ${server.name} (${server.id})`);
           } catch (error) {
             const msg = error instanceof Error ? error.message : "Unknown error";
@@ -1400,7 +1433,7 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
         },
         async (args) => {
           try {
-            const server = await db.mcpServerConfig.findUnique({ where: { id: args.id } });
+            const server = await prisma.mcpServerConfig.findUnique({ where: { id: args.id } });
             if (!server) return toolText(`MCP server not found: ${args.id}`);
             if (args.uri !== undefined) {
               const protocol = args.protocol ?? server.protocol;
@@ -1413,8 +1446,8 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
             if (args.name !== undefined) data["name"] = args.name;
             if (args.protocol !== undefined) data["protocol"] = args.protocol;
             if (args.uri !== undefined) data["uri"] = args.uri;
-            const updated = await db.mcpServerConfig.update({ where: { id: args.id }, data });
-            appEventBus.emit("mcp_server_updated", { mcpServerId: updated.id });
+            const updated = await prisma.mcpServerConfig.update({ where: { id: args.id }, data });
+            appEventBus.emit("mcp_server_updated", { mcpServerId: updated.id, orgSlug });
             return toolText(`MCP server updated: ${updated.name}`);
           } catch (error) {
             const msg = error instanceof Error ? error.message : "Unknown error";
@@ -1431,10 +1464,10 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
         },
         async (args) => {
           try {
-            const server = await db.mcpServerConfig.findUnique({ where: { id: args.id } });
+            const server = await prisma.mcpServerConfig.findUnique({ where: { id: args.id } });
             if (!server) return toolText(`MCP server not found: ${args.id}`);
-            await db.mcpServerConfig.delete({ where: { id: args.id } });
-            appEventBus.emit("mcp_server_deleted", { mcpServerId: args.id });
+            await prisma.mcpServerConfig.delete({ where: { id: args.id } });
+            appEventBus.emit("mcp_server_deleted", { mcpServerId: args.id, orgSlug });
             return toolText(`MCP server removed: ${server.name}`);
           } catch (error) {
             const msg = error instanceof Error ? error.message : "Unknown error";
@@ -1451,9 +1484,9 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
         },
         async (args) => {
           try {
-            const server = await db.mcpServerConfig.findUnique({ where: { id: args.id } });
+            const server = await prisma.mcpServerConfig.findUnique({ where: { id: args.id } });
             if (!server) return toolText(`MCP server not found: ${args.id}`);
-            const updated = await db.mcpServerConfig.update({
+            const updated = await prisma.mcpServerConfig.update({
               where: { id: args.id },
               data: {
                 lastPingAt: new Date(),
@@ -1462,7 +1495,7 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
                 errorMessage: null,
               },
             });
-            appEventBus.emit("mcp_server_status_changed", { mcpServerId: updated.id, status: "connected" });
+            appEventBus.emit("mcp_server_status_changed", { mcpServerId: updated.id, status: "connected", orgSlug });
             return toolText(`MCP server pinged: ${updated.name} — status: connected`);
           } catch (error) {
             const msg = error instanceof Error ? error.message : "Unknown error";
@@ -1495,7 +1528,7 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
               where["priority"] = args.priority;
             }
 
-            const tasks = await db.task.findMany({
+            const tasks = await prisma.task.findMany({
               where,
               orderBy: { createdAt: "desc" },
               take: 100,
@@ -1547,23 +1580,23 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
             const agent = await getAgentByIdOrName(args.agentName);
             if (!agent) return toolText(`Unknown agent: ${args.agentName}`);
 
-            const tasksCompleted = await db.task.count({
+            const tasksCompleted = await prisma.task.count({
               where: { assigneeId: agent.id, status: "completed" },
             });
 
             const now = new Date();
             const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            const todayTasks = await db.task.findMany({
+            const todayTasks = await prisma.task.findMany({
               where: { assigneeId: agent.id, status: "completed", completedAt: { gte: startOfDay } },
               select: { costUsd: true },
             });
             const spendToday = todayTasks.reduce((sum, t) => sum + (t.costUsd ?? 0), 0);
 
-            const queueDepth = await db.task.count({
+            const queueDepth = await prisma.task.count({
               where: { assigneeId: agent.id, status: "pending" },
             });
 
-            const currentTask = await db.task.findFirst({
+            const currentTask = await prisma.task.findFirst({
               where: { assigneeId: agent.id, status: "running" },
               select: { id: true, prompt: true, status: true },
             });
@@ -1616,6 +1649,209 @@ export function createGcMcpServer(agentId: string, taskId: string, runtime?: Age
           } catch (error) {
             const msg = error instanceof Error ? error.message : "Unknown error";
             return toolText(`get_agent_system_prompt failed: ${msg}`);
+          }
+        },
+      ),
+
+      // --- Organization management tools ---
+
+      tool(
+        "list_organizations",
+        "List all active organizations",
+        {},
+        async () => {
+          try {
+            const publicPrisma = getPublicPrisma();
+            const tenants = await publicPrisma.tenant.findMany({
+              where: { status: "active" },
+              orderBy: { createdAt: "asc" },
+            });
+
+            const orgs = tenants.map((t) => ({
+              id: t.id,
+              slug: t.slug,
+              displayName: t.displayName,
+              status: t.status,
+              createdAt: t.createdAt.toISOString(),
+            }));
+
+            return toolText(JSON.stringify(orgs, null, 2));
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`list_organizations failed: ${msg}`);
+          }
+        },
+      ),
+
+      tool(
+        "create_organization",
+        "Create a new organization with its own isolated schema",
+        {
+          name: z.string().describe("Organization name"),
+        },
+        async (args) => {
+          try {
+            const publicPrisma = getPublicPrisma();
+            const trimmedName = args.name.trim();
+
+            if (trimmedName.length === 0) {
+              return toolText("create_organization failed: name must be a non-empty string.");
+            }
+
+            const slug = slugify(trimmedName);
+
+            if (!SLUG_RE.test(slug)) {
+              return toolText(
+                `create_organization failed: generated slug "${slug}" is invalid. Name must contain at least one letter.`,
+              );
+            }
+
+            const schemaName = `tenant_${slug}`;
+
+            // Check for duplicate slug
+            const existing = await publicPrisma.tenant.findUnique({
+              where: { slug },
+            });
+
+            if (existing) {
+              return toolText(`create_organization failed: organization with slug "${slug}" already exists.`);
+            }
+
+            // Create tenant row
+            const tenant = await publicPrisma.tenant.create({
+              data: {
+                slug,
+                displayName: trimmedName,
+                schemaName,
+                status: "provisioning",
+              },
+            });
+
+            // Provision the schema
+            try {
+              await provisionOrgSchema(publicPrisma, schemaName);
+            } catch (provisionError) {
+              // Roll back the tenant row if schema provisioning fails
+              console.error(
+                "[MCP] Schema provisioning failed, removing tenant row.",
+                provisionError instanceof Error ? provisionError.message : "Unknown error",
+              );
+              await publicPrisma.tenant.delete({ where: { id: tenant.id } });
+              return toolText("create_organization failed: schema provisioning failed.");
+            }
+
+            // Mark tenant as active
+            const activeTenant = await publicPrisma.tenant.update({
+              where: { id: tenant.id },
+              data: { status: "active" },
+            });
+
+            console.log(`[MCP] Created organization: ${slug} (schema: ${schemaName})`);
+
+            return toolText(JSON.stringify({
+              id: activeTenant.id,
+              slug: activeTenant.slug,
+              displayName: activeTenant.displayName,
+              schemaName: activeTenant.schemaName,
+              status: activeTenant.status,
+            }, null, 2));
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`create_organization failed: ${msg}`);
+          }
+        },
+      ),
+
+      tool(
+        "switch_organization",
+        "Switch the agent's organization context (informational — actual context switching is handled by the platform)",
+        {
+          orgSlug: z.string().describe("Organization slug to switch to"),
+        },
+        async (args) => {
+          try {
+            const publicPrisma = getPublicPrisma();
+            const tenant = await publicPrisma.tenant.findUnique({
+              where: { slug: args.orgSlug },
+            });
+
+            if (!tenant) {
+              return toolText(`switch_organization failed: organization "${args.orgSlug}" not found.`);
+            }
+
+            if (tenant.status !== "active") {
+              return toolText(
+                `switch_organization failed: organization "${args.orgSlug}" is not active (status: ${tenant.status}).`,
+              );
+            }
+
+            return toolText(
+              `Organization context noted: ${tenant.displayName} (${tenant.slug}). ` +
+              `The platform will handle the actual context switch.`,
+            );
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`switch_organization failed: ${msg}`);
+          }
+        },
+      ),
+
+      tool(
+        "delete_organization",
+        "Delete an organization, its schema, and all data",
+        {
+          orgSlug: z.string().describe("Organization slug to delete"),
+        },
+        async (args) => {
+          try {
+            const publicPrisma = getPublicPrisma();
+            const tenant = await publicPrisma.tenant.findUnique({
+              where: { slug: args.orgSlug },
+            });
+
+            if (!tenant) {
+              return toolText(`delete_organization failed: organization "${args.orgSlug}" not found.`);
+            }
+
+            // Check for running agents in the tenant schema
+            try {
+              const tenantPrisma = await getPrismaForTenant(args.orgSlug);
+              const runningAgents = await tenantPrisma.agent.findMany({
+                where: { status: { in: ["working", "running"] } },
+                select: { name: true, displayName: true },
+              });
+
+              if (runningAgents.length > 0) {
+                const agentNames = runningAgents.map((a) => a.displayName || a.name);
+                return toolText(
+                  `delete_organization failed: cannot delete organization with running agents: ${agentNames.join(", ")}`,
+                );
+              }
+            } catch {
+              // If we can't connect to the tenant schema, it may already be broken.
+              // Proceed with deletion.
+              console.warn(
+                `[MCP] Could not check running agents for "${args.orgSlug}", proceeding with deletion.`,
+              );
+            }
+
+            // Clear the cached Prisma client for this tenant
+            await clearTenantCache(args.orgSlug);
+
+            // Drop the schema
+            await dropOrgSchema(publicPrisma, tenant.schemaName);
+
+            // Delete the tenant row
+            await publicPrisma.tenant.delete({
+              where: { id: tenant.id },
+            });
+
+            console.log(`[MCP] Deleted organization: ${args.orgSlug} (schema: ${tenant.schemaName})`);
+
+            return toolText(`Organization "${args.orgSlug}" deleted successfully.`);
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : "Unknown error";
+            return toolText(`delete_organization failed: ${msg}`);
           }
         },
       ),

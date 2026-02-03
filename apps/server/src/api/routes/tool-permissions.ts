@@ -1,6 +1,6 @@
 import express from "express";
 
-import { db } from "../../db/client.js";
+import { getTenantPrisma } from "../../middleware/tenant-context.js";
 import { appEventBus } from "../../services/app-events.js";
 import {
   createToolPermissionSchema,
@@ -13,9 +13,10 @@ export function createToolPermissionRouter(): express.Router {
 
   // --- Workspace-level tool permissions ---
 
-  router.get("/tool-permissions", async (_req, res, next) => {
+  router.get("/tool-permissions", async (req, res, next) => {
     try {
-      const permissions = await db.toolPermission.findMany({
+      const prisma = getTenantPrisma(req);
+      const permissions = await prisma.toolPermission.findMany({
         orderBy: { name: "asc" },
       });
       res.json({ permissions });
@@ -26,8 +27,9 @@ export function createToolPermissionRouter(): express.Router {
 
   router.post("/tool-permissions", async (req, res, next) => {
     try {
+      const prisma = getTenantPrisma(req);
       const body = createToolPermissionSchema.parse(req.body);
-      const permission = await db.toolPermission.create({
+      const permission = await prisma.toolPermission.create({
         data: {
           name: body.name,
           description: body.description,
@@ -35,7 +37,7 @@ export function createToolPermissionRouter(): express.Router {
           enabled: body.enabled,
         },
       });
-      appEventBus.emit("tool_permission_created", { toolPermissionId: permission.id });
+      appEventBus.emit("tool_permission_created", { toolPermissionId: permission.id, orgSlug: req.tenant?.slug ?? "default" });
       res.status(201).json({ permission });
     } catch (error) {
       next(error);
@@ -44,7 +46,8 @@ export function createToolPermissionRouter(): express.Router {
 
   router.patch("/tool-permissions/:id", async (req, res, next) => {
     try {
-      const permission = await db.toolPermission.findUnique({
+      const prisma = getTenantPrisma(req);
+      const permission = await prisma.toolPermission.findUnique({
         where: { id: req.params["id"] ?? "" },
       });
       if (!permission) {
@@ -52,11 +55,11 @@ export function createToolPermissionRouter(): express.Router {
         return;
       }
       const body = updateToolPermissionSchema.parse(req.body);
-      const updated = await db.toolPermission.update({
+      const updated = await prisma.toolPermission.update({
         where: { id: permission.id },
         data: body,
       });
-      appEventBus.emit("tool_permission_updated", { toolPermissionId: permission.id });
+      appEventBus.emit("tool_permission_updated", { toolPermissionId: permission.id, orgSlug: req.tenant?.slug ?? "default" });
       res.json({ permission: updated });
     } catch (error) {
       next(error);
@@ -65,15 +68,16 @@ export function createToolPermissionRouter(): express.Router {
 
   router.delete("/tool-permissions/:id", async (req, res, next) => {
     try {
-      const permission = await db.toolPermission.findUnique({
+      const prisma = getTenantPrisma(req);
+      const permission = await prisma.toolPermission.findUnique({
         where: { id: req.params["id"] ?? "" },
       });
       if (!permission) {
         res.status(404).json({ error: "Tool permission not found" });
         return;
       }
-      await db.toolPermission.delete({ where: { id: permission.id } });
-      appEventBus.emit("tool_permission_deleted", { toolPermissionId: permission.id });
+      await prisma.toolPermission.delete({ where: { id: permission.id } });
+      appEventBus.emit("tool_permission_deleted", { toolPermissionId: permission.id, orgSlug: req.tenant?.slug ?? "default" });
       res.json({ deleted: true });
     } catch (error) {
       next(error);
@@ -84,7 +88,8 @@ export function createToolPermissionRouter(): express.Router {
 
   router.get("/agents/:id/tool-permissions", async (req, res, next) => {
     try {
-      const agent = await db.agent.findUnique({
+      const prisma = getTenantPrisma(req);
+      const agent = await prisma.agent.findUnique({
         where: { id: req.params["id"] ?? "" },
         select: { id: true, toolPermissions: true },
       });
@@ -93,7 +98,7 @@ export function createToolPermissionRouter(): express.Router {
         return;
       }
 
-      const allPermissions = await db.toolPermission.findMany({
+      const allPermissions = await prisma.toolPermission.findMany({
         orderBy: { name: "asc" },
       });
 
@@ -119,7 +124,8 @@ export function createToolPermissionRouter(): express.Router {
 
   router.patch("/agents/:id/tool-permissions", async (req, res, next) => {
     try {
-      const agent = await db.agent.findUnique({
+      const prisma = getTenantPrisma(req);
+      const agent = await prisma.agent.findUnique({
         where: { id: req.params["id"] ?? "" },
       });
       if (!agent) {
@@ -128,11 +134,11 @@ export function createToolPermissionRouter(): express.Router {
       }
 
       const body = updateAgentToolPermissionsSchema.parse(req.body);
-      const updated = await db.agent.update({
+      const updated = await prisma.agent.update({
         where: { id: agent.id },
         data: { toolPermissions: body },
       });
-      appEventBus.emit("agent_updated", { agentId: agent.id });
+      appEventBus.emit("agent_updated", { agentId: agent.id, orgSlug: req.tenant?.slug ?? "default" });
       res.json({ toolPermissions: updated.toolPermissions });
     } catch (error) {
       next(error);

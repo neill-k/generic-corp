@@ -34,7 +34,7 @@ export function createBoardRouter(deps: BoardRouterDeps): express.Router {
         content,
       });
 
-      appEventBus.emit("board_item_created", { type, author, path: filePath });
+      appEventBus.emit("board_item_created", { type, author, path: filePath, orgSlug: req.tenant?.slug ?? "default" });
 
       res.status(201).json({ path: filePath });
     } catch (error) {
@@ -95,7 +95,7 @@ export function createBoardRouter(deps: BoardRouterDeps): express.Router {
       const updated = `${header}\n${content.trim()}\n`;
       await writeFile(filePath, updated, "utf8");
 
-      appEventBus.emit("board_item_updated", { type: "updated", author: "human", path: filePath });
+      appEventBus.emit("board_item_updated", { type: "updated", author: "human", path: filePath, orgSlug: req.tenant?.slug ?? "default" });
 
       res.json({ updated: true, path: filePath });
     } catch (error) {
@@ -118,7 +118,7 @@ export function createBoardRouter(deps: BoardRouterDeps): express.Router {
 
       const archivedPath = await deps.boardService.archiveBoardItem(filePath);
 
-      appEventBus.emit("board_item_archived", { path: filePath, archivedPath });
+      appEventBus.emit("board_item_archived", { path: filePath, archivedPath, orgSlug: req.tenant?.slug ?? "default" });
 
       res.json({ archivedPath });
     } catch (error) {

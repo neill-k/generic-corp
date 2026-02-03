@@ -8,6 +8,35 @@ export interface WebSocketHub {
   stop(): void;
 }
 
+/**
+ * Events forwarded to the org-scoped broadcast room.
+ * Each event payload must include `orgSlug` (enforced by TenantEventBase).
+ */
+const BROADCAST_EVENTS = [
+  "agent_status_changed",
+  "task_status_changed",
+  "task_created",
+  "message_created",
+  "board_item_created",
+  "board_item_updated",
+  "board_item_archived",
+  "agent_updated",
+  "agent_deleted",
+  "message_updated",
+  "message_deleted",
+  "thread_deleted",
+  "task_updated",
+  "org_changed",
+  "workspace_updated",
+  "tool_permission_created",
+  "tool_permission_updated",
+  "tool_permission_deleted",
+  "mcp_server_created",
+  "mcp_server_updated",
+  "mcp_server_deleted",
+  "mcp_server_status_changed",
+] as const satisfies readonly (keyof AppEventMap)[];
+
 export function createWebSocketHub(
   io: SocketIOServer,
   eventBus: EventBus<AppEventMap>,
@@ -15,157 +44,54 @@ export function createWebSocketHub(
   const unsubs: Unsubscribe[] = [];
 
   io.on("connection", (socket: Socket) => {
-    void socket.join("broadcast");
+    // --- Extract orgSlug from handshake query ---
+    const orgSlug = (socket.handshake.query["orgSlug"] as string) || "default";
+
+    // Join the org-scoped broadcast room
+    void socket.join(`org:${orgSlug}`);
+
     socket.emit("snapshot", { type: "snapshot", serverTime: new Date().toISOString() });
 
+    // --- Agent-specific rooms (org-scoped) ---
     socket.on("join_agent", (agentId: string) => {
-      void socket.join(`agent:${agentId}`);
+      void socket.join(`org:${orgSlug}:agent:${agentId}`);
     });
 
     socket.on("leave_agent", (agentId: string) => {
-      void socket.leave(`agent:${agentId}`);
+      void socket.leave(`org:${orgSlug}:agent:${agentId}`);
+    });
+
+    // --- Switch org: leave old rooms, join new org room ---
+    socket.on("switch_org", (newOrgSlug: string) => {
+      // Leave all org-prefixed rooms for the current org
+      for (const room of socket.rooms) {
+        if (room.startsWith(`org:`)) {
+          void socket.leave(room);
+        }
+      }
+      // Join the new org broadcast room
+      void socket.join(`org:${newOrgSlug}`);
     });
   });
 
+  // --- Table-driven event forwarding for broadcast events ---
+  for (const event of BROADCAST_EVENTS) {
+    unsubs.push(
+      eventBus.on(event, (payload) => {
+        const slug = (payload as { orgSlug: string }).orgSlug;
+        io.to(`org:${slug}`).emit(event, payload);
+      }),
+    );
+  }
+
+  // --- agent_event: emit to org-scoped agent rooms ---
   unsubs.push(
     eventBus.on("agent_event", (payload) => {
-      io.to(`agent:${payload.agentId}`).emit("agent_event", payload);
+      const slug = payload.orgSlug;
+      io.to(`org:${slug}:agent:${payload.agentId}`).emit("agent_event", payload);
       if ("agentDbId" in payload && typeof payload.agentDbId === "string") {
-        io.to(`agent:${payload.agentDbId}`).emit("agent_event", payload);
+        io.to(`org:${slug}:agent:${payload.agentDbId}`).emit("agent_event", payload);
       }
-    }),
-  );
-
-  unsubs.push(
-    eventBus.on("agent_status_changed", (payload) => {
-      io.to(`agent:${payload.agentId}`).emit("agent_status_changed", payload);
-      io.to("broadcast").emit("agent_status_changed", payload);
-    }),
-  );
-
-  unsubs.push(
-    eventBus.on("task_status_changed", (payload) => {
-      io.to("broadcast").emit("task_status_changed", payload);
-    }),
-  );
-
-  unsubs.push(
-    eventBus.on("task_created", (payload) => {
-      io.to("broadcast").emit("task_created", payload);
-    }),
-  );
-
-  unsubs.push(
-    eventBus.on("message_created", (payload) => {
-      io.to("broadcast").emit("message_created", payload);
-    }),
-  );
-
-  unsubs.push(
-    eventBus.on("board_item_created", (payload) => {
-      io.to("broadcast").emit("board_item_created", payload);
-    }),
-  );
-
-  unsubs.push(
-    eventBus.on("board_item_updated", (payload) => {
-      io.to("broadcast").emit("board_item_updated", payload);
-    }),
-  );
-
-  unsubs.push(
-    eventBus.on("board_item_archived", (payload) => {
-      io.to("broadcast").emit("board_item_archived", payload);
-    }),
-  );
-
-  unsubs.push(
-    eventBus.on("agent_updated", (payload) => {
-      io.to("broadcast").emit("agent_updated", payload);
-    }),
-  );
-
-  unsubs.push(
-    eventBus.on("agent_deleted", (payload) => {
-      io.to("broadcast").emit("agent_deleted", payload);
-    }),
-  );
-
-  unsubs.push(
-    eventBus.on("message_updated", (payload) => {
-      io.to("broadcast").emit("message_updated", payload);
-    }),
-  );
-
-  unsubs.push(
-    eventBus.on("message_deleted", (payload) => {
-      io.to("broadcast").emit("message_deleted", payload);
-    }),
-  );
-
-  unsubs.push(
-    eventBus.on("thread_deleted", (payload) => {
-      io.to("broadcast").emit("thread_deleted", payload);
-    }),
-  );
-
-  unsubs.push(
-    eventBus.on("task_updated", (payload) => {
-      io.to("broadcast").emit("task_updated", payload);
-    }),
-  );
-
-  unsubs.push(
-    eventBus.on("org_changed", () => {
-      io.to("broadcast").emit("org_changed", {});
-    }),
-  );
-
-  unsubs.push(
-    eventBus.on("workspace_updated", (payload) => {
-      io.to("broadcast").emit("workspace_updated", payload);
-    }),
-  );
-
-  unsubs.push(
-    eventBus.on("tool_permission_created", (payload) => {
-      io.to("broadcast").emit("tool_permission_created", payload);
-    }),
-  );
-
-  unsubs.push(
-    eventBus.on("tool_permission_updated", (payload) => {
-      io.to("broadcast").emit("tool_permission_updated", payload);
-    }),
-  );
-
-  unsubs.push(
-    eventBus.on("tool_permission_deleted", (payload) => {
-      io.to("broadcast").emit("tool_permission_deleted", payload);
-    }),
-  );
-
-  unsubs.push(
-    eventBus.on("mcp_server_created", (payload) => {
-      io.to("broadcast").emit("mcp_server_created", payload);
-    }),
-  );
-
-  unsubs.push(
-    eventBus.on("mcp_server_updated", (payload) => {
-      io.to("broadcast").emit("mcp_server_updated", payload);
-    }),
-  );
-
-  unsubs.push(
-    eventBus.on("mcp_server_deleted", (payload) => {
-      io.to("broadcast").emit("mcp_server_deleted", payload);
-    }),
-  );
-
-  unsubs.push(
-    eventBus.on("mcp_server_status_changed", (payload) => {
-      io.to("broadcast").emit("mcp_server_status_changed", payload);
     }),
   );
 

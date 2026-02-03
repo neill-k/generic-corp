@@ -7,10 +7,12 @@ import {
   CreditCard,
   Shield,
   Bell,
+  Building2,
 } from "lucide-react";
 
 const settingsNavItems = [
   { label: "General", path: "/settings", icon: Settings, exact: true },
+  { label: "Organization", path: "/settings/organization", icon: Building2 },
   { label: "Agents", path: "/settings/agents", icon: Users },
   { label: "Skills", path: "/settings/skills", icon: Zap },
   { label: "MCP Servers", path: "/settings/mcp-servers", icon: Server },

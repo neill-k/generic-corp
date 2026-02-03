@@ -1,6 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useSocketStore } from "../store/socket-store.js";
 import { usePluginStore } from "../store/plugin-store.js";
+import { OrgSwitcher } from "./org-switcher.js";
 
 const BUILTIN_NAV_ITEMS = [
   { to: "/", label: "Dashboard", hint: "Overview and capabilities" },
@@ -24,6 +25,11 @@ export function Sidebar() {
           GENERIC CORP
         </span>
         <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#E53935]" />
+      </div>
+
+      {/* Organization Switcher */}
+      <div className="border-b border-[#222] pt-2 pb-2">
+        <OrgSwitcher />
       </div>
 
       {/* Nav */}

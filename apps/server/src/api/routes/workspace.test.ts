@@ -2,7 +2,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import express from "express";
 import request from "supertest";
 
-vi.mock("../../db/client.js", () => {
+const { mockDb } = vi.hoisted(() => {
   const mockDb = {
     workspace: {
       findFirst: vi.fn(),
@@ -11,8 +11,20 @@ vi.mock("../../db/client.js", () => {
       delete: vi.fn(),
     },
   };
-  return { db: mockDb };
+  return { mockDb };
 });
+
+vi.mock("../../middleware/tenant-context.js", () => ({
+  getTenantPrisma: () => mockDb,
+}));
+
+vi.mock("../../lib/prisma-tenant.js", () => ({
+  getPrismaForTenant: vi.fn(async () => mockDb),
+  getPublicPrisma: vi.fn(() => mockDb),
+  clearTenantCache: vi.fn(async () => {}),
+  disconnectAll: vi.fn(async () => {}),
+  getTenantCacheStats: vi.fn(() => ({ totalCached: 0, maxSize: 20 })),
+}));
 
 vi.mock("../../services/app-events.js", () => ({
   appEventBus: {
@@ -26,19 +38,9 @@ vi.mock("../../services/crypto.js", () => ({
   maskApiKey: vi.fn().mockImplementation((enc: string) => (enc ? "sk-ant-••••••••" : "")),
 }));
 
-import { db } from "../../db/client.js";
 import { appEventBus } from "../../services/app-events.js";
 import { encrypt, maskApiKey } from "../../services/crypto.js";
 import { createWorkspaceRouter } from "./workspace.js";
-
-const mockDb = db as unknown as {
-  workspace: {
-    findFirst: ReturnType<typeof vi.fn>;
-    create: ReturnType<typeof vi.fn>;
-    update: ReturnType<typeof vi.fn>;
-    delete: ReturnType<typeof vi.fn>;
-  };
-};
 
 const mockEmit = appEventBus.emit as ReturnType<typeof vi.fn>;
 const mockEncrypt = encrypt as ReturnType<typeof vi.fn>;
@@ -133,7 +135,7 @@ describe("workspace routes", () => {
         where: { id: "ws-1" },
         data: { name: "New Corp", description: "Updated" },
       });
-      expect(mockEmit).toHaveBeenCalledWith("workspace_updated", { workspaceId: "ws-1" });
+      expect(mockEmit).toHaveBeenCalledWith("workspace_updated", { workspaceId: "ws-1", orgSlug: "default" });
     });
 
     it("encrypts API key when provided", async () => {
@@ -241,7 +243,7 @@ describe("workspace routes", () => {
       expect(res.status).toBe(200);
       expect(res.body.deleted).toBe(true);
       expect(mockDb.workspace.delete).toHaveBeenCalledWith({ where: { id: "ws-1" } });
-      expect(mockEmit).toHaveBeenCalledWith("workspace_updated", { workspaceId: "ws-1" });
+      expect(mockEmit).toHaveBeenCalledWith("workspace_updated", { workspaceId: "ws-1", orgSlug: "default" });
     });
 
     it("returns 404 when no workspace exists", async () => {

@@ -10,8 +10,11 @@ import { Server as SocketIOServer } from "socket.io";
 import { PluginHost } from "@generic-corp/core";
 import { LocalEnvVaultPlugin, LocalSqliteStoragePlugin, ConsoleChatPlugin } from "@generic-corp/plugins-base";
 
-import { createApiRouter } from "./api/routes.js";
+import { createTenantApiRouter } from "./api/routes.js";
+import { createOrganizationRoutes } from "./api/routes/organizations.js";
 import { errorMiddleware } from "./api/middleware.js";
+import { tenantContext } from "./middleware/tenant-context.js";
+import { disconnectAll } from "./lib/prisma-tenant.js";
 import { BoardService } from "./services/board-service.js";
 import { WorkspaceManager } from "./services/workspace-manager.js";
 import { setWorkspaceManager, startAgentWorkers, stopAgentWorkers } from "./queue/workers.js";
@@ -57,8 +60,20 @@ async function main() {
     res.json(pluginHost.getUiRegistry().getManifest());
   });
 
+  // --- Public routes (no tenant context required) ---
+  const publicRouter = express.Router();
+  // Import db inline — only used as public prisma for organization routes
+  const { db } = await import("./db/client.js");
+  publicRouter.use("/organizations", createOrganizationRoutes(db));
+  app.use("/api", publicRouter);
+
+  // --- Tenant-scoped routes (tenantContext middleware applied) ---
   const boardService = new BoardService(resolveWorkspaceRoot());
-  app.use("/api", createApiRouter({ boardService }));
+  const tenantRouter = express.Router();
+  tenantRouter.use(tenantContext);
+  tenantRouter.use("/", createTenantApiRouter({ boardService }));
+  app.use("/api", tenantRouter);
+
   app.use(errorMiddleware);
 
   const server = http.createServer(app);
@@ -74,28 +89,43 @@ async function main() {
   setWorkspaceManager(wm);
 
   await startAgentWorkers();
-  startStuckAgentChecker();
+  startStuckAgentChecker(db);
 
   server.listen(PORT, () => {
     console.log(`[Server] listening on http://localhost:${PORT}`);
   });
 
-  const shutdown = async (signal: string) => {
-    console.log(`[Server] shutting down (${signal})`);
-    stopStuckAgentChecker();
-    wsHub.stop();
-    await stopAgentWorkers();
-    await pluginHost.shutdownAll();
-    io.close();
-    server.close();
-  };
+  async function gracefulShutdown(signal: string) {
+    console.log(`[Server] ${signal} received, shutting down gracefully...`);
 
-  process.on("SIGINT", () => {
-    void shutdown("SIGINT");
-  });
-  process.on("SIGTERM", () => {
-    void shutdown("SIGTERM");
-  });
+    // 1. Stop accepting new WebSocket connections
+    wsHub.stop();
+    io.close();
+
+    // 2. Drain agent workers
+    await stopAgentWorkers();
+
+    // 3. Stop error recovery checker
+    stopStuckAgentChecker();
+
+    // 4. Shutdown plugins
+    await pluginHost.shutdownAll();
+
+    // 5. Disconnect all tenant Prisma clients
+    await disconnectAll();
+
+    // 6. Disconnect public Prisma client
+    await db.$disconnect();
+
+    // 7. Close the HTTP server
+    server.close();
+
+    console.log("[Server] Shutdown complete.");
+    process.exit(0);
+  }
+
+  process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+  process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 }
 
 void main().catch((error) => {

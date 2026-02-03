@@ -1,7 +1,9 @@
-import { db } from "../db/client.js";
+import type { PrismaClient } from "@prisma/client";
+
 import type { AgentRuntime } from "./agent-lifecycle.js";
 
 interface GenerateThreadSummaryParams {
+  prisma: PrismaClient;
   threadId: string;
   since: string;
   runtime: AgentRuntime;
@@ -10,7 +12,7 @@ interface GenerateThreadSummaryParams {
 export async function generateThreadSummary(
   params: GenerateThreadSummaryParams,
 ): Promise<string | null> {
-  const messages = await db.message.findMany({
+  const messages = await params.prisma.message.findMany({
     where: {
       threadId: params.threadId,
       createdAt: { gt: new Date(params.since) },

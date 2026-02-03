@@ -3,6 +3,7 @@ import { Queue } from "bullmq";
 import { getRedis } from "./redis.js";
 
 type EnqueueAgentTaskParams = {
+  orgSlug: string;
   agentName: string;
   taskId: string;
   priority: number;
@@ -10,24 +11,25 @@ type EnqueueAgentTaskParams = {
 
 const queues = new Map<string, Queue>();
 
-export function queueNameForAgent(agentName: string): string {
-  return `gc-agent-${agentName}`;
+export function queueNameForAgent(orgSlug: string, agentName: string): string {
+  return `gc-${orgSlug}-agent-${agentName}`;
 }
 
-export function getAgentQueue(agentName: string): Queue {
-  const existing = queues.get(agentName);
+export function getAgentQueue(orgSlug: string, agentName: string): Queue {
+  const cacheKey = `${orgSlug}:${agentName}`;
+  const existing = queues.get(cacheKey);
   if (existing) return existing;
 
-  const queue = new Queue(queueNameForAgent(agentName), { connection: getRedis() });
-  queues.set(agentName, queue);
+  const queue = new Queue(queueNameForAgent(orgSlug, agentName), { connection: getRedis() });
+  queues.set(cacheKey, queue);
   return queue;
 }
 
 export async function enqueueAgentTask(params: EnqueueAgentTaskParams) {
-  const queue = getAgentQueue(params.agentName);
+  const queue = getAgentQueue(params.orgSlug, params.agentName);
   await queue.add(
     "task",
-    { taskId: params.taskId },
+    { taskId: params.taskId, orgSlug: params.orgSlug },
     {
       priority: params.priority,
       removeOnComplete: true,

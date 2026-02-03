@@ -2,9 +2,9 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import express from "express";
 import request from "supertest";
 
-import { createApiRouter } from "./routes.js";
+import { createTenantApiRouter as createApiRouter } from "./routes.js";
 
-vi.mock("../db/client.js", () => {
+const { mockDb } = vi.hoisted(() => {
   const mockDb = {
     agent: {
       findMany: vi.fn(),
@@ -38,14 +38,24 @@ vi.mock("../db/client.js", () => {
       deleteMany: vi.fn(),
     },
   };
-  return { db: mockDb };
+  return { mockDb };
 });
+
+vi.mock("../middleware/tenant-context.js", () => ({
+  getTenantPrisma: () => mockDb,
+}));
+
+vi.mock("../lib/prisma-tenant.js", () => ({
+  getPrismaForTenant: vi.fn(async () => mockDb),
+  getPublicPrisma: vi.fn(() => mockDb),
+  clearTenantCache: vi.fn(async () => {}),
+  disconnectAll: vi.fn(async () => {}),
+  getTenantCacheStats: vi.fn(() => ({ totalCached: 0, maxSize: 20 })),
+}));
 
 vi.mock("../queue/agent-queues.js", () => ({
   enqueueAgentTask: vi.fn(),
 }));
-
-import { db } from "../db/client.js";
 
 vi.mock("../services/chat-continuity.js", () => ({
   generateThreadSummary: vi.fn(),
@@ -69,40 +79,6 @@ function createApp() {
   app.use("/api", createApiRouter({ boardService: mockBoardService as never, runtime: mockRuntime }));
   return app;
 }
-
-const mockDb = db as unknown as {
-  agent: {
-    findMany: ReturnType<typeof vi.fn>;
-    findUnique: ReturnType<typeof vi.fn>;
-    create: ReturnType<typeof vi.fn>;
-    update: ReturnType<typeof vi.fn>;
-    delete: ReturnType<typeof vi.fn>;
-  };
-  task: {
-    create: ReturnType<typeof vi.fn>;
-    findUnique: ReturnType<typeof vi.fn>;
-    findMany: ReturnType<typeof vi.fn>;
-    update: ReturnType<typeof vi.fn>;
-    delete: ReturnType<typeof vi.fn>;
-  };
-  message: {
-    create: ReturnType<typeof vi.fn>;
-    findMany: ReturnType<typeof vi.fn>;
-    findFirst: ReturnType<typeof vi.fn>;
-    findUnique: ReturnType<typeof vi.fn>;
-    update: ReturnType<typeof vi.fn>;
-    delete: ReturnType<typeof vi.fn>;
-    deleteMany: ReturnType<typeof vi.fn>;
-  };
-  orgNode: {
-    findMany: ReturnType<typeof vi.fn>;
-    findUnique: ReturnType<typeof vi.fn>;
-    create: ReturnType<typeof vi.fn>;
-    update: ReturnType<typeof vi.fn>;
-    delete: ReturnType<typeof vi.fn>;
-    deleteMany: ReturnType<typeof vi.fn>;
-  };
-};
 
 describe("routes", () => {
   beforeEach(() => {

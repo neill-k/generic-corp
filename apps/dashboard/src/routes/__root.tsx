@@ -1,10 +1,13 @@
 import { Outlet } from "@tanstack/react-router";
 import { Layout } from "../components/Layout.js";
+import { OrgProvider } from "../components/OrgProvider.js";
 
 export function RootLayout() {
   return (
-    <Layout>
-      <Outlet />
-    </Layout>
+    <OrgProvider>
+      <Layout>
+        <Outlet />
+      </Layout>
+    </OrgProvider>
   );
 }

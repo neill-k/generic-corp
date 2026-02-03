@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import express from "express";
 import { z } from "zod";
 
-import { db } from "../../db/client.js";
+import { getTenantPrisma } from "../../middleware/tenant-context.js";
 import { enqueueAgentTask } from "../../queue/agent-queues.js";
 import { appEventBus } from "../../services/app-events.js";
 import { createMessageBodySchema } from "../schemas/message.schema.js";
@@ -13,9 +13,10 @@ export function createMessageRouter(): express.Router {
 
   router.post("/messages", async (req, res, next) => {
     try {
+      const prisma = getTenantPrisma(req);
       const body = createMessageBodySchema.parse(req.body);
 
-      const agent = await db.agent.findUnique({
+      const agent = await prisma.agent.findUnique({
         where: { name: body.agentName },
         select: { id: true },
       });
@@ -26,7 +27,7 @@ export function createMessageRouter(): express.Router {
 
       const threadId = body.threadId ?? crypto.randomUUID();
 
-      const message = await db.message.create({
+      const message = await prisma.message.create({
         data: {
           fromAgentId: null,
           toAgentId: agent.id,
@@ -51,16 +52,17 @@ export function createMessageRouter(): express.Router {
         threadId,
         fromAgentId: null,
         toAgentId: agent.id,
+        orgSlug: req.tenant?.slug ?? "default",
       });
 
       // Create a task so the agent actually processes this message
-      const agentRecord = await db.agent.findUnique({
+      const agentRecord = await prisma.agent.findUnique({
         where: { id: agent.id },
         select: { id: true, name: true },
       });
 
       if (agentRecord) {
-        const task = await db.task.create({
+        const task = await prisma.task.create({
           data: {
             assigneeId: agentRecord.id,
             delegatorId: null,
@@ -73,6 +75,7 @@ export function createMessageRouter(): express.Router {
         });
 
         await enqueueAgentTask({
+          orgSlug: req.tenant?.slug ?? "default",
           agentName: agentRecord.name,
           taskId: task.id,
           priority: 0,
@@ -82,6 +85,7 @@ export function createMessageRouter(): express.Router {
           taskId: task.id,
           assignee: agentRecord.name,
           delegator: null,
+          orgSlug: req.tenant?.slug ?? "default",
         });
       }
 
@@ -97,13 +101,14 @@ export function createMessageRouter(): express.Router {
 
   router.get("/messages", async (req, res, next) => {
     try {
+      const prisma = getTenantPrisma(req);
       const threadId = req.query["threadId"];
       if (!threadId || typeof threadId !== "string") {
         res.status(400).json({ error: "threadId query parameter is required" });
         return;
       }
 
-      const messages = await db.message.findMany({
+      const messages = await prisma.message.findMany({
         where: { threadId },
         orderBy: { createdAt: "asc" },
         select: {
@@ -125,7 +130,8 @@ export function createMessageRouter(): express.Router {
 
   router.patch("/messages/:id", async (req, res, next) => {
     try {
-      const message = await db.message.findUnique({ where: { id: req.params["id"] ?? "" } });
+      const prisma = getTenantPrisma(req);
+      const message = await prisma.message.findUnique({ where: { id: req.params["id"] ?? "" } });
       if (!message) {
         res.status(404).json({ error: "Message not found" });
         return;
@@ -135,8 +141,8 @@ export function createMessageRouter(): express.Router {
         data["status"] = "read";
         data["readAt"] = new Date();
       }
-      const updated = await db.message.update({ where: { id: message.id }, data });
-      appEventBus.emit("message_updated", { messageId: message.id });
+      const updated = await prisma.message.update({ where: { id: message.id }, data });
+      appEventBus.emit("message_updated", { messageId: message.id, orgSlug: req.tenant?.slug ?? "default" });
       res.json({ message: updated });
     } catch (error) {
       next(error);
@@ -145,13 +151,14 @@ export function createMessageRouter(): express.Router {
 
   router.delete("/messages/:id", async (req, res, next) => {
     try {
-      const message = await db.message.findUnique({ where: { id: req.params["id"] ?? "" } });
+      const prisma = getTenantPrisma(req);
+      const message = await prisma.message.findUnique({ where: { id: req.params["id"] ?? "" } });
       if (!message) {
         res.status(404).json({ error: "Message not found" });
         return;
       }
-      await db.message.delete({ where: { id: message.id } });
-      appEventBus.emit("message_deleted", { messageId: message.id });
+      await prisma.message.delete({ where: { id: message.id } });
+      appEventBus.emit("message_deleted", { messageId: message.id, orgSlug: req.tenant?.slug ?? "default" });
       res.json({ deleted: true });
     } catch (error) {
       next(error);
