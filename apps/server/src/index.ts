@@ -19,6 +19,7 @@ import { BoardService } from "./services/board-service.js";
 import { WorkspaceManager } from "./services/workspace-manager.js";
 import { setWorkspaceManager, startAgentWorkers, stopAgentWorkers } from "./queue/workers.js";
 import { startStuckAgentChecker, stopStuckAgentChecker } from "./services/error-recovery.js";
+import { startAgentNudger, stopAgentNudger } from "./services/agent-nudger.js";
 import { createWebSocketHub } from "./ws/hub.js";
 import { MainAgentStreamService } from "./services/main-agent-stream.js";
 import { GcServerPlugin } from "./plugins/gc-server-plugin.js";
@@ -93,6 +94,7 @@ async function main() {
 
   await startAgentWorkers();
   startStuckAgentChecker(db);
+  startAgentNudger(db);
 
   server.listen(PORT, () => {
     console.log(`[Server] listening on http://localhost:${PORT}`);
@@ -110,6 +112,7 @@ async function main() {
 
     // 3. Stop error recovery checker
     stopStuckAgentChecker();
+    stopAgentNudger();
 
     // 4. Shutdown plugins
     await pluginHost.shutdownAll();
