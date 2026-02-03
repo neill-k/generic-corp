@@ -1,6 +1,8 @@
+import { isValidElement, Children } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Components } from "react-markdown";
+import { MermaidDiagram } from "./MermaidDiagram.js";
 
 interface MarkdownContentProps {
   content: string;
@@ -49,11 +51,19 @@ const components: Components = {
       </code>
     );
   },
-  pre: ({ children }) => (
-    <pre className="my-2 overflow-x-auto rounded-md bg-[#1E1E1E] p-3 font-mono text-xs text-[#D4D4D4]">
-      {children}
-    </pre>
-  ),
+  pre: ({ children }) => {
+    // Detect mermaid code blocks: <pre><code class="language-mermaid">...</code></pre>
+    const child = Children.only(children);
+    if (isValidElement(child) && child.props?.className === "block language-mermaid") {
+      const chart = String(child.props.children ?? "").replace(/\n$/, "");
+      return <MermaidDiagram chart={chart} />;
+    }
+    return (
+      <pre className="my-2 overflow-x-auto rounded-md bg-[#1E1E1E] p-3 font-mono text-xs text-[#D4D4D4]">
+        {children}
+      </pre>
+    );
+  },
 
   // Lists
   ul: ({ children }) => (
