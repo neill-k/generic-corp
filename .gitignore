@@ -58,3 +58,5 @@ workspace/
 
 # Local todos
 todos/
+# MkDocs build directory
+site/
