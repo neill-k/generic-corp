@@ -21,7 +21,7 @@ export function ChatInput({ onSend, disabled, isStreaming, onInterrupt }: ChatIn
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex flex-col gap-1.5 border-t border-[#EEE] bg-white px-4 py-3"
+      className="flex flex-shrink-0 flex-col gap-1.5 border-t border-[#EEE] bg-white px-4 py-3"
     >
       <div className="flex items-center gap-2">
         <div className="flex flex-1 items-center rounded border border-[#EEE] px-4">

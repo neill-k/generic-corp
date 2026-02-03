@@ -1,14 +1,16 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "../../lib/api-client.js";
 import { useChatStore } from "../../store/chat-store.js";
 import { useSocketEvent } from "../../hooks/use-socket.js";
 import { useMainAgentStream } from "../../hooks/use-main-agent-stream.js";
+import { useAutoScroll } from "../../hooks/use-auto-scroll.js";
 import { ThreadList } from "./ThreadList.js";
 import { MessageList } from "./MessageList.js";
 import { ChatInput } from "./ChatInput.js";
 import { StreamingMessage } from "./StreamingMessage.js";
+import { ScrollToBottomButton } from "./ScrollToBottomButton.js";
 import type { ApiThread, ApiMessage, WsThreadDeleted } from "@generic-corp/shared";
 
 export function ChatView() {
@@ -26,6 +28,12 @@ export function ChatView() {
 
   const queryClient = useQueryClient();
   const { sendMessage, interrupt, isStreaming } = useMainAgentStream(activeThreadId);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const { isAtBottom, scrollToBottom } = useAutoScroll(scrollContainerRef, [
+    messages,
+    streamingMessage?.text,
+    streamingMessage?.toolCalls,
+  ]);
 
   // Fetch threads
   const threadsQuery = useQuery({
@@ -127,8 +135,11 @@ export function ChatView() {
 
       // Use streaming path via socket
       sendMessage(body);
+
+      // Always scroll to bottom when user sends a message
+      scrollToBottom();
     },
-    [activeThreadId, appendMessage, isStreaming, interrupt, sendMessage],
+    [activeThreadId, appendMessage, isStreaming, interrupt, sendMessage, scrollToBottom],
   );
 
   const handleInterrupt = useCallback(() => {
@@ -174,7 +185,7 @@ export function ChatView() {
   );
 
   return (
-    <div className="flex h-full bg-white">
+    <div className="flex h-screen bg-white">
       <ThreadList
         threads={threads}
         activeThreadId={activeThreadId}
@@ -183,38 +194,47 @@ export function ChatView() {
         onDeleteThread={handleDeleteThread}
         onSummaryReceived={handleSummaryReceived}
       />
-      <div className="flex flex-1 flex-col">
+      <div className="flex min-h-0 flex-1 flex-col">
         {/* Header */}
-        <div className="flex h-16 items-center gap-3 border-b border-[#EEE] px-8">
+        <div className="flex h-16 flex-shrink-0 items-center gap-3 border-b border-[#EEE] px-8">
           <div className="h-5 w-1 rounded-sm bg-[#E53935]" />
           <h1 className="text-xl font-semibold text-black">Chat</h1>
         </div>
 
         {activeThreadId ? (
           <>
-            <MessageList messages={messages} />
-            {streamingMessage && streamingMessage.threadId === activeThreadId && (
-              <StreamingMessage message={streamingMessage} />
-            )}
-            {messages.length === 0 && !streamingMessage && (
-              <div className="flex flex-wrap justify-center gap-2 px-4 pb-2">
-                {[
-                  "Review the latest code changes",
-                  "Give me a standup report",
-                  "What blockers does the team have?",
-                  "Delegate a code review to the engineering lead",
-                ].map((prompt) => (
-                  <button
-                    key={prompt}
-                    onClick={() => handleSend(prompt)}
-                    disabled={sending || isStreaming}
-                    className="rounded-full border border-[#EEE] bg-white px-4 py-2 text-xs text-[#666] transition-colors hover:border-[#DDD] hover:text-black disabled:opacity-50"
-                  >
-                    {prompt}
-                  </button>
-                ))}
-              </div>
-            )}
+            {/* Scroll container for messages + streaming */}
+            <div
+              ref={scrollContainerRef}
+              className="relative min-h-0 flex-1 overflow-y-auto"
+            >
+              <MessageList messages={messages} />
+              {streamingMessage && streamingMessage.threadId === activeThreadId && (
+                <StreamingMessage message={streamingMessage} />
+              )}
+              {messages.length === 0 && !streamingMessage && (
+                <div className="flex flex-wrap justify-center gap-2 px-4 pb-2">
+                  {[
+                    "Review the latest code changes",
+                    "Give me a standup report",
+                    "What blockers does the team have?",
+                    "Delegate a code review to the engineering lead",
+                  ].map((prompt) => (
+                    <button
+                      key={prompt}
+                      onClick={() => handleSend(prompt)}
+                      disabled={sending || isStreaming}
+                      className="rounded-full border border-[#EEE] bg-white px-4 py-2 text-xs text-[#666] transition-colors hover:border-[#DDD] hover:text-black disabled:opacity-50"
+                    >
+                      {prompt}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {!isAtBottom && (
+                <ScrollToBottomButton onClick={scrollToBottom} />
+              )}
+            </div>
             <ChatInput
               onSend={handleSend}
               disabled={sending}
