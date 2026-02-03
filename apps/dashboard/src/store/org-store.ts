@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { api } from "../lib/api-client";
 import { resetAllStores } from "../lib/create-resettable";
+import { getSocket } from "../lib/socket";
+import { queryClient } from "../lib/query-client";
 
 const LS_KEY = "gc_lastOrgSlug";
 
@@ -35,14 +37,19 @@ export const useOrgStore = create<OrgStore>((set, get) => ({
   fetchOrganizations: async () => {
     set({ isLoading: true });
     try {
-      const orgs = await api.get<Organization[]>("/organizations");
+      const { organizations: orgs } = await api.get<{ organizations: Organization[] }>("/organizations");
       set({ organizations: orgs, isLoading: false });
 
       // Auto-select org if none is set
       if (!get().currentOrg && orgs.length > 0) {
         const lastSlug = localStorage.getItem(LS_KEY);
         const restored = orgs.find((o) => o.slug === lastSlug);
-        set({ currentOrg: restored ?? orgs[0] });
+        const selected = restored ?? orgs[0];
+        set({ currentOrg: selected });
+        localStorage.setItem(LS_KEY, selected.slug);
+
+        // Tell the socket which org we're in so the server can resolve the tenant
+        getSocket().emit("switch_org", selected.slug);
       }
     } catch (err) {
       console.error(
@@ -65,7 +72,7 @@ export const useOrgStore = create<OrgStore>((set, get) => ({
     set({ isSwitching: true });
 
     try {
-      const orgs = await api.get<Organization[]>("/organizations");
+      const { organizations: orgs } = await api.get<{ organizations: Organization[] }>("/organizations");
 
       // Guard against stale switch: if another switch started, bail out
       if (mySwitchId !== switchId) return;
@@ -81,6 +88,12 @@ export const useOrgStore = create<OrgStore>((set, get) => ({
         isSwitching: false,
       });
       localStorage.setItem(LS_KEY, target.slug);
+
+      // Move WebSocket to the new org's broadcast room
+      getSocket().emit("switch_org", target.slug);
+
+      // Invalidate all queries so active observers refetch with the new org header
+      void queryClient.invalidateQueries();
     } catch (err) {
       // Only update state if this is still the active switch
       if (mySwitchId === switchId) {

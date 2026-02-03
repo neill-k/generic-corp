@@ -66,7 +66,10 @@ export function SettingsSkillsPage() {
 
   const { data: permissions, isLoading } = useQuery({
     queryKey: queryKeys.toolPermissions.list(),
-    queryFn: () => api.get<ToolPermission[]>("/tool-permissions"),
+    queryFn: () =>
+      api
+        .get<{ permissions: ToolPermission[] }>("/tool-permissions")
+        .then((res) => res.permissions),
   });
 
   const toggleMutation = useMutation({

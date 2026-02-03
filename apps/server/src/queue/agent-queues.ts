@@ -11,25 +11,24 @@ type EnqueueAgentTaskParams = {
 
 const queues = new Map<string, Queue>();
 
-export function queueNameForAgent(orgSlug: string, agentName: string): string {
-  return `gc-${orgSlug}-agent-${agentName}`;
+export function queueNameForTenant(orgSlug: string): string {
+  return `gc-${orgSlug}-tasks`;
 }
 
-export function getAgentQueue(orgSlug: string, agentName: string): Queue {
-  const cacheKey = `${orgSlug}:${agentName}`;
-  const existing = queues.get(cacheKey);
+export function getTenantQueue(orgSlug: string): Queue {
+  const existing = queues.get(orgSlug);
   if (existing) return existing;
 
-  const queue = new Queue(queueNameForAgent(orgSlug, agentName), { connection: getRedis() });
-  queues.set(cacheKey, queue);
+  const queue = new Queue(queueNameForTenant(orgSlug), { connection: getRedis() });
+  queues.set(orgSlug, queue);
   return queue;
 }
 
 export async function enqueueAgentTask(params: EnqueueAgentTaskParams) {
-  const queue = getAgentQueue(params.orgSlug, params.agentName);
+  const queue = getTenantQueue(params.orgSlug);
   await queue.add(
     "task",
-    { taskId: params.taskId, orgSlug: params.orgSlug },
+    { taskId: params.taskId, orgSlug: params.orgSlug, agentName: params.agentName },
     {
       priority: params.priority,
       removeOnComplete: true,

@@ -71,9 +71,10 @@ export const mockProviderPerformance: ProviderPerformanceResponse = {
 };
 
 // Calculate derived metrics for Key Metrics Cards
+const totalApiCalls = mockUsageMetrics.metrics.reduce((sum, m) => sum + m.apiCalls, 0);
 export const mockKeyMetrics = {
-  totalApiCalls: mockUsageMetrics.metrics.reduce((sum, m) => sum + m.apiCalls, 0),
-  totalTokens: mockKeyMetrics?.totalApiCalls ? Math.floor(mockKeyMetrics.totalApiCalls * 275.5) : 4200000, // rough estimate
+  totalApiCalls,
+  totalTokens: Math.floor(totalApiCalls * 275.5),
   avgLatency: Math.floor(
     mockUsageMetrics.metrics.reduce((sum, m) => sum + m.avgLatency, 0) /
     mockUsageMetrics.metrics.length

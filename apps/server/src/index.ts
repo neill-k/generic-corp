@@ -20,6 +20,7 @@ import { WorkspaceManager } from "./services/workspace-manager.js";
 import { setWorkspaceManager, startAgentWorkers, stopAgentWorkers } from "./queue/workers.js";
 import { startStuckAgentChecker, stopStuckAgentChecker } from "./services/error-recovery.js";
 import { createWebSocketHub } from "./ws/hub.js";
+import { MainAgentStreamService } from "./services/main-agent-stream.js";
 import { GcServerPlugin } from "./plugins/gc-server-plugin.js";
 
 const PORT = Number(process.env["PORT"] ?? "3000");
@@ -81,11 +82,13 @@ async function main() {
     cors: { origin: "*" },
   });
 
-  const eventBus = pluginHost.getEventBus();
-  const wsHub = createWebSocketHub(io, eventBus);
-
   const wm = new WorkspaceManager(resolveWorkspaceRoot());
   await wm.ensureInitialized();
+
+  const streamService = new MainAgentStreamService(wm);
+
+  const eventBus = pluginHost.getEventBus();
+  const wsHub = createWebSocketHub(io, eventBus, { streamService });
   setWorkspaceManager(wm);
 
   await startAgentWorkers();

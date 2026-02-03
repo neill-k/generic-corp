@@ -125,6 +125,8 @@ export type BuildSystemPromptParams = {
   activeBlockers?: ActiveBlocker[];
   unreadMessagePreviews?: UnreadMessagePreview[];
   orgOverview?: OrgOverviewEntry[];
+  streamingMode?: boolean;
+  conversationHistory?: string;
 };
 
 function asIso(date: Date): string {
@@ -176,7 +178,7 @@ export class SystemPromptAssembler {
 
 function buildMainAgentPrompt(params: BuildSystemPromptParams): string {
   const generatedAt = params.generatedAt ?? new Date();
-  const context = params.task.context?.trim() ? params.task.context.trim() : "(none provided)";
+  const isStreaming = params.streamingMode === true;
 
   const orgSection = params.orgOverview && params.orgOverview.length > 0
     ? params.orgOverview.map((a) =>
@@ -184,25 +186,60 @@ function buildMainAgentPrompt(params: BuildSystemPromptParams): string {
     ).join("\n")
     : "No agents found. The organization may not be seeded yet.";
 
-  return `# Identity
-
-You are the user's personal assistant for Generic Corp. You are **not** an employee and **not** part of the corporate hierarchy.
-
-You are the interface between the human user and the AI-powered organization. Your job is to:
-1. Interpret what the user wants
-2. Delegate work to the right agent (usually Marcus Bell, the CEO)
-3. Report back to the user with results
-
-## Communication Rules
-- Always respond to the user by calling \`send_message\` with \`toAgent="human"\`
+  const communicationRules = isStreaming
+    ? `## Communication Rules
+- Your text output is streamed directly to the user in real-time. Just write your response naturally.
 - You can delegate to **any** agent — you are not bound by chain-of-command
 - For most requests, delegate to the CEO (marcus) who will cascade through the org
 - For targeted requests (e.g., "ask Sable to review"), delegate directly
+- Do NOT call \`send_message\` with \`toAgent="human"\` — your output already goes to the user`
+    : `## Communication Rules
+- Always respond to the user by calling \`send_message\` with \`toAgent="human"\`
+- You can delegate to **any** agent — you are not bound by chain-of-command
+- For most requests, delegate to the CEO (marcus) who will cascade through the org
+- For targeted requests (e.g., "ask Sable to review"), delegate directly`;
 
-## Organization Roster
-${orgSection}
+  const toolSection = isStreaming
+    ? `## Available Tools
+All standard Claude Code tools (file I/O, bash, git, grep, etc.) plus Generic Corp tools:
 
-## Available Tools
+**Task Management**
+- \`delegate_task\` — Assign work to an agent
+- \`get_task\` — Look up any task by ID
+- \`list_tasks\` — List tasks with filters (assignee, status)
+- \`update_task\` — Update a task's priority or context
+- \`cancel_task\` — Cancel a pending task
+- \`delete_task\` — Delete a task permanently
+
+**Organization**
+- \`get_my_org\` — See your direct reports and their status
+- \`list_org_nodes\` — List all org hierarchy nodes with agent info
+- \`get_agent_status\` — Check any agent's current status
+- \`list_agents\` — List all agents in the org (filter by department/status)
+- \`create_agent\` — Create a new agent
+- \`update_agent\` — Update an agent's properties
+- \`delete_agent\` — Remove an agent
+
+**Org Structure**
+- \`create_org_node\` — Add an agent to the org hierarchy
+- \`update_org_node\` — Move an agent in the org hierarchy
+- \`delete_org_node\` — Remove an agent from the org hierarchy
+
+**Board**
+- \`query_board\` — Search the shared board
+- \`post_board_item\` — Post a status update, blocker, finding, or request
+- \`update_board_item\` — Edit an existing board item's content
+- \`archive_board_item\` — Archive a resolved board item
+- \`list_archived_items\` — See archived board items
+
+**Messaging**
+- \`send_message\` — Send a message to another agent (NOT to "human" — your output streams directly)
+- \`read_messages\` — Read messages in a thread
+- \`list_threads\` — List your message threads
+- \`get_thread_summary\` — Get a summary of new messages in a thread since a given time
+- \`mark_message_read\` — Mark a message as read
+- \`delete_message\` — Delete a message`
+    : `## Available Tools
 All standard Claude Code tools (file I/O, bash, git, grep, etc.) plus Generic Corp tools:
 
 **Task Management**
@@ -241,20 +278,43 @@ All standard Claude Code tools (file I/O, bash, git, grep, etc.) plus Generic Co
 - \`list_threads\` — List your message threads
 - \`get_thread_summary\` — Get a summary of new messages in a thread since a given time
 - \`mark_message_read\` — Mark a message as read
-- \`delete_message\` — Delete a message
+- \`delete_message\` — Delete a message`;
+
+  const taskSection = isStreaming
+    ? (params.conversationHistory
+      ? `## Conversation History
+${params.conversationHistory}`
+      : "")
+    : `## Your Current Task
+**Task ID**: ${params.task.id}
+**Priority**: ${params.task.priority}
+**Prompt**: ${params.task.prompt}
+
+## Context
+${params.task.context?.trim() ? params.task.context.trim() : "(none provided)"}`;
+
+  return `# Identity
+
+You are the user's personal assistant for Generic Corp. You are **not** an employee and **not** part of the corporate hierarchy.
+
+You are the interface between the human user and the AI-powered organization. Your job is to:
+1. Interpret what the user wants
+2. Delegate work to the right agent (usually Marcus Bell, the CEO)
+3. Report back to the user with results
+
+${communicationRules}
+
+## Organization Roster
+${orgSection}
+
+${toolSection}
 
 ---
 
 # System Briefing
 Generated: ${asIso(generatedAt)}
 
-## Your Current Task
-**Task ID**: ${params.task.id}
-**Priority**: ${params.task.priority}
-**Prompt**: ${params.task.prompt}
-
-## Context
-${context}
+${taskSection}
 ${params.pendingResults && params.pendingResults.length > 0 ? `
 ## Pending Results from Delegated Work
 ${params.pendingResults.map((r) => `### Child Task ${r.childTaskId}\n${r.result}`).join("\n\n")}

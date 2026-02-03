@@ -3,8 +3,7 @@ import { Worker } from "bullmq";
 import type { Agent, PrismaClient, Task } from "@prisma/client";
 import { MAIN_AGENT_NAME } from "@generic-corp/shared";
 
-import { db } from "../db/client.js"; // eslint-disable-line no-restricted-imports -- fallback for startAgentWorkers bootstrap
-import { getPrismaForTenant } from "../lib/prisma-tenant.js";
+import { getPrismaForTenant, getPublicPrisma } from "../lib/prisma-tenant.js";
 import { createGcMcpServer } from "../mcp/server.js";
 import { appEventBus } from "../services/app-events.js";
 import type { AgentRuntime } from "../services/agent-lifecycle.js";
@@ -19,10 +18,12 @@ import type { WorkspaceManager } from "../services/workspace-manager.js";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
-import { queueNameForAgent } from "./agent-queues.js";
+import { enqueueAgentTask, queueNameForTenant } from "./agent-queues.js";
 import { closeRedis, getRedis } from "./redis.js";
 
-export type WorkerJobData = { taskId: string; orgSlug: string };
+export type WorkerJobData = { taskId: string; orgSlug: string; agentName: string };
+
+const AGENT_BUSY_DELAY_MS = 2000;
 
 const workers: Worker[] = [];
 let workspaceManager: WorkspaceManager | null = null;
@@ -433,12 +434,12 @@ async function runTask(prisma: PrismaClient, orgSlug: string, task: Task & { ass
   }
 }
 
-function startWorkerForAgent(agentName: string, orgSlug: string) {
+function startWorkerForTenant(orgSlug: string) {
+  const concurrency = Number(process.env["GC_AGENT_CONCURRENCY"] ?? "10");
   const worker = new Worker<WorkerJobData>(
-    queueNameForAgent(orgSlug, agentName),
+    queueNameForTenant(orgSlug),
     async (job) => {
-      const taskId = job.data.taskId;
-      const jobOrgSlug = job.data.orgSlug;
+      const { taskId, orgSlug: jobOrgSlug, agentName } = job.data;
       const prisma = await getPrismaForTenant(jobOrgSlug);
       const task = await prisma.task.findUnique({
         where: { id: taskId },
@@ -447,8 +448,15 @@ function startWorkerForAgent(agentName: string, orgSlug: string) {
 
       if (!task) return;
       if (!task.assignee) return;
-      if (task.assignee.name !== agentName) return;
       if (task.status !== "pending") return;
+
+      // Per-agent serialization: if this agent is already running a task, re-queue with delay
+      if (task.assignee.status === "running") {
+        console.log(`[Queue] agent=${agentName} is busy, re-queuing task=${taskId}`);
+        await enqueueAgentTask({ orgSlug: jobOrgSlug, agentName, taskId, priority: job.opts.priority ?? 0 });
+        await new Promise((resolve) => setTimeout(resolve, AGENT_BUSY_DELAY_MS));
+        return;
+      }
 
       const assignee = task.assignee;
       const assigneeId = task.assigneeId!;
@@ -472,10 +480,11 @@ function startWorkerForAgent(agentName: string, orgSlug: string) {
         }
       }
     },
-    { connection: getRedis(), concurrency: 1 },
+    { connection: getRedis(), concurrency },
   );
 
   worker.on("failed", (job, err) => {
+    const agentName = job?.data?.agentName ?? "?";
     console.error(`[Queue] job failed agent=${agentName} jobId=${job?.id ?? "?"}`, err);
   });
 
@@ -483,12 +492,17 @@ function startWorkerForAgent(agentName: string, orgSlug: string) {
 }
 
 export async function startAgentWorkers() {
-  const agents = await db.agent.findMany({ select: { name: true } });
-  for (const agent of agents) {
-    startWorkerForAgent(agent.name, "default");
+  const publicPrisma = getPublicPrisma();
+  const tenants = await publicPrisma.tenant.findMany({
+    where: { status: "active" },
+    select: { slug: true },
+  });
+
+  for (const tenant of tenants) {
+    startWorkerForTenant(tenant.slug);
   }
 
-  console.log(`[Queue] started ${workers.length} agent workers`);
+  console.log(`[Queue] started ${workers.length} tenant worker(s) across ${tenants.length} tenant(s)`);
 }
 
 export async function stopAgentWorkers() {

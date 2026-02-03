@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import express from "express";
 import { z } from "zod";
 
+import { MAIN_AGENT_NAME } from "@generic-corp/shared";
 import { getTenantPrisma } from "../../middleware/tenant-context.js";
 import { enqueueAgentTask } from "../../queue/agent-queues.js";
 import { appEventBus } from "../../services/app-events.js";
@@ -15,6 +16,14 @@ export function createMessageRouter(): express.Router {
     try {
       const prisma = getTenantPrisma(req);
       const body = createMessageBodySchema.parse(req.body);
+
+      // Main agent chat now uses socket-based streaming
+      if (body.agentName === MAIN_AGENT_NAME) {
+        res.status(400).json({
+          error: "Main agent chat uses real-time streaming. Connect via Socket.io and emit 'chat_message' instead.",
+        });
+        return;
+      }
 
       const agent = await prisma.agent.findUnique({
         where: { name: body.agentName },

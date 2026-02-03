@@ -4,11 +4,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/api-client.js";
 import { useChatStore } from "../../store/chat-store.js";
 import { useSocketEvent } from "../../hooks/use-socket.js";
+import { useMainAgentStream } from "../../hooks/use-main-agent-stream.js";
 import { ThreadList } from "./ThreadList.js";
 import { MessageList } from "./MessageList.js";
 import { ChatInput } from "./ChatInput.js";
-import type { ApiThread, ApiMessage, WsAgentEvent, WsThreadDeleted } from "@generic-corp/shared";
-import { MAIN_AGENT_NAME } from "@generic-corp/shared";
+import { StreamingMessage } from "./StreamingMessage.js";
+import type { ApiThread, ApiMessage, WsThreadDeleted } from "@generic-corp/shared";
 
 export function ChatView() {
   const {
@@ -16,14 +17,15 @@ export function ChatView() {
     messages,
     activeThreadId,
     sending,
+    streamingMessage,
     setThreads,
     setMessages,
     setActiveThread,
     appendMessage,
-    setSending,
   } = useChatStore();
 
   const queryClient = useQueryClient();
+  const { sendMessage, interrupt, isStreaming } = useMainAgentStream(activeThreadId);
 
   // Fetch threads
   const threadsQuery = useQuery({
@@ -80,26 +82,8 @@ export function ChatView() {
     }
   }, [messagesQuery.data, setMessages]);
 
-  // Listen for agent events (CEO responses in real-time)
-  useSocketEvent<WsAgentEvent>("agent_event", (event) => {
-    if (
-      event.event.type === "message" &&
-      activeThreadId
-    ) {
-      appendMessage({
-        id: crypto.randomUUID(),
-        fromAgentId: event.agentDbId ?? null,
-        toAgentId: MAIN_AGENT_NAME,
-        threadId: activeThreadId,
-        body: event.event.content,
-        type: "chat",
-        createdAt: new Date().toISOString(),
-      });
-    }
-  });
-
   const handleSend = useCallback(
-    async (body: string) => {
+    (body: string) => {
       if (!activeThreadId) return;
 
       // Handle /help command locally
@@ -136,22 +120,20 @@ export function ChatView() {
         return;
       }
 
-      setSending(true);
-      try {
-        const result = await api.post<{ message: ApiMessage }>("/messages", {
-          agentName: MAIN_AGENT_NAME,
-          body,
-          threadId: activeThreadId,
-        });
-        appendMessage(result.message);
-      } catch (error) {
-        console.error("[Chat] Failed to send message:", error);
-      } finally {
-        setSending(false);
+      // If currently streaming, interrupt first then send new message
+      if (isStreaming) {
+        interrupt();
       }
+
+      // Use streaming path via socket
+      sendMessage(body);
     },
-    [activeThreadId, appendMessage, setSending],
+    [activeThreadId, appendMessage, isStreaming, interrupt, sendMessage],
   );
+
+  const handleInterrupt = useCallback(() => {
+    interrupt();
+  }, [interrupt]);
 
   const handleNewThread = useCallback(() => {
     setActiveThread(crypto.randomUUID());
@@ -211,7 +193,10 @@ export function ChatView() {
         {activeThreadId ? (
           <>
             <MessageList messages={messages} />
-            {messages.length === 0 && (
+            {streamingMessage && streamingMessage.threadId === activeThreadId && (
+              <StreamingMessage message={streamingMessage} />
+            )}
+            {messages.length === 0 && !streamingMessage && (
               <div className="flex flex-wrap justify-center gap-2 px-4 pb-2">
                 {[
                   "Review the latest code changes",
@@ -222,7 +207,7 @@ export function ChatView() {
                   <button
                     key={prompt}
                     onClick={() => handleSend(prompt)}
-                    disabled={sending}
+                    disabled={sending || isStreaming}
                     className="rounded-full border border-[#EEE] bg-white px-4 py-2 text-xs text-[#666] transition-colors hover:border-[#DDD] hover:text-black disabled:opacity-50"
                   >
                     {prompt}
@@ -230,7 +215,12 @@ export function ChatView() {
                 ))}
               </div>
             )}
-            <ChatInput onSend={handleSend} disabled={sending} />
+            <ChatInput
+              onSend={handleSend}
+              disabled={sending}
+              isStreaming={isStreaming}
+              onInterrupt={handleInterrupt}
+            />
           </>
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 text-sm text-[#999]">

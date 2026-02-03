@@ -263,6 +263,29 @@ export type WsOutboundEvent =
   | WsTaskUpdated
   | WsOrgChanged;
 
+// --- Main Agent Streaming Types ---
+
+/** Server → Client streaming events for the main agent chat */
+export type MainAgentStreamEvent =
+  | { type: "turn_start"; turnId: string; threadId: string }
+  | { type: "text_delta"; turnId: string; threadId: string; delta: string }
+  | { type: "thinking_delta"; turnId: string; threadId: string; delta: string }
+  | { type: "tool_start"; turnId: string; threadId: string; toolUseId: string; toolName: string; input: unknown }
+  | { type: "tool_result"; turnId: string; threadId: string; toolUseId: string; toolName: string; output: string; isError: boolean }
+  | { type: "turn_complete"; turnId: string; threadId: string; messageId: string; fullText: string; costUsd: number; durationMs: number }
+  | { type: "stream_error"; turnId: string; threadId: string; error: string };
+
+/** Client → Server: send a chat message */
+export interface ChatMessagePayload {
+  body: string;
+  threadId: string;
+}
+
+/** Client → Server: interrupt an active stream */
+export interface ChatInterruptPayload {
+  threadId: string;
+}
+
 // --- API Response Types ---
 
 export interface ApiAgentSummary {

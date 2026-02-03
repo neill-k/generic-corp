@@ -69,7 +69,10 @@ export function SettingsMcpServersPage() {
 
   const { data: servers, isLoading } = useQuery({
     queryKey: queryKeys.mcpServers.list(),
-    queryFn: () => api.get<McpServer[]>("/mcp-servers"),
+    queryFn: () =>
+      api
+        .get<{ servers: McpServer[] }>("/mcp-servers")
+        .then((res) => res.servers),
   });
 
   const addMutation = useMutation({

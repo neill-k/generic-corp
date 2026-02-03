@@ -11,6 +11,7 @@ import type { PrismaClient } from "@prisma/client";
 
 import { provisionOrgSchema, dropOrgSchema } from "../../lib/schema-provisioner.js";
 import { getPrismaForTenant, clearTenantCache } from "../../lib/prisma-tenant.js";
+import { seedOrganization } from "../../db/seed-org.js";
 
 /** Only lowercase letters, digits, underscores; must start with a letter. */
 const SLUG_RE = /^[a-z][a-z0-9_]*$/;
@@ -90,11 +91,26 @@ export function createOrganizationRoutes(publicPrisma: PrismaClient): Router {
         return;
       }
 
-      // Mark tenant as active
+      // Mark tenant as active (must happen before seeding — getPrismaForTenant rejects non-active tenants)
       const activeTenant = await publicPrisma.tenant.update({
         where: { id: tenant.id },
         data: { status: "active" },
       });
+
+      // Seed default data (agents, org hierarchy, workspace, tool permissions)
+      try {
+        const tenantPrisma = await getPrismaForTenant(slug);
+        await seedOrganization(tenantPrisma);
+      } catch (seedError) {
+        console.error(
+          "[API:Organizations] Seeding failed, removing tenant and schema.",
+          seedError instanceof Error ? seedError.message : "Unknown error",
+        );
+        await dropOrgSchema(publicPrisma, schemaName);
+        await publicPrisma.tenant.delete({ where: { id: activeTenant.id } });
+        res.status(500).json({ error: "Failed to seed organization data." });
+        return;
+      }
 
       console.log(`[API:Organizations] Created organization: ${slug} (schema: ${schemaName})`);
 
