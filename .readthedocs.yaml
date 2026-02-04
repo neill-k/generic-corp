@@ -13,9 +13,14 @@ mkdocs:
 # sphinx:
 #   configuration: docs/conf.py
 
-# Python version and dependencies
+# Build settings
+build:
+  os: ubuntu-24.04
+  tools:
+    python: "3.12"
+
+# Python dependencies
 python:
-  version: "3.12"
   install:
     - requirements: docs/requirements.txt
 
