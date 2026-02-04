@@ -21,14 +21,17 @@ source_suffix = {
     ".md": "markdown",
 }
 
+# Use index.md as root (not index.rst)
+root_doc = "index"
+
 # Theme
 html_theme = "sphinx_rtd_theme"
 html_theme_options = {
     "navigation_depth": 3,
-    "collapse_navigation": False,
+    "collapse_navigation": True,
     "sticky_navigation": True,
     "includehidden": True,
-    "titles_only": False,
+    "titles_only": True,
 }
 
 # General settings
