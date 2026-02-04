@@ -3,15 +3,10 @@
 
 version: 2
 
-# Build documentation with MkDocs
-mkdocs:
-  configuration: mkdocs.yml
+# Build documentation with Sphinx
+sphinx:
+  configuration: docs/conf.py
   fail_on_warning: false
-
-# Build documentation in the docs/ directory with Sphinx
-# Uncomment if using Sphinx instead of MkDocs
-# sphinx:
-#   configuration: docs/conf.py
 
 # Build settings
 build:
