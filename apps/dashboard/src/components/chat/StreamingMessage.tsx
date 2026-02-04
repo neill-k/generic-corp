@@ -1,39 +1,46 @@
 import type { StreamingMessage as StreamingMessageState } from "../../store/chat-store.js";
-import { ToolCallChip } from "./ToolCallChip.js";
+import { StepsPanel } from "./StepsPanel.js";
+import { TodoPanel } from "./TodoPanel.js";
+import type { TodoItem } from "./TodoPanel.js";
 import { MarkdownContent } from "./MarkdownContent.js";
 
 interface StreamingMessageProps {
   message: StreamingMessageState;
 }
 
+function extractTodos(message: StreamingMessageState): TodoItem[] | null {
+  // Find the latest TodoWrite call and extract its todo list
+  for (let i = message.toolCalls.length - 1; i >= 0; i--) {
+    const tc = message.toolCalls[i];
+    if (tc.toolName === "TodoWrite" && tc.input && typeof tc.input === "object") {
+      const input = tc.input as { todos?: unknown };
+      if (Array.isArray(input.todos) && input.todos.length > 0) {
+        return input.todos as TodoItem[];
+      }
+    }
+  }
+  return null;
+}
+
 export function StreamingMessage({ message }: StreamingMessageProps) {
   const hasText = message.text.length > 0;
   const hasToolCalls = message.toolCalls.length > 0;
-  const showThinking = message.isThinking && !hasText && !hasToolCalls;
+  const showSteps = hasToolCalls || (message.isThinking && !hasText);
+  const todos = extractTodos(message);
 
   return (
     <div className="flex justify-start px-4 pb-3">
       <div className="max-w-[80%] space-y-2">
-        {/* Thinking indicator */}
-        {showThinking && (
-          <div className="flex items-center gap-1.5 rounded-lg bg-[#F5F5F5] px-3 py-2 text-sm text-[#999]">
-            <span className="flex gap-0.5">
-              <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[#999]" style={{ animationDelay: "0ms" }} />
-              <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[#999]" style={{ animationDelay: "150ms" }} />
-              <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[#999]" style={{ animationDelay: "300ms" }} />
-            </span>
-            <span className="text-xs">Thinking</span>
-          </div>
+        {/* Collapsible steps panel — replaces thinking dots + tool chips */}
+        {showSteps && (
+          <StepsPanel
+            toolCalls={message.toolCalls}
+            isThinking={message.isThinking}
+          />
         )}
 
-        {/* Tool calls */}
-        {hasToolCalls && (
-          <div className="flex flex-wrap gap-1.5">
-            {message.toolCalls.map((tc) => (
-              <ToolCallChip key={tc.toolUseId} toolCall={tc} />
-            ))}
-          </div>
-        )}
+        {/* Todo list panel — shown when agent creates a task list */}
+        {todos && <TodoPanel todos={todos} />}
 
         {/* Streaming text with markdown */}
         {hasText && (
