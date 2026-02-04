@@ -1,0 +1,23 @@
+{
+  "name": "generic-corp-teaser",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "studio": "remotion studio",
+    "render": "remotion render GenericCorpLaunch out/generic-corp-launch.mp4",
+    "build": "remotion render GenericCorpLaunch out/generic-corp-launch.mp4"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.414",
+    "@remotion/google-fonts": "4.0.414",
+    "@remotion/transitions": "4.0.414",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "remotion": "4.0.414"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.0",
+    "typescript": "^5.7.0"
+  }
+}

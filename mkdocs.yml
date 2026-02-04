@@ -1,0 +1,87 @@
+site_name: Generic Corp Documentation
+site_description: Agent orchestration platform with Claude Code instances as employees
+site_author: Generic Corp Team
+site_url: https://generic-corp.readthedocs.io
+
+repo_name: neill-k/generic-corp
+repo_url: https://github.com/neill-k/generic-corp
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    # Light mode
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+
+plugins:
+  - search
+  - git-revision-date-localized:
+      enable_creation_date: true
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - admonition
+  - pymdownx.details
+  - tables
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Quick Start: getting-started/quickstart.md
+    - Installation: getting-started/installation.md
+    - Configuration: getting-started/configuration.md
+  - Architecture:
+    - Overview: architecture.md
+    - Core Concepts: architecture/core-concepts.md
+    - Plugin System: architecture/plugins.md
+    - Database Schema: architecture/database.md
+  - Development:
+    - Setup: development/setup.md
+    - API Reference: api-reference.md
+    - Plugin Development: plugin-development.md
+    - Testing: development/testing.md
+  - Deployment:
+    - Overview: deployment.md
+    - Docker: deployment/docker.md
+    - Production: deployment/production.md
+  - Contributing:
+    - Guidelines: contributing.md
+    - Code of Conduct: code-of-conduct.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/neill-k/generic-corp

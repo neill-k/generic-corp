@@ -1,0 +1,26 @@
+{
+  "name": "generic-corp",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @generic-corp/server --filter @generic-corp/dashboard --parallel run dev",
+    "dev:server": "pnpm --filter @generic-corp/server run dev",
+    "dev:dashboard": "pnpm --filter @generic-corp/dashboard run dev",
+    "build": "pnpm -r run build",
+    "lint": "pnpm -r run lint",
+    "typecheck": "pnpm -r run typecheck",
+    "test": "pnpm -r run test",
+    "test:coverage": "pnpm -r run test:coverage",
+    "db:generate": "pnpm --filter @generic-corp/server run db:generate",
+    "db:push": "pnpm --filter @generic-corp/server run db:push",
+    "db:migrate": "pnpm --filter @generic-corp/server run db:migrate",
+    "db:seed": "pnpm --filter @generic-corp/server run db:seed",
+    "db:studio": "pnpm --filter @generic-corp/server run db:studio",
+    "docker:up": "docker compose up -d postgres redis",
+    "docker:down": "docker compose down"
+  }
+}
