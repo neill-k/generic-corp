@@ -1,29 +1,29 @@
 {
-  "totalMessages": 788,
+  "totalMessages": 777,
   "messagesByCategory": {
-    "Request": 227,
-    "Status Update": 202,
+    "Request": 223,
+    "Status Update": 199,
     "Task Assignment": 248,
     "Approval/Review": 34,
-    "Error/Issue": 38,
-    "Other": 28,
+    "Error/Issue": 35,
+    "Other": 27,
     "Notification": 11
   },
   "messagesByType": {
-    "direct": 788
+    "direct": 777
   },
   "messagesByStatus": {
-    "pending": 74,
-    "read": 714
+    "pending": 71,
+    "read": 706
   },
   "agentStats": {
     "Marcus Bell": {
-      "sent": 433,
-      "received": 270,
+      "sent": 429,
+      "received": 265,
       "categories": {
-        "Request": 151,
-        "Status Update": 130,
-        "Error/Issue": 18,
+        "Request": 150,
+        "Status Update": 129,
+        "Error/Issue": 16,
         "Task Assignment": 84,
         "Approval/Review": 25,
         "Other": 17,
@@ -31,15 +31,15 @@
       }
     },
     "Yuki Tanaka": {
-      "sent": 126,
-      "received": 139,
+      "sent": 121,
+      "received": 138,
       "categories": {
         "Task Assignment": 46,
         "Approval/Review": 4,
-        "Status Update": 31,
-        "Request": 33,
-        "Other": 3,
+        "Status Update": 30,
+        "Request": 30,
         "Error/Issue": 8,
+        "Other": 2,
         "Notification": 1
       }
     },
@@ -56,12 +56,12 @@
       }
     },
     "Graham Sutton": {
-      "sent": 114,
-      "received": 136,
+      "sent": 112,
+      "received": 134,
       "categories": {
         "Task Assignment": 55,
-        "Status Update": 26,
-        "Error/Issue": 8,
+        "Status Update": 25,
+        "Error/Issue": 7,
         "Request": 19,
         "Other": 2,
         "Approval/Review": 3,
@@ -70,7 +70,7 @@
     },
     "DeVonte Jackson": {
       "sent": 66,
-      "received": 124,
+      "received": 121,
       "categories": {
         "Task Assignment": 29,
         "Status Update": 11,

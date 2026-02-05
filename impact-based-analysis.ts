@@ -1,5 +1,9 @@
 import * as fs from "fs";
 import * as path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 interface Message {
   id: string;
@@ -241,7 +245,7 @@ function analyzeMessageImpact(msg: Message): ImpactAnalysis {
 async function main() {
   const data = JSON.parse(
     fs.readFileSync(
-      "/home/nkillgore/generic-corp/messages-data.json",
+      path.join(__dirname, "messages-data.json"),
       "utf-8"
     )
   );
@@ -304,12 +308,12 @@ async function main() {
 
   // Export analyzed data
   fs.writeFileSync(
-    "/home/nkillgore/generic-corp/impact-analysis-detailed.json",
+    path.join(__dirname, "impact-analysis-detailed.json"),
     JSON.stringify(analyzed, null, 2)
   );
 
   fs.writeFileSync(
-    "/home/nkillgore/generic-corp/impact-analysis-stats.json",
+    path.join(__dirname, "impact-analysis-stats.json"),
     JSON.stringify(stats, null, 2)
   );
 
@@ -323,7 +327,7 @@ async function main() {
       )
       .join("\n");
 
-  fs.writeFileSync("/home/nkillgore/generic-corp/impact-analysis.csv", csv);
+  fs.writeFileSync(path.join(__dirname, "impact-analysis.csv"), csv);
 
   // Print summary
   console.log("\n=== MESSAGE IMPACT ANALYSIS ===\n");

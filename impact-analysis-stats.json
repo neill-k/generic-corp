@@ -1,36 +1,36 @@
 {
-  "total": 788,
+  "total": 777,
   "byImpactLevel": {
     "high": 103,
-    "medium": 74,
-    "low": 470,
-    "wasted": 141
+    "medium": 72,
+    "low": 464,
+    "wasted": 138
   },
   "byImpactType": {
-    "status_check": 469,
+    "status_check": 463,
     "decision_made": 134,
     "unblocked_execution": 1,
     "redundant": 1,
-    "confusion": 141,
-    "coordination": 42
+    "confusion": 138,
+    "coordination": 40
   },
-  "movedWorkCount": 259,
-  "averageClarityScore": 5.217005076142132,
+  "movedWorkCount": 257,
+  "averageClarityScore": 5.226512226512226,
   "agentImpactScore": {
     "Marcus Bell": {
-      "sent": 433,
-      "highImpact": 99,
-      "avgClarity": 5.293302540415705
+      "sent": 429,
+      "highImpact": 98,
+      "avgClarity": 5.298368298368298
     },
     "Yuki Tanaka": {
-      "sent": 126,
-      "highImpact": 33,
-      "avgClarity": 5.150793650793651
+      "sent": 121,
+      "highImpact": 32,
+      "avgClarity": 5.1652892561983474
     },
     "Graham Sutton": {
-      "sent": 114,
+      "sent": 112,
       "highImpact": 17,
-      "avgClarity": 4.921052631578948
+      "avgClarity": 4.946428571428571
     },
     "DeVonte Jackson": {
       "sent": 66,
