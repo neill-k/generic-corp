@@ -26,19 +26,20 @@ const router = Router();
  *
  * Returns total cost savings summary with projections
  */
-router.get('/cost-savings', (_req: Request, res: Response) => {
+router.get('/cost-savings', (_req: Request, res: Response): void => {
   try {
     const { period = 'month' } = _req.query;
 
     // Validate period parameter
     const validPeriods = ['today', 'week', 'month', 'quarter', 'year', 'custom'];
     if (typeof period === 'string' && !validPeriods.includes(period)) {
-      return res.status(400).json({
+      res.status(400).json({
         error: 'validation_error',
         message: `Invalid period parameter. Must be one of: ${validPeriods.join(', ')}`,
         field: 'period',
         timestamp: new Date().toISOString(),
       });
+      return;
     }
 
     const data = getMockCostSavings({ period: period as string });
@@ -58,29 +59,31 @@ router.get('/cost-savings', (_req: Request, res: Response) => {
  *
  * Returns provider-by-provider cost and performance comparison
  */
-router.get('/providers/comparison', (_req: Request, res: Response) => {
+router.get('/providers/comparison', (_req: Request, res: Response): void => {
   try {
     const { period = 'month', metric = 'cost' } = _req.query;
 
     // Validate parameters
     const validPeriods = ['today', 'week', 'month', 'quarter', 'year', 'custom'];
     if (typeof period === 'string' && !validPeriods.includes(period)) {
-      return res.status(400).json({
+      res.status(400).json({
         error: 'validation_error',
         message: `Invalid period parameter. Must be one of: ${validPeriods.join(', ')}`,
         field: 'period',
         timestamp: new Date().toISOString(),
       });
+      return;
     }
 
     const validMetrics = ['cost', 'usage', 'performance'];
     if (typeof metric === 'string' && !validMetrics.includes(metric)) {
-      return res.status(400).json({
+      res.status(400).json({
         error: 'validation_error',
         message: `Invalid metric parameter. Must be one of: ${validMetrics.join(', ')}`,
         field: 'metric',
         timestamp: new Date().toISOString(),
       });
+      return;
     }
 
     const data = getMockProviderComparison({ period: period as string });
@@ -100,29 +103,31 @@ router.get('/providers/comparison', (_req: Request, res: Response) => {
  *
  * Returns API call metrics, token usage, and error rates
  */
-router.get('/usage-metrics', (_req: Request, res: Response) => {
+router.get('/usage-metrics', (_req: Request, res: Response): void => {
   try {
     const { period = 'month', granularity = 'day', provider } = _req.query;
 
     // Validate parameters
     const validPeriods = ['today', 'week', 'month', 'quarter', 'year', 'custom'];
     if (typeof period === 'string' && !validPeriods.includes(period)) {
-      return res.status(400).json({
+      res.status(400).json({
         error: 'validation_error',
         message: `Invalid period parameter. Must be one of: ${validPeriods.join(', ')}`,
         field: 'period',
         timestamp: new Date().toISOString(),
       });
+      return;
     }
 
     const validGranularities = ['hour', 'day', 'week'];
     if (typeof granularity === 'string' && !validGranularities.includes(granularity)) {
-      return res.status(400).json({
+      res.status(400).json({
         error: 'validation_error',
         message: `Invalid granularity parameter. Must be one of: ${validGranularities.join(', ')}`,
         field: 'granularity',
         timestamp: new Date().toISOString(),
       });
+      return;
     }
 
     const data = getMockUsageMetrics({
@@ -152,19 +157,20 @@ router.get('/usage-metrics', (_req: Request, res: Response) => {
  *
  * Returns historical trends and future projections
  */
-router.get('/trends', (_req: Request, res: Response) => {
+router.get('/trends', (_req: Request, res: Response): void => {
   try {
     const { months = '6', include_projection = 'true' } = _req.query;
 
     // Validate months parameter
     const monthsNum = parseInt(months as string, 10);
     if (isNaN(monthsNum) || monthsNum < 1 || monthsNum > 12) {
-      return res.status(400).json({
+      res.status(400).json({
         error: 'validation_error',
         message: 'Invalid months parameter. Must be between 1 and 12',
         field: 'months',
         timestamp: new Date().toISOString(),
       });
+      return;
     }
 
     const data = getMockTrends({ months: monthsNum });
@@ -190,29 +196,31 @@ router.get('/trends', (_req: Request, res: Response) => {
  *
  * Returns breakdown of costs and performance by task type
  */
-router.get('/task-types', (_req: Request, res: Response) => {
+router.get('/task-types', (_req: Request, res: Response): void => {
   try {
     const { period = 'month', sort_by = 'volume' } = _req.query;
 
     // Validate parameters
     const validPeriods = ['today', 'week', 'month', 'quarter', 'year', 'custom'];
     if (typeof period === 'string' && !validPeriods.includes(period)) {
-      return res.status(400).json({
+      res.status(400).json({
         error: 'validation_error',
         message: `Invalid period parameter. Must be one of: ${validPeriods.join(', ')}`,
         field: 'period',
         timestamp: new Date().toISOString(),
       });
+      return;
     }
 
     const validSortOptions = ['volume', 'cost', 'savings'];
     if (typeof sort_by === 'string' && !validSortOptions.includes(sort_by)) {
-      return res.status(400).json({
+      res.status(400).json({
         error: 'validation_error',
         message: `Invalid sort_by parameter. Must be one of: ${validSortOptions.join(', ')}`,
         field: 'sort_by',
         timestamp: new Date().toISOString(),
       });
+      return;
     }
 
     const data = getMockTaskTypes({ period: period as string });

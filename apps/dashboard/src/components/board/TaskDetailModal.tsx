@@ -16,6 +16,7 @@ import { api } from "../../lib/api-client.js";
 import { queryClient } from "../../lib/query-client.js";
 import { queryKeys } from "../../lib/query-keys.js";
 import { DelegationChain } from "./DelegationChain.js";
+import { TASK_STATUSES } from "@generic-corp/shared";
 import type { TaskStatus } from "@generic-corp/shared";
 
 interface TaskDetail {
@@ -51,15 +52,6 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }
   failed: { label: "Failed", color: "#C62828", bg: "#FFEBEE" },
   blocked: { label: "Blocked", color: "#6A1B9A", bg: "#F3E5F5" },
 };
-
-const TASK_STATUSES: TaskStatus[] = [
-  "pending",
-  "running",
-  "review",
-  "completed",
-  "failed",
-  "blocked",
-];
 
 export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);

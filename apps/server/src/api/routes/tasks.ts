@@ -1,7 +1,7 @@
 import express from "express";
 
 import type { KanbanColumn } from "@generic-corp/shared";
-import { STATUS_TO_COLUMN } from "@generic-corp/shared";
+import { KANBAN_COLUMNS, STATUS_TO_COLUMN } from "@generic-corp/shared";
 
 import { getTenantPrisma } from "../../middleware/tenant-context.js";
 import { enqueueAgentTask } from "../../queue/agent-queues.js";
@@ -73,12 +73,9 @@ export function createTaskRouter(): express.Router {
         orderBy: { createdAt: "desc" },
       });
 
-      const columns: Record<KanbanColumn, { tasks: unknown[]; count: number }> = {
-        backlog: { tasks: [], count: 0 },
-        in_progress: { tasks: [], count: 0 },
-        review: { tasks: [], count: 0 },
-        done: { tasks: [], count: 0 },
-      };
+      const columns = Object.fromEntries(
+        KANBAN_COLUMNS.map((col) => [col, { tasks: [] as unknown[], count: 0 }]),
+      ) as Record<KanbanColumn, { tasks: unknown[]; count: number }>;
 
       for (const task of tasks) {
         const col = STATUS_TO_COLUMN[task.status as keyof typeof STATUS_TO_COLUMN] ?? "backlog";

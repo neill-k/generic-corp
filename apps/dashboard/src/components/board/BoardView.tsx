@@ -25,14 +25,10 @@ import { BoardListView } from "./BoardListView.js";
 import { BoardItemsPanel } from "./BoardItemsPanel.js";
 import { TaskDetailModal } from "./TaskDetailModal.js";
 import { CreateTaskModal } from "./CreateTaskModal.js";
+import { KANBAN_COLUMNS } from "@generic-corp/shared";
 import type { BoardResponse, BoardColumnKey } from "./types.js";
 
-const COLUMN_ORDER: BoardColumnKey[] = [
-  "backlog",
-  "in_progress",
-  "review",
-  "done",
-];
+const COLUMN_ORDER = KANBAN_COLUMNS;
 
 /** Maps kanban column keys to the task status sent to the API */
 const COLUMN_TO_STATUS: Record<BoardColumnKey, string> = {

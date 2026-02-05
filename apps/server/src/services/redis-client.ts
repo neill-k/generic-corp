@@ -9,8 +9,8 @@ let subClient: Redis | null = null;
 export function getRedisPubClient(): Redis {
   if (!pubClient) {
     pubClient = new Redis({
-      host: process.env.REDIS_HOST || "localhost",
-      port: parseInt(process.env.REDIS_PORT || "6379", 10),
+      host: process.env["REDIS_HOST"] || "localhost",
+      port: parseInt(process.env["REDIS_PORT"] || "6379", 10),
       maxRetriesPerRequest: null, // Required for BullMQ
       retryStrategy: (times) => {
         const delay = Math.min(times * 50, 2000);
@@ -40,8 +40,8 @@ export function getRedisPubClient(): Redis {
 export function getRedisSubClient(): Redis {
   if (!subClient) {
     subClient = new Redis({
-      host: process.env.REDIS_HOST || "localhost",
-      port: parseInt(process.env.REDIS_PORT || "6379", 10),
+      host: process.env["REDIS_HOST"] || "localhost",
+      port: parseInt(process.env["REDIS_PORT"] || "6379", 10),
       maxRetriesPerRequest: null,
       retryStrategy: (times) => {
         const delay = Math.min(times * 50, 2000);
@@ -70,8 +70,8 @@ export function getRedisSubClient(): Redis {
  */
 export function createRedisClient(): Redis {
   const client = new Redis({
-    host: process.env.REDIS_HOST || "localhost",
-    port: parseInt(process.env.REDIS_PORT || "6379", 10),
+    host: process.env["REDIS_HOST"] || "localhost",
+    port: parseInt(process.env["REDIS_PORT"] || "6379", 10),
     maxRetriesPerRequest: null,
     retryStrategy: (times) => {
       const delay = Math.min(times * 50, 2000);

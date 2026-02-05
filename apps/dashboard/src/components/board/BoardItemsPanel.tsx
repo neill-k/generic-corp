@@ -15,6 +15,7 @@ import {
 import { api } from "../../lib/api-client.js";
 import { queryClient } from "../../lib/query-client.js";
 import { queryKeys } from "../../lib/query-keys.js";
+import { BOARD_ITEM_TYPES } from "@generic-corp/shared";
 import type { ApiBoardItem, BoardItemType } from "@generic-corp/shared";
 
 const BOARD_ITEM_TYPE_CONFIG: Record<
@@ -46,13 +47,6 @@ const BOARD_ITEM_TYPE_CONFIG: Record<
     bg: "#F3E5F5",
   },
 };
-
-const BOARD_ITEM_TYPES: BoardItemType[] = [
-  "status_update",
-  "blocker",
-  "finding",
-  "request",
-];
 
 interface BoardItemsResponse {
   items: ApiBoardItem[];

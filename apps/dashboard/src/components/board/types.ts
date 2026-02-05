@@ -22,19 +22,16 @@ export interface BoardTask {
   parentTaskId?: string | null;
 }
 
+import type { KanbanColumn } from "@generic-corp/shared";
+
 export interface BoardColumnData {
   tasks: BoardTask[];
   count: number;
 }
 
 export interface BoardResponse {
-  columns: {
-    backlog: BoardColumnData;
-    in_progress: BoardColumnData;
-    review: BoardColumnData;
-    done: BoardColumnData;
-  };
+  columns: Record<KanbanColumn, BoardColumnData>;
   total: number;
 }
 
-export type BoardColumnKey = keyof BoardResponse["columns"];
+export type BoardColumnKey = KanbanColumn;

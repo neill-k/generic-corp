@@ -1,6 +1,8 @@
 import { tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 
+import { AGENT_STATUSES, ASSIGNABLE_AGENT_LEVELS } from "@generic-corp/shared";
+
 import { appEventBus } from "../../services/app-events.js";
 import { getAgentByIdOrName, getDirectReportsFor } from "../helpers.js";
 import type { McpServerDeps } from "../types.js";
@@ -78,7 +80,7 @@ export function agentTools(deps: McpServerDeps) {
       "List all agents in the organization",
       {
         department: z.string().optional().describe("Filter by department"),
-        status: z.enum(["idle", "running", "error", "offline"]).optional().describe("Filter by status"),
+        status: z.enum(AGENT_STATUSES).optional().describe("Filter by status"),
       },
       async (args) => {
         try {
@@ -116,7 +118,7 @@ export function agentTools(deps: McpServerDeps) {
         displayName: z.string().describe("Human-readable name"),
         role: z.string().describe("Agent's role title"),
         department: z.string().describe("Department name"),
-        level: z.enum(["ic", "lead", "manager", "vp", "c-suite"]),
+        level: z.enum(ASSIGNABLE_AGENT_LEVELS),
         personality: z.string().optional().describe("Personality/behavior description"),
       },
       async (args) => {

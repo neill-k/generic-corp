@@ -1,11 +1,12 @@
 import { z } from "zod";
+import { ASSIGNABLE_AGENT_LEVELS } from "@generic-corp/shared";
 
 export const createAgentBodySchema = z.object({
   name: z.string().min(1).regex(/^[a-z0-9-]+$/, "Must be lowercase slug"),
   displayName: z.string().min(1),
   role: z.string().min(1),
   department: z.string().min(1),
-  level: z.enum(["ic", "lead", "manager", "vp", "c-suite"]),
+  level: z.enum(ASSIGNABLE_AGENT_LEVELS),
   personality: z.string().optional(),
 });
 

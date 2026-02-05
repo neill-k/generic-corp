@@ -20,16 +20,17 @@ interface TaskFile {
 /**
  * GET /api/claude-tasks/:team - List all tasks for a team
  */
-router.get("/:team", async (req: Request, res: Response) => {
+router.get("/:team", async (req: Request, res: Response): Promise<void> => {
   try {
-    const { team } = req.params;
+    const team = req.params["team"] ?? "";
     const tasksDir = join(homedir(), ".claude", "tasks", team);
 
     // Check if directory exists
     try {
       await stat(tasksDir);
     } catch {
-      return res.json([]); // Team has no tasks yet
+      res.json([]); // Team has no tasks yet
+      return;
     }
 
     // Read all JSON files in the directory
@@ -56,9 +57,10 @@ router.get("/:team", async (req: Request, res: Response) => {
 /**
  * GET /api/claude-tasks/:team/:taskId - Get single task
  */
-router.get("/:team/:taskId", async (req: Request, res: Response) => {
+router.get("/:team/:taskId", async (req: Request, res: Response): Promise<void> => {
   try {
-    const { team, taskId } = req.params;
+    const team = req.params["team"] ?? "";
+    const taskId = req.params["taskId"] ?? "";
     const filePath = join(homedir(), ".claude", "tasks", team, `${taskId}.json`);
 
     // Read task file
@@ -68,7 +70,8 @@ router.get("/:team/:taskId", async (req: Request, res: Response) => {
     res.json(task);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      return res.status(404).json({ error: "Task not found" });
+      res.status(404).json({ error: "Task not found" });
+      return;
     }
 
     console.error("[API] Error fetching task:", error);
@@ -79,13 +82,14 @@ router.get("/:team/:taskId", async (req: Request, res: Response) => {
 /**
  * POST /api/claude-tasks/:team - Create task
  */
-router.post("/:team", async (req: Request, res: Response) => {
+router.post("/:team", async (req: Request, res: Response): Promise<void> => {
   try {
-    const { team } = req.params;
+    const team = req.params["team"] ?? "";
     const taskData = req.body as Omit<TaskFile, "id">;
 
     if (!taskData.subject || !taskData.description) {
-      return res.status(400).json({ error: "subject and description are required" });
+      res.status(400).json({ error: "subject and description are required" });
+      return;
     }
 
     const tasksDir = join(homedir(), ".claude", "tasks", team);
@@ -122,9 +126,10 @@ router.post("/:team", async (req: Request, res: Response) => {
 /**
  * PUT /api/claude-tasks/:team/:taskId - Update task
  */
-router.put("/:team/:taskId", async (req: Request, res: Response) => {
+router.put("/:team/:taskId", async (req: Request, res: Response): Promise<void> => {
   try {
-    const { team, taskId } = req.params;
+    const team = req.params["team"] ?? "";
+    const taskId = req.params["taskId"] ?? "";
     const updates = req.body as Partial<TaskFile>;
     const clientMtime = req.headers["if-unmodified-since"];
 
@@ -136,7 +141,8 @@ router.put("/:team/:taskId", async (req: Request, res: Response) => {
       currentStats = await stat(filePath);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-        return res.status(404).json({ error: "Task not found" });
+        res.status(404).json({ error: "Task not found" });
+        return;
       }
       throw error;
     }
@@ -147,10 +153,11 @@ router.put("/:team/:taskId", async (req: Request, res: Response) => {
       const serverMtimeMs = currentStats.mtimeMs;
 
       if (clientMtimeMs < serverMtimeMs) {
-        return res.status(409).json({
+        res.status(409).json({
           error: "Conflict: Task has been modified since last read",
           serverMtime: currentStats.mtime.toISOString(),
         });
+        return;
       }
     }
 
@@ -178,9 +185,10 @@ router.put("/:team/:taskId", async (req: Request, res: Response) => {
 /**
  * DELETE /api/claude-tasks/:team/:taskId - Delete task
  */
-router.delete("/:team/:taskId", async (req: Request, res: Response) => {
+router.delete("/:team/:taskId", async (req: Request, res: Response): Promise<void> => {
   try {
-    const { team, taskId } = req.params;
+    const team = req.params["team"] ?? "";
+    const taskId = req.params["taskId"] ?? "";
     const filePath = join(homedir(), ".claude", "tasks", team, `${taskId}.json`);
 
     // Delete file
@@ -189,7 +197,8 @@ router.delete("/:team/:taskId", async (req: Request, res: Response) => {
     res.status(204).send();
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      return res.status(404).json({ error: "Task not found" });
+      res.status(404).json({ error: "Task not found" });
+      return;
     }
 
     console.error("[API] Error deleting task:", error);

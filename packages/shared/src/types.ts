@@ -1,9 +1,22 @@
-export type AgentLevel = "ic" | "lead" | "manager" | "vp" | "c-suite" | "system";
+import type {
+  AGENT_LEVELS,
+  AGENT_STATUSES,
+  BOARD_ITEM_TYPES,
+  KANBAN_COLUMNS,
+  MCP_SERVER_PROTOCOLS,
+  MCP_SERVER_STATUSES,
+  MESSAGE_STATUSES,
+  MESSAGE_TYPES,
+  TASK_STATUSES,
+  TENANT_STATUSES,
+} from "./constants.js";
 
-export type AgentStatus = "idle" | "running" | "error" | "offline";
+export type AgentLevel = (typeof AGENT_LEVELS)[number];
 
-export type TaskStatus = "pending" | "running" | "review" | "completed" | "failed" | "blocked";
-export type KanbanColumn = "backlog" | "in_progress" | "review" | "done";
+export type AgentStatus = (typeof AGENT_STATUSES)[number];
+
+export type TaskStatus = (typeof TASK_STATUSES)[number];
+export type KanbanColumn = (typeof KANBAN_COLUMNS)[number];
 
 export const STATUS_TO_COLUMN: Record<TaskStatus, KanbanColumn> = {
   pending: "backlog",
@@ -14,19 +27,21 @@ export const STATUS_TO_COLUMN: Record<TaskStatus, KanbanColumn> = {
   blocked: "backlog",
 };
 
-export type MessageType = "direct" | "system" | "chat";
-export type MessageStatus = "pending" | "delivered" | "read";
+export type MessageType = (typeof MESSAGE_TYPES)[number];
+export type MessageStatus = (typeof MESSAGE_STATUSES)[number];
 
-export type BoardItemType = "status_update" | "blocker" | "finding" | "request";
+export type BoardItemType = (typeof BOARD_ITEM_TYPES)[number];
+
+export type McpServerProtocol = (typeof MCP_SERVER_PROTOCOLS)[number];
+export type McpServerStatus = (typeof MCP_SERVER_STATUSES)[number];
+
+export type TenantStatus = (typeof TENANT_STATUSES)[number];
 
 export interface TaskTag {
   label: string;
   color: string;
   bg: string;
 }
-
-export type McpServerProtocol = "stdio" | "sse" | "http";
-export type McpServerStatus = "connected" | "disconnected" | "error";
 
 export interface WorkspaceRecord {
   id: string;
