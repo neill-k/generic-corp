@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TASK_STATUSES } from "@generic-corp/shared";
 
 export const tagSchema = z.object({
   label: z.string(),
@@ -17,7 +18,7 @@ export const createTaskBodySchema = z.object({
 export const updateTaskBodySchema = z.object({
   priority: z.number().int().optional(),
   context: z.string().optional(),
-  status: z.enum(["pending", "running", "review", "completed", "failed", "blocked"]).optional(),
+  status: z.enum(TASK_STATUSES).optional(),
   tags: z.array(tagSchema).optional(),
 });
 

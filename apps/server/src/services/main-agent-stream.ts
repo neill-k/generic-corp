@@ -191,7 +191,7 @@ export class MainAgentStreamService {
             const startIdx = (msgId === lastMsgId) ? lastContentIdx : 0;
 
             for (let i = startIdx; i < message.content.length; i++) {
-              const block = message.content[i];
+              const block = message.content[i]!;
 
               if (block.type === "text" && typeof block.text === "string") {
                 fullText += block.text;

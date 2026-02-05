@@ -1,6 +1,8 @@
 import { tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 
+import { KANBAN_COLUMNS, STATUS_TO_COLUMN } from "@generic-corp/shared";
+
 import { enqueueAgentTask } from "../../queue/agent-queues.js";
 import { appEventBus } from "../../services/app-events.js";
 import { getAgentByIdOrName } from "../helpers.js";
@@ -318,24 +320,12 @@ export function taskTools(deps: McpServerDeps) {
             },
           });
 
-          const columns: Record<string, { tasks: unknown[]; count: number }> = {
-            backlog: { tasks: [], count: 0 },
-            in_progress: { tasks: [], count: 0 },
-            review: { tasks: [], count: 0 },
-            done: { tasks: [], count: 0 },
-          };
-
-          const statusMap: Record<string, string> = {
-            pending: "backlog",
-            blocked: "backlog",
-            running: "in_progress",
-            review: "review",
-            completed: "done",
-            failed: "done",
-          };
+          const columns = Object.fromEntries(
+            KANBAN_COLUMNS.map((col) => [col, { tasks: [] as unknown[], count: 0 }]),
+          );
 
           for (const task of tasks) {
-            const col = statusMap[task.status] ?? "backlog";
+            const col = STATUS_TO_COLUMN[task.status as keyof typeof STATUS_TO_COLUMN] ?? "backlog";
             columns[col]!.tasks.push(task);
             columns[col]!.count++;
           }

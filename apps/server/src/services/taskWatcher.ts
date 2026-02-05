@@ -42,10 +42,10 @@ export class TaskWatcher {
     });
 
     this.watcher
-      .on("add", (path) => this.handleFileAdd(path))
-      .on("change", (path) => this.handleFileChange(path))
-      .on("unlink", (path) => this.handleFileDelete(path))
-      .on("error", (error) => {
+      .on("add", (path: string) => this.handleFileAdd(path))
+      .on("change", (path: string) => this.handleFileChange(path))
+      .on("unlink", (path: string) => this.handleFileDelete(path))
+      .on("error", (error: unknown) => {
         console.error("[TaskWatcher] Error:", error);
       });
 
@@ -169,8 +169,8 @@ export class TaskWatcher {
       throw new Error(`Invalid task file path: ${filePath}`);
     }
 
-    const team = parts[tasksIndex + 1];
-    const fileName = parts[parts.length - 1];
+    const team = parts[tasksIndex + 1] ?? "";
+    const fileName = parts[parts.length - 1] ?? "";
     const taskId = fileName.replace(/\.json$/, "");
 
     return { team, taskId };

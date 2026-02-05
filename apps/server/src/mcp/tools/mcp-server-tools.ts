@@ -1,6 +1,8 @@
 import { tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 
+import { MCP_SERVER_PROTOCOLS } from "@generic-corp/shared";
+
 import { appEventBus } from "../../services/app-events.js";
 import { validateMcpUri } from "../../services/mcp-health.js";
 import type { McpServerDeps } from "../types.js";
@@ -48,7 +50,7 @@ export function mcpServerTools(deps: McpServerDeps) {
       "Register a new external MCP server",
       {
         name: z.string().describe("Server display name"),
-        protocol: z.enum(["stdio", "sse", "http"]).describe("Protocol type"),
+        protocol: z.enum(MCP_SERVER_PROTOCOLS).describe("Protocol type"),
         uri: z.string().describe("Server URI"),
         iconName: z.string().optional().describe("Lucide icon name"),
         iconColor: z.string().optional().describe("Icon color hex"),
@@ -83,7 +85,7 @@ export function mcpServerTools(deps: McpServerDeps) {
       {
         id: z.string().describe("MCP server config ID"),
         name: z.string().optional().describe("New name"),
-        protocol: z.enum(["stdio", "sse", "http"]).optional().describe("New protocol"),
+        protocol: z.enum(MCP_SERVER_PROTOCOLS).optional().describe("New protocol"),
         uri: z.string().optional().describe("New URI"),
       },
       async (args) => {

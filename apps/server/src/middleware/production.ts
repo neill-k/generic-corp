@@ -47,7 +47,7 @@ export function requestLogger(req: Request, res: Response, next: NextFunction) {
       console.error("[REQUEST ERROR]", JSON.stringify(log));
     } else if (res.statusCode >= 400) {
       console.warn("[REQUEST WARN]", JSON.stringify(log));
-    } else if (process.env.NODE_ENV !== "production" || res.statusCode >= 300) {
+    } else if (process.env["NODE_ENV"] !== "production" || res.statusCode >= 300) {
       console.log("[REQUEST]", JSON.stringify(log));
     }
   });
@@ -226,7 +226,7 @@ export function errorHandler(
   };
 
   // Include stack trace in development
-  if (process.env.NODE_ENV !== "production") {
+  if (process.env["NODE_ENV"] !== "production") {
     response.details = {
       stack: err.stack,
       ...("details" in err ? { details: err.details } : {}),
@@ -271,11 +271,11 @@ export async function readinessCheck(_req: Request, res: Response) {
   // Check database connection
   try {
     const startDb = Date.now();
-    const { db } = await import("../db/index.js");
+    const { db } = await import("../db/client.js");
     await db.$queryRaw`SELECT 1`;
-    checks.database = { status: "ok", latency: Date.now() - startDb };
+    checks["database"] = { status: "ok", latency: Date.now() - startDb };
   } catch (error) {
-    checks.database = {
+    checks["database"] = {
       status: "error",
       error: error instanceof Error ? error.message : "Unknown error",
     };
@@ -288,9 +288,9 @@ export async function readinessCheck(_req: Request, res: Response) {
     const { getRedisPubClient } = await import("../services/redis-client.js");
     const redis = getRedisPubClient();
     await redis.ping();
-    checks.redis = { status: "ok", latency: Date.now() - startRedis };
+    checks["redis"] = { status: "ok", latency: Date.now() - startRedis };
   } catch (error) {
-    checks.redis = {
+    checks["redis"] = {
       status: "error",
       error: error instanceof Error ? error.message : "Unknown error",
     };
