@@ -16,14 +16,11 @@ export function boardTools(deps: McpServerDeps) {
       "query_board",
       "Search the shared board for relevant items",
       {
-        scope: z.enum(["team", "department", "org"]).optional(),
         type: z.string().optional().describe("Filter by board item type (e.g. status_update, blocker, finding, request)"),
         since: z.string().optional(),
       },
       async (args) => {
         try {
-          void args.scope;
-
           const boardService = getBoardService();
           const items = await boardService.listBoardItems({
             type: args.type,
